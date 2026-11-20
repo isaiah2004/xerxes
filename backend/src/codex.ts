@@ -48,8 +48,14 @@ function searchLabel(item: any): string {
       return undefined;
     }
   };
-  if (a.type === "open_page" && host(a.url)) return `Opened ${host(a.url)}`;
-  if (a.type === "find_in_page" && host(a.url)) return `Checked ${host(a.url)}`;
+  // Action types arrive as open_page / find_in_page or openPage / findInPage depending on the Codex build.
+  const type = String(a.type ?? "").replace(/_([a-z])/g, (_: string, ch: string) => ch.toUpperCase());
+  if (type === "openPage") return host(a.url) ? `Opened ${host(a.url)}` : "Opened a page";
+  if (type === "findInPage") {
+    if (host(a.url)) return `Checked ${host(a.url)}`;
+    const pattern = String(a.pattern ?? "").trim();
+    return pattern ? `Checked the page for “${pattern.slice(0, 40)}”` : "Checked a page";
+  }
   // A search action carries either `query` or (for a batch) `queries`.
   const raw = String(a.query ?? a.queries?.[0] ?? item?.query ?? "").trim();
   if (!raw) return "Searching the web";
