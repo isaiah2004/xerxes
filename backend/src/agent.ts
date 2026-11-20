@@ -1,7 +1,7 @@
-import { CodexAuthError, runCodex } from "./codex.js";
+import { CodexAuthError, runCodex, type CodexTurn } from "./codex.js";
 import { env } from "./env.js";
 import { upcoming } from "./occasions.js";
-import { createRun, emit, type Run } from "./runs.js";
+import { createRun, emit, runsFor, type Run } from "./runs.js";
 import { mutate, readDb } from "./store.js";
 import { toIso, today } from "./dates.js";
 
@@ -51,20 +51,50 @@ export async function startTurn(conversationId: string, userText: string, mode: 
   return run;
 }
 
+/** What the user sees (and, in voice, hears) when a turn fails. The raw cause goes to the server log. */
+function friendly(e: unknown): string {
+  if (e instanceof CodexAuthError) return e.message;
+  if (/timed out/i.test(e instanceof Error ? e.message : String(e))) return "That took me too long, so I stopped. Mind asking again?";
+  return "Something went wrong on my side. Mind trying that again?";
+}
+
+/** The last few exchanges of this conversation, so a fresh thread can pick up where a broken one left off. */
+function recap(run: Run): string {
+  const lines = runsFor(run.conversationId)
+    .filter((r) => r.id !== run.id && r.status === "done")
+    .slice(-6)
+    .flatMap((r) => {
+      const reply = r.events.find((e) => e.type === "message");
+      return [`User: ${r.userText}`, reply?.type === "message" && reply.text ? `Xerxes: ${reply.text}` : ""];
+    })
+    .filter(Boolean);
+  return lines.length ? `Earlier in this conversation:\n${lines.join("\n")}\n\n` : "";
+}
+
 async function execute(run: Run, mode: Mode, context?: string) {
-  try {
-    const db = await readDb();
-    const threadId = db.conversations?.[run.conversationId]?.threadId;
-    const note = context ? `(Context, not said by the user: ${context})\n` : "";
-    const prompt = threadId
-      ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : ""}] ${note}${run.userText}`
-      : `${await preamble(mode)}\n\n${note}User: ${run.userText}`;
-    const out = await runCodex({
-      prompt,
+  const note = context ? `(Context, not said by the user: ${context})\n` : "";
+  const turn = async (threadId?: string) =>
+    runCodex({
+      prompt: threadId
+        ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : ""}] ${note}${run.userText}`
+        : `${await preamble(mode)}\n\n${recap(run)}${note}User: ${run.userText}`,
       threadId,
       mcpUrl: `http://127.0.0.1:${env.port}/mcp/${run.id}`,
       onSearch: (s) => emit(run.id, { type: "step", stepId: `web-${s.id}`, label: s.label, state: s.done ? "done" : "running" }),
     });
+  try {
+    const db = await readDb();
+    const threadId = db.conversations?.[run.conversationId]?.threadId;
+    let out: CodexTurn;
+    try {
+      out = await turn(threadId);
+    } catch (e) {
+      // A thread Codex can't resume (its local history store broke once) must not end the conversation for good.
+      // Retry on a fresh thread, but only if the failed attempt hadn't shown the user anything yet.
+      if (!threadId || e instanceof CodexAuthError || run.events.length) throw e;
+      console.warn(`[agent] couldn't resume thread ${threadId.slice(0, 8)}, starting a fresh one: ${(e as Error).message.slice(0, 300)}`);
+      out = await turn(undefined);
+    }
     if (out.threadId)
       await mutate((d) => {
         d.conversations ??= {};
@@ -73,8 +103,9 @@ async function execute(run: Run, mode: Mode, context?: string) {
     emit(run.id, { type: "message", text: out.text });
     emit(run.id, { type: "done" });
   } catch (e) {
+    console.error(`[agent] run ${run.id.slice(0, 8)} failed: ${e instanceof Error ? e.message : String(e)}`);
     // Surface auth problems as a readable (and, in voice, speakable) message before the error.
     if (e instanceof CodexAuthError) emit(run.id, { type: "message", text: e.message });
-    emit(run.id, { type: "error", message: e instanceof Error ? e.message : String(e) });
+    emit(run.id, { type: "error", message: friendly(e) });
   }
 }

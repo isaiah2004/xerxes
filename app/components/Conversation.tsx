@@ -80,7 +80,7 @@ export function TurnView({ turn, onAction, speak = true }: { turn: Turn; onActio
       {turn.runId ? <StepsCard steps={steps} running={status === "running"} /> : null}
       {events.map((e) => (e.type === "card" ? <AgentCard key={e.card.id} card={e.card} onAction={onAction} /> : null))}
       {message?.type === "message" && message.text ? <AgentBubble text={message.text} speak={speak} /> : null}
-      {error?.type === "error" && !message ? <AgentBubble text={`Something went wrong: ${error.message}`} speak={false} /> : null}
+      {error?.type === "error" && !message ? <AgentBubble text={error.message} speak={false} /> : null}
     </View>
   );
 }

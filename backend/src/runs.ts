@@ -42,6 +42,10 @@ export function createRun(conversationId: string, userText: string): Run {
 
 export const getRun = (id: string) => runs.get(id);
 
+/** This server's runs for one conversation, oldest first (kept 6 hours). */
+export const runsFor = (conversationId: string) =>
+  [...runs.values()].filter((r) => r.conversationId === conversationId).sort((a, b) => a.createdAt - b.createdAt);
+
 export function emit(runId: string, e: RunEventInput) {
   const run = runs.get(runId);
   if (!run) return;
