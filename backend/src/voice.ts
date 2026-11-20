@@ -4,8 +4,9 @@ import { startTurn } from "./agent.js";
 import { env } from "./env.js";
 import { AGENT_UID, USER_UID, agentStatus, startAgent, stopAgent, userRtcToken } from "./integrations/agora.js";
 import { upcoming } from "./occasions.js";
-import { getRun, type Run, type RunEvent } from "./runs.js";
-import { readDb } from "./store.js";
+import { bindConversation, listProjects, projectOf } from "./projects.js";
+import { getRun, runsFor, type Run, type RunEvent } from "./runs.js";
+import { readDb, type Db, type Notification } from "./store.js";
 
 // Agora Conversational AI: Agora handles ASR + turn-taking + Murf Falcon TTS in the RTC channel,
 // and calls our OpenAI-compatible endpoint below as its "custom LLM" — which runs the same Codex agent + tools.
@@ -28,6 +29,39 @@ export async function publicUrlAnswers(): Promise<boolean> {
 }
 
 const clip = (s: unknown, n: number) => (typeof s === "string" ? s.replace(/\s+/g, " ").trim().slice(0, n) : "") || undefined;
+/** "Home lab" → "home lab" mid-sentence; "NAS build" stays. */
+const lowerFirst = (s: string) => (/^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+
+/** A new deal, said out loud: "Outer Wilds is down to $9.74 on Fanatical". */
+function findLine(n: Notification) {
+  if (n.kind === "hardware") return `there's a new second-hand listing for your home lab${n.price ? ` at ${n.price}` : ""}`;
+  const [item, store] = n.title.split(" · ");
+  return n.price ? `${item} is down to ${n.price}${store ? ` on ${store}` : ""}` : `I spotted ${item}`;
+}
+
+/**
+ * The centre mic button: Xerxes opens with whatever is worth knowing right now (an upcoming birthday, else a new
+ * deal, else the next step of a project) and keeps the rest ready for "anything else?".
+ */
+function briefing(db: Db, name: string) {
+  const occasion = upcoming(db, 60).find((o) => o.inReminderWindow);
+  const finds = db.notifications.filter((n) => n.kind !== "occasion" && !n.read).slice(0, 3);
+  const project = listProjects(db).find((p) => p.status === "active" && p.entries.some((e) => e.kind === "plan"));
+  const plan = project?.entries.find((e) => e.kind === "plan");
+  const greeting = occasion
+    ? `Hey ${name}! Heads up, ${occasion.label.toLowerCase()} is in ${occasion.daysLeft} days. Want me to find something?`
+    : finds[0]
+      ? `Hey ${name}! Good news: ${findLine(finds[0])}. Want me to take a look?`
+      : project && plan
+        ? `Hey ${name}! Want to keep going on your ${lowerFirst(project.name)}? Next on the list: ${plan.text}.`
+        : `Hey ${name}, Xerxes here. What are we shopping for?`;
+  const more = [
+    finds.length && `New deals on their radar: ${finds.map((n) => `${n.title} (${n.body})`).join("; ")}.`,
+    project && `Their most active project: ${project.name} (projectId ${project.id})${plan ? `, next planned: ${plan.text}` : ""}.`,
+  ].filter(Boolean);
+  const context = `The caller tapped the main mic button, so you opened with what's worth knowing right now.${more.length ? ` If they ask what else is new: ${more.join(" ")}` : ""}`;
+  return { greeting, context, occasion };
+}
 
 const SITES: Record<string, string> = {
   "amazon.in": "Amazon", "amazon.com": "Amazon", "flipkart.com": "Flipkart", "bookswagon.com": "Bookswagon",
@@ -50,6 +84,9 @@ export function narrate(label: string): string | undefined {
   if (label.startsWith("Checked game stores")) return "Checking the game stores for deals.";
   if (label.startsWith("Scanned second-hand listings")) return "Scanning second-hand listings.";
   if (label.startsWith("Watching for")) return "Setting up a watch for that.";
+  if ((m = label.match(/^Recalled your (.+) project/))) return `Pulling up your ${lowerFirst(m[1])} notes.`;
+  if (label.startsWith("Added to your project")) return "Adding that to your project.";
+  if (label.startsWith("Started a project")) return "Starting a project for this.";
   return undefined;
 }
 
@@ -82,8 +119,9 @@ export function voiceRoutes(app: Hono) {
       console.warn(`[voice] PUBLIC_URL ${env.publicUrl} isn't answering; not starting a call`);
       return c.json({ error: "Xerxes' voice line is down: the public tunnel to this backend isn't answering. Restart the tunnel and update PUBLIC_URL." }, 503);
     }
-    // Where the call was started from: an occasion card, an "Ask Xerxes" shortcut or a Radar find.
-    type Start = { conversationId?: string; occasionId?: string; topic?: string; context?: string; hello?: string };
+    // Where the call was started from: the centre mic (briefing), an occasion, a project, a chat, an "Ask Xerxes"
+    // shortcut or a find.
+    type Start = { conversationId?: string; occasionId?: string; projectId?: string; topic?: string; context?: string; hello?: string; briefing?: boolean };
     const body = await c.req.json<Start>().catch((): Start => ({}));
     const id = clip(body.conversationId, 64) ?? randomUUID();
     const channel = `xerxes-${id.slice(0, 8)}`;
@@ -92,18 +130,33 @@ export function voiceRoutes(app: Hono) {
     const topic = clip(body.topic, 80);
     const hello = clip(body.hello, 200);
     const occasion = body.occasionId ? upcoming(db, 366).find((o) => o.id === body.occasionId) : undefined;
-    const nudge = occasion ?? (topic ? undefined : upcoming(db, 60).find((o) => o.inReminderWindow));
+    const project = body.projectId ? db.projects.find((p) => p.id === body.projectId) : projectOf(db, id);
+    const nextPlan = project?.entries.find((e) => e.kind === "plan");
+    // a chat that already has turns: the call carries on with it (same conversation, same Codex thread)
+    const continuing = !!body.conversationId && runsFor(id).some((r) => r.status === "done");
+    // Only the centre mic button opens with a briefing (an upcoming birthday, a new deal...). Every other call
+    // starts from something specific and sticks to it.
+    const brief = body.briefing === true && !topic && !hello && !occasion && !project && !continuing ? briefing(db, name) : undefined;
     const greeting = hello
       ? `Hey ${name}! ${hello}`
-      : nudge
-        ? `Hey ${name}! Heads up, ${nudge.label.toLowerCase()} is in ${nudge.daysLeft} days. Want me to find something?`
-        : `Hey ${name}, Xerxes here. What are we shopping for?`;
+      : continuing
+        ? `Hey ${name}! Picking up where we left off${topic ? ` on ${lowerFirst(topic)}` : ""}. What's next?`
+        : occasion
+          ? `Hey ${name}! Heads up, ${occasion.label.toLowerCase()} is in ${occasion.daysLeft} days. Want me to find something?`
+          : project
+            ? `Hey ${name}! Let's work on your ${lowerFirst(project.name)}.${nextPlan ? ` Next on the list: ${nextPlan.text}. Want me to start there?` : " What are we looking for?"}`
+            : (brief?.greeting ?? `Hey ${name}, Xerxes here. What are we shopping for?`);
+    const nudge = occasion ?? brief?.occasion;
     // The caller's first words are often just "yes, go ahead", so the first turn needs to know what that answers.
     const context = [
       topic && `The caller started this call from "${topic}" in the app.${body.context ? ` ${clip(body.context, 600)}` : ""}`,
+      continuing && "This call carries on the chat they were just in.",
       nudge && `It's about ${nudge.label} (occasionId ${nudge.id}): ${nudge.daysLeft} days left, arrive by ${nudge.arriveBy}, budget ${nudge.budget.amount} ${nudge.budget.currency}.`,
+      brief?.context,
       `You opened the call by saying: "${greeting}"`,
     ].filter(Boolean).join(" ");
+    // a project call: every turn gets the project's context and the call is logged in its searches
+    if (project) await bindConversation(id, project.id);
     const llmKey = randomUUID();
     try {
       const agent = await startAgent({
@@ -173,6 +226,8 @@ export function voiceRoutes(app: Hono) {
 
     const context = session.context;
     session.context = undefined;
+    const first = session.runIds.length === 0;
+    const project = projectOf(await readDb(), id);
     const run = await startTurn(id, text, "voice", context);
     session.runIds.push(run.id);
     const chunkId = `chatcmpl-${run.id.slice(0, 8)}`;
@@ -211,7 +266,7 @@ export function voiceRoutes(app: Hono) {
           lastSpoke = Date.now();
           send(sseChunk(chunkId, `${line} `));
         };
-        ack = setTimeout(() => say("On it, give me a moment."), 1500);
+        ack = setTimeout(() => say(first && project ? `On it, pulling up your ${lowerFirst(project.name)} notes.` : "On it, give me a moment."), 1500);
         idle = setInterval(() => {
           if (Date.now() - lastSpoke >= 16_000 && filler < FILLERS.length) say(FILLERS[filler++]);
         }, 2000);

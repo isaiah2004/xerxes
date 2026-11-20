@@ -30,6 +30,7 @@ export function Input({
   maxLength = 120,
   onSubmitEditing,
   accessibilityLabel,
+  multiline,
 }: {
   value: string;
   onChangeText: (v: string) => void;
@@ -41,6 +42,8 @@ export function Input({
   maxLength?: number;
   onSubmitEditing?: () => void;
   accessibilityLabel?: string;
+  /** wraps onto more lines as you type (a sentence, a note) */
+  multiline?: boolean;
 }) {
   const [focus, setFocus] = useState(false);
   return (
@@ -54,12 +57,17 @@ export function Input({
         keyboardType={keyboardType}
         autoFocus={autoFocus}
         maxLength={maxLength}
+        multiline={multiline}
         onFocus={() => setFocus(true)}
         onBlur={() => setFocus(false)}
         onSubmitEditing={onSubmitEditing}
         returnKeyType={onSubmitEditing ? "done" : undefined}
         accessibilityLabel={accessibilityLabel ?? placeholder}
-        style={[styles.inputText, Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : null]}
+        style={[
+          styles.inputText,
+          multiline ? { maxHeight: 110, textAlignVertical: "top" } : null,
+          Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : null,
+        ]}
       />
     </View>
   );

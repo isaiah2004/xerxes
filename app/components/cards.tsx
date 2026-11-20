@@ -1,11 +1,13 @@
 import { Image } from "expo-image";
-import { AlertTriangle, BookOpen, Check, Eye, Sparkles, X } from "lucide-react-native";
+import { router } from "expo-router";
+import { AlertTriangle, BookOpen, Check, ChevronRight, Eye, Sparkles, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Animated, Easing, Platform, Pressable, View } from "react-native";
 import type { Card as CardT, ProductItem, RunEvent } from "@/lib/api";
 import { addDaysIso, dayNum, money, todayIso, weekdayDay, weekdayShort } from "@/lib/format";
 import { openLink } from "@/lib/links";
 import { color, font, palette, radius, type GradientName } from "@/lib/theme";
+import { iconOf } from "./projects";
 import { SpeakButton } from "./Speak";
 import { Button, Card, Chip, GradientSurface, IconTile, Ring, Row, T, Tap, type Tone } from "./ui";
 
@@ -164,7 +166,9 @@ export function RecommendationCard({ card, onAction }: { card: Extract<CardT, { 
             </T>
             {card.budget !== undefined ? (
               <T v="caption" style={{ marginTop: 4, color: left !== undefined && left < 0 ? color.bad : color.muted }}>
-                {left !== undefined && left >= 0 ? `${money(left, cur)} left — room for a card and wrapping` : `${money(-(left ?? 0), cur)} over budget`}
+                {left !== undefined && left >= 0
+                  ? `${money(left, cur)} left${card.occasionLabel || card.occasionDate ? " — room for a card and wrapping" : " in the budget"}`
+                  : `${money(-(left ?? 0), cur)} over budget`}
               </T>
             ) : null}
           </View>
@@ -253,7 +257,7 @@ export function WatchCard({ card }: { card: Extract<CardT, { type: "watch" }> })
       <Row gap={12}>
         <IconTile icon={Eye} grad="info" size={44} />
         <View style={{ flex: 1 }}>
-          <T v="eyebrow">Added to your radar</T>
+          <T v="eyebrow">Now tracking</T>
           <T v="h3" numberOfLines={1}>
             {w.query}
           </T>
@@ -264,8 +268,36 @@ export function WatchCard({ card }: { card: Extract<CardT, { type: "watch" }> })
   );
 }
 
+const ADDED: Record<string, string> = { setup: "Noted", plan: "Planned", purchase: "Bought", search: "Saved" };
+
+/** The agent started a project or saved something to one. Tap to open the project. */
+export function ProjectNoteCard({ card }: { card: Extract<CardT, { type: "project" }> }) {
+  const meta = iconOf(card.project.icon);
+  const a = card.added;
+  return (
+    <Tap onPress={() => router.push({ pathname: "/project/[id]", params: { id: card.project.id } })} accessibilityLabel={`Open ${card.project.name}`}>
+      <Card>
+        <Row gap={12}>
+          <IconTile icon={meta.icon} grad={meta.grad} size={44} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <T v="eyebrow" numberOfLines={1}>
+              {card.created || !a ? "New project" : `${card.project.name} · ${ADDED[a.kind] ?? "Saved"}`}
+            </T>
+            <T v="h3" numberOfLines={2}>
+              {card.created || !a ? card.project.name : a.text}
+            </T>
+          </View>
+          {a?.price ? <Chip label={money(a.price.amount, a.price.currency)} tone="ok" /> : <ChevronRight size={18} color={color.faint} />}
+        </Row>
+      </Card>
+    </Tap>
+  );
+}
+
 export function AgentCard({ card, onAction }: { card: CardT; onAction: (t: string) => void }) {
   switch (card.type) {
+    case "project":
+      return <ProjectNoteCard card={card} />;
     case "products":
       return <ProductsCard card={card} />;
     case "recommendation":

@@ -8,8 +8,9 @@ import { searchHardware } from "./integrations/hardware.js";
 import { readPage, webSearch } from "./integrations/web.js";
 import { evaluateOffers } from "./offers.js";
 import { upcoming } from "./occasions.js";
-import { emit, newCardId } from "./runs.js";
-import { mutate, newId, readDb } from "./store.js";
+import { addEntry, bindConversation, logSearch, PROJECT_ICONS, projectContext, projectSummary, touchProject } from "./projects.js";
+import { emit, getRun, newCardId } from "./runs.js";
+import { mutate, newId, readDb, slug, uniqueId, type Db, type Project } from "./store.js";
 import { toIso, today } from "./dates.js";
 
 // Xerxes tools, exposed to Codex CLI over MCP. The run id in the URL ties tool calls to the app's live view.
@@ -104,23 +105,115 @@ export function buildServer(runId: string) {
   }
 
   // ---------- memory & context ----------
-  tool("get_context", "Profile, long-term memory, people and upcoming occasions (with arrive-by dates and budgets).", {},
+  tool("get_context", "Profile, long-term memory, people, upcoming occasions (with arrive-by dates and budgets) and the user's projects.", {},
     () => "Recalled your profile and people",
     async () => {
       const db = await readDb();
-      return { today: toIso(today()), profile: db.profile, memory: db.memory, people: db.people, upcoming: upcoming(db, 120) };
+      return { today: toIso(today()), profile: db.profile, memory: db.memory, people: db.people, upcoming: upcoming(db, 120), projects: db.projects.map((p) => projectSummary(db, p)) };
     });
 
-  tool("remember", "Save a durable fact about the user or a person (preferences, home lab gear, room size...).",
-    { topic: z.string().describe("e.g. homelab, room, preferences, gaming, or a personId"), fact: z.string() },
+  tool("remember", "Save a durable fact about the user, a person or a project (preferences, home lab gear, room size...).",
+    { topic: z.string().describe("e.g. homelab, room, preferences, gaming, a personId, or a projectId (saved as a setup note in that project)"), fact: z.string() },
     (a) => `Remembered: ${clip(a.fact)}`,
     async ({ topic, fact }) =>
       mutate((db) => {
         const person = db.people.find((p) => p.id === topic);
         if (person) { if (!person.notes.includes(fact)) person.notes.push(fact); return { saved: true, person: person.id }; }
+        const project = db.projects.find((p) => p.id === topic);
+        if (project) {
+          if (!project.entries.some((e) => e.kind === "setup" && e.text === fact)) addEntry(project, { kind: "setup", text: fact });
+          return { saved: true, project: project.id };
+        }
         (db.memory[topic] ??= []).includes(fact) || db.memory[topic].push(fact);
         return { saved: true, topic };
       }));
+
+  // ---------- projects: buckets of context for a chain of purchases ----------
+  const conversationId = getRun(runId)?.conversationId;
+  const findProject = (db: Db, id: string): Project => {
+    const p = db.projects.find((x) => x.id === id || x.name.toLowerCase() === id.toLowerCase());
+    if (!p) throw new Error(`No project "${id}". Known projects: ${db.projects.map((x) => `${x.id} (${x.name})`).join(", ") || "none"}`);
+    return p;
+  };
+  const projectCard = (p: Project, extra: Json = {}) =>
+    emit(runId, { type: "card", card: { id: newCardId(), type: "project", project: { id: p.id, name: p.name, icon: p.icon }, ...extra } });
+
+  tool("get_project",
+    "Everything about one of the user's projects: how things are now (setup), what they bought and spent, plans, earlier searches and tracked items. Call it first whenever a request belongs to a project.",
+    { projectId: z.string().describe("projectId from the context") },
+    () => "Recalled your project",
+    async ({ projectId }) => {
+      const db = await readDb();
+      const p = findProject(db, projectId);
+      // From now on this conversation is part of the project: later turns get its context and it's logged as a
+      // search. (A conversation that already was has shown the "Recalled" step at the start of the turn.)
+      if (conversationId && db.conversationProjects?.[conversationId] !== p.id) {
+        await bindConversation(conversationId, p.id);
+        const run = getRun(runId);
+        if (run) await logSearch(p.id, conversationId, run.userText);
+        emit(runId, { type: "step", stepId: newCardId(), label: `Recalled your ${p.name} project`, state: "done" });
+      }
+      return projectContext(await readDb(), p);
+    }, { silent: true });
+
+  tool("add_to_project",
+    "Save something to a project: a setup note (how things are now), a plan (something to get) or a purchase (something they bought, with price). " +
+      "Saving a pick you found for one of their plans: kind plan with its planId, price and url, and that plan becomes the pick. When they buy a planned item, kind purchase with its planId, so it moves from plans to purchases.",
+    {
+      projectId: z.string(),
+      kind: z.enum(["setup", "plan", "purchase"]),
+      text: z.string().describe("Short, e.g. 'Lenovo M720q, 32 GB, i5-8500T'"),
+      price: z.number().optional(),
+      currency: z.string().optional(),
+      date: z.string().optional().describe("Purchases: YYYY-MM-DD bought (default today)"),
+      url: z.string().optional(),
+      planId: z.string().optional().describe("The entryId of the plan this pick or purchase is for"),
+    },
+    (a) => `Added to your project: ${clip(a.text)}`,
+    async (a) =>
+      mutate((db) => {
+        const p = findProject(db, a.projectId);
+        const date = a.date && /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : undefined;
+        const planId = a.planId && p.entries.some((e) => e.id === a.planId && e.kind === "plan") ? a.planId : undefined;
+        const price = a.price !== undefined ? { amount: a.price, currency: (a.currency ?? p.budget?.currency ?? db.profile.currency).toUpperCase() } : undefined;
+        const e = addEntry(p, { kind: a.kind, text: a.text.slice(0, 200), price, date, url: a.url, planId });
+        projectCard(p, { added: { kind: e.kind, text: e.text, price: e.price } });
+        return { saved: true, projectId: p.id, entryId: e.id };
+      }));
+
+  tool("create_project",
+    "Start a new project for something that will take several purchases (a room makeover, a hobby setup, a trip). Only when the user wants one.",
+    {
+      name: z.string().describe("Short, e.g. 'Balcony garden'"),
+      goal: z.string().optional().describe("One sentence on what they want to achieve"),
+      icon: z.enum(PROJECT_ICONS).optional(),
+      budget: z.number().optional(),
+      currency: z.string().optional(),
+    },
+    (a) => `Started a project: ${clip(a.name)}`,
+    async (a) => {
+      const p = await mutate((db) => {
+        const same = db.projects.find((x) => x.name.toLowerCase() === a.name.trim().toLowerCase());
+        if (same) return same;
+        const at = new Date().toISOString();
+        const p: Project = {
+          id: uniqueId(slug(a.name) || "project", (id) => db.projects.some((x) => x.id === id) || !!db.seededProjects?.includes(id)),
+          name: a.name.trim().slice(0, 60),
+          icon: a.icon ?? "other",
+          ...(a.goal ? { goal: a.goal.slice(0, 240) } : {}),
+          ...(a.budget ? { budget: { amount: a.budget, currency: (a.currency ?? db.profile.currency).toUpperCase() } } : {}),
+          status: "active",
+          entries: [],
+          createdAt: at,
+          updatedAt: at,
+        };
+        db.projects.push(p);
+        return p;
+      });
+      if (conversationId) await bindConversation(conversationId, p.id);
+      projectCard(p, { created: true });
+      return { projectId: p.id, name: p.name };
+    });
 
   // ---------- discovery ----------
   tool("search_books", "Search real book catalogues (Google Books + Open Library). Returns covers, page counts, ISBNs and verified physical format (Hardcover/Paperback) where known.",
@@ -243,11 +336,13 @@ export function buildServer(runId: string) {
       return item;
     }));
 
-  tool("create_watch", "Start watching for deals (game sale, used hardware, a book, a product). Xerxes checks periodically and notifies.",
-    { kind: z.enum(["game", "hardware", "book", "product"]), query: z.string(), maxPrice: z.number().optional(), currency: z.string().optional(), notes: z.string().optional() },
+  tool("create_watch", "Start watching for deals (game sale, used hardware, a book, a product). Xerxes checks periodically and notifies. Pass projectId when it's for one of their projects.",
+    { kind: z.enum(["game", "hardware", "book", "product"]), query: z.string(), maxPrice: z.number().optional(), currency: z.string().optional(), notes: z.string().optional(), projectId: z.string().optional() },
     (a) => `Watching for ${clip(a.query)}`,
     async (a) => mutate((db) => {
-      const w = { id: newId(), kind: a.kind, query: a.query, maxPrice: a.maxPrice !== undefined ? { amount: a.maxPrice, currency: a.currency ?? (a.kind === "game" || a.kind === "hardware" ? "USD" : db.profile.currency) } : undefined, notes: a.notes, active: true, createdAt: new Date().toISOString() };
+      const project = a.projectId ? db.projects.find((p) => p.id === a.projectId) : undefined;
+      const w = { id: newId(), kind: a.kind, query: a.query, maxPrice: a.maxPrice !== undefined ? { amount: a.maxPrice, currency: a.currency ?? (a.kind === "game" || a.kind === "hardware" ? "USD" : db.profile.currency) } : undefined, notes: a.notes, projectId: project?.id, active: true, createdAt: new Date().toISOString() };
+      if (project) touchProject(project);
       db.watches.unshift(w);
       emit(runId, { type: "card", card: { id: newCardId(), type: "watch", watch: w } as Json & { id: string; type: string } });
       return w;

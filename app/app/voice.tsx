@@ -66,7 +66,7 @@ function Orb({ level, phase, size }: { level: Animated.Value; phase: Phase; size
 }
 
 export default function Voice() {
-  const params = useLocalSearchParams<{ conversationId?: string; occasionId?: string; topic?: string; context?: string; hello?: string }>();
+  const params = useLocalSearchParams<{ conversationId?: string; occasionId?: string; projectId?: string; topic?: string; context?: string; hello?: string; briefing?: string }>();
   const insets = useSafeAreaInsets();
   const [phase, setPhase] = useState<Phase>(inApp ? "connecting" : "waiting");
   const [error, setError] = useState<string | null>(null);
@@ -104,8 +104,8 @@ export default function Voice() {
         mic = await openMic().finally(() => clearTimeout(askTimer));
         if (!alive) return mic.close();
         setPhase("connecting");
-        const { conversationId, occasionId, topic, context, hello } = params;
-        const s = await api.voiceStart({ conversationId, occasionId, topic, context, hello });
+        const { conversationId, occasionId, projectId, topic, context, hello, briefing } = params;
+        const s = await api.voiceStart({ conversationId, occasionId, projectId, topic, context, hello, briefing: briefing === "1" });
         if (!alive) {
           mic.close();
           return void api.voiceStop(s.sessionId);

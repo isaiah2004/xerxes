@@ -9,7 +9,7 @@ import { color, font, ledge, shadow } from "@/lib/theme";
 // "me" stays a route (opened from the avatar on Today) but isn't in the bar.
 const ICONS: Record<string, { icon: LucideIcon; label: string }> = {
   index: { icon: House, label: "Today" },
-  watches: { icon: Radar, label: "Radar" },
+  tracking: { icon: Radar, label: "Tracking" },
   calendar: { icon: CalendarDays, label: "Calendar" },
   people: { icon: Users, label: "People" },
 };
@@ -36,12 +36,14 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
       </Pressable>
     );
   });
+  // The centre mic is the one call that opens with what's new (an upcoming birthday, a deal, a project's next step).
+  // Calls started anywhere else stick to what they were started from.
   const orb = (
     <Pressable
       key="orb"
       onPress={() => {
         haptic.heavy();
-        router.push("/voice");
+        router.push({ pathname: "/voice", params: { briefing: "1" } });
       }}
       accessibilityLabel="Talk to Xerxes"
       style={styles.orbWrap}
@@ -65,7 +67,7 @@ export default function TabLayout() {
     // "shift": the new tab slides in a touch from the side it sits on and cross-fades, instead of a hard cut.
     <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false, animation: "shift", sceneStyle: { backgroundColor: color.paper } }}>
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="watches" />
+      <Tabs.Screen name="tracking" />
       <Tabs.Screen name="calendar" />
       <Tabs.Screen name="people" />
       <Tabs.Screen name="me" />

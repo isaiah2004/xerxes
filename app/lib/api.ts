@@ -44,17 +44,52 @@ export type Notification = {
   createdAt: string;
   read: boolean;
 };
-export type Watch = { id: string; kind: string; query: string; maxPrice?: Money; notes?: string; active: boolean; lastCheckedAt?: string; lastError?: string };
+export type Watch = { id: string; kind: string; query: string; maxPrice?: Money; notes?: string; projectId?: string; active: boolean; lastCheckedAt?: string; lastError?: string };
+
+/** A bucket of context for a chain of purchases: how things are now, what was bought, what's planned, what was asked. */
+export type ProjectIcon = "home" | "sofa" | "server" | "book" | "game" | "gift" | "camera" | "plant" | "fitness" | "travel" | "kitchen" | "other";
+export type ProjectEntryKind = "setup" | "plan" | "purchase" | "search";
+export type ProjectEntry = {
+  id: string;
+  kind: ProjectEntryKind;
+  text: string;
+  price?: Money;
+  /** purchases: the day it was bought (YYYY-MM-DD) */
+  date?: string;
+  url?: string;
+  /** searches: what Xerxes came back with */
+  reply?: string;
+  conversationId?: string;
+  at: string;
+};
+export type ProjectSummary = {
+  id: string;
+  name: string;
+  icon: ProjectIcon;
+  goal?: string;
+  budget?: Money;
+  status: "active" | "done";
+  createdAt: string;
+  updatedAt: string;
+  /** purchases in the project's currency */
+  spent: Money;
+  counts: Record<ProjectEntryKind | "watch", number>;
+  nextPlan?: string;
+};
+export type Project = ProjectSummary & { entries: ProjectEntry[]; watches: Watch[] };
+
 export type Feed = {
   profile: { name: string; city: string; postalCode: string; country: string; currency: string };
   nudges: Upcoming[];
   upcoming: Upcoming[];
   notifications: Notification[];
   watches: Watch[];
+  projects: ProjectSummary[];
   shortlist: unknown[];
 };
 
-export type VoiceStart = { conversationId?: string; occasionId?: string; topic?: string; context?: string; hello?: string };
+/** briefing: the centre mic button, the only call that opens with "what's new" (an upcoming birthday, a deal...). */
+export type VoiceStart = { conversationId?: string; occasionId?: string; projectId?: string; topic?: string; context?: string; hello?: string; briefing?: boolean };
 
 export type Verdict = "safe" | "tight" | "late" | "over_budget" | "late_and_over_budget" | "info";
 export type ProductItem = {
@@ -91,7 +126,14 @@ export type Card =
       followUp?: string;
     }
   | { id: string; type: "question"; question: string; options: string[] }
-  | { id: string; type: "watch"; watch: Watch };
+  | { id: string; type: "watch"; watch: Watch }
+  | {
+      id: string;
+      type: "project";
+      project: { id: string; name: string; icon: ProjectIcon };
+      created?: boolean;
+      added?: { kind: ProjectEntryKind; text: string; price?: Money };
+    };
 
 export type RunEvent =
   | { seq: number; type: "step"; stepId: string; label: string; state: "running" | "done" | "error"; detail?: string }
@@ -104,8 +146,9 @@ export type RunEvent =
 export const api = {
   feed: () => j<Feed>("/api/feed"),
   newConversation: () => j<{ id: string }>("/api/conversations", { method: "POST" }),
-  send: (conversationId: string, text: string) =>
-    j<{ runId: string }>(`/api/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text }) }),
+  /** projectId: a chat opened from a project builds on it (and lands in its searches). */
+  send: (conversationId: string, text: string, projectId?: string) =>
+    j<{ runId: string }>(`/api/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text, projectId }) }),
   run: (runId: string, after: number) => j<{ status: "running" | "done" | "error"; events: RunEvent[] }>(`/api/runs/${runId}?after=${after}`),
   markRead: (id: string) => j(`/api/notifications/${id}/read`, { method: "POST" }),
   ttsUrl: (text: string) => `${API}/api/tts?text=${encodeURIComponent(text)}`,
@@ -141,8 +184,13 @@ export type OccasionInput = {
   bufferDays?: number;
 };
 export type SavedOccasion = OccasionFields & { id: string; kind: OccasionKind; label: string; budget: Money; nextDate: string | null };
-export type WatchInput = { kind: WatchKind; query: string; maxPrice?: Money; notes?: string };
-export type WatchPatch = { active?: boolean; query?: string; maxPrice?: Money | null; notes?: string | null };
+export type WatchInput = { kind: WatchKind; query: string; maxPrice?: Money; notes?: string; projectId?: string };
+export type WatchPatch = { active?: boolean; query?: string; maxPrice?: Money | null; notes?: string | null; projectId?: string | null };
+export type ProjectInput = { name: string; icon: ProjectIcon; goal?: string; budget?: Money };
+export type ProjectPatch = { name?: string; icon?: ProjectIcon; goal?: string | null; budget?: Money | null; status?: "active" | "done" };
+/** planId: this purchase is a planned item that was bought, so the plan comes off the list. */
+export type EntryInput = { kind: Exclude<ProjectEntryKind, "search">; text: string; price?: Money; date?: string; url?: string; planId?: string };
+export type EntryPatch = { kind?: Exclude<ProjectEntryKind, "search">; text?: string; price?: Money | null; date?: string | null; url?: string | null };
 
 const init = (method: "POST" | "PATCH" | "DELETE", body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) });
 const at = (id: string) => encodeURIComponent(id);
@@ -157,4 +205,12 @@ export const manage = {
   deleteOccasion: (id: string) => j<{ ok: true; removed: OccasionFields & OccasionInput & { id: string } }>(`/api/occasions/${at(id)}`, init("DELETE")),
   /** Removes a Fresh find from the feed for good (the same deal won't be announced again). */
   dismissFind: (id: string) => j<{ ok: true }>(`/api/notifications/${at(id)}`, init("DELETE")),
+  // projects: every change returns the whole project, so a screen just shows what comes back
+  project: (id: string) => j<Project>(`/api/projects/${at(id)}`),
+  addProject: (p: ProjectInput) => j<Project>("/api/projects", init("POST", p)),
+  updateProject: (id: string, patch: ProjectPatch) => j<Project>(`/api/projects/${at(id)}`, init("PATCH", patch)),
+  deleteProject: (id: string) => j<{ ok: true }>(`/api/projects/${at(id)}`, init("DELETE")),
+  addEntry: (projectId: string, e: EntryInput) => j<Project>(`/api/projects/${at(projectId)}/entries`, init("POST", e)),
+  updateEntry: (projectId: string, entryId: string, patch: EntryPatch) => j<Project>(`/api/projects/${at(projectId)}/entries/${at(entryId)}`, init("PATCH", patch)),
+  deleteEntry: (projectId: string, entryId: string) => j<Project>(`/api/projects/${at(projectId)}/entries/${at(entryId)}`, init("DELETE")),
 };

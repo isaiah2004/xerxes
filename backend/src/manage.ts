@@ -1,46 +1,23 @@
-import type { Context, Hono } from "hono";
+import type { Hono } from "hono";
 import { z } from "zod";
 import { addDays, parseIso, toIso, today } from "./dates.js";
+import { currency, fail, HttpError, parse } from "./http.js";
 import { nextOccurrence } from "./occasions.js";
-import { mutate, newId, type Db, type Occasion, type Person, type Watch } from "./store.js";
+import { touchProject } from "./projects.js";
+import { mutate, newId, slug, uniqueId, type Db, type Occasion, type Person, type Watch } from "./store.js";
 
-// "Manage it yourself": the app's own add / edit / delete for the Radar (watches), the Calendar (occasions)
-// and dismissing Fresh finds. The agent keeps its own tools in mcp.ts; both write the same store.
+// "Manage it yourself": the app's own add / edit / delete for tracked items (watches), the Calendar (occasions)
+// and dismissing Fresh finds. Projects have their own routes in projects.ts. The agent keeps its own tools in
+// mcp.ts; all of them write the same store.
 
-class HttpError extends Error {
-  readonly status: 400 | 404 | 409;
-  constructor(status: 400 | 404 | 409, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-
-const fail = (c: Context, e: unknown) => {
-  if (e instanceof HttpError) return c.json({ error: e.message }, e.status);
-  throw e;
-};
-
-/** JSON body checked against a schema; the first problem becomes a readable 400. */
-async function parse<S extends z.ZodType>(c: Context, schema: S): Promise<z.infer<S>> {
-  const raw: unknown = await c.req.json().catch(() => undefined);
-  if (raw === undefined) throw new HttpError(400, "Send a JSON body");
-  const r = schema.safeParse(raw);
-  if (!r.success) {
-    const i = r.error.issues[0];
-    throw new HttpError(400, i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message);
-  }
-  return r.data;
-}
-
-const currency = z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "use a 3-letter currency code");
-
-// ---------------------------------------------------------------- watches (Radar)
+// ---------------------------------------------------------------- watches (tracked items)
 const target = z.object({ amount: z.number().positive("a target price must be above 0").max(100_000_000), currency });
 const watchCreate = z.object({
   kind: z.enum(["game", "hardware", "book", "product"]),
   query: z.string().trim().min(1, "say what to track").max(160),
   maxPrice: target.optional(),
   notes: z.string().trim().max(200).optional(),
+  projectId: z.string().min(1).optional(),
 });
 const watchPatch = z
   .object({
@@ -48,9 +25,16 @@ const watchPatch = z
     query: z.string().trim().min(1, "say what to track").max(160),
     maxPrice: target.nullable(), // null clears the target
     notes: z.string().trim().max(200).nullable(),
+    projectId: z.string().min(1).nullable(), // null takes it out of its project
   })
   .partial()
   .refine((p) => Object.keys(p).length > 0, "nothing to change");
+
+function projectFor(db: Db, id: string) {
+  const p = db.projects.find((x) => x.id === id);
+  if (!p) throw new HttpError(400, "projectId: that project doesn't exist (maybe it was deleted)");
+  return p;
+}
 
 const sameWatch = (a: Pick<Watch, "kind" | "query">, b: Pick<Watch, "kind" | "query">) =>
   a.kind === b.kind && a.query.trim().toLowerCase() === b.query.trim().toLowerCase();
@@ -111,23 +95,6 @@ const occasionPatch = z
   .partial()
   .refine((p) => Object.keys(p).length > 0, "nothing to change");
 
-const slug = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-
-function uniqueId(base: string, taken: (id: string) => boolean) {
-  const root = base || "item";
-  if (!taken(root)) return root;
-  for (;;) {
-    const id = `${root}-${newId().slice(0, 4)}`;
-    if (!taken(id)) return id;
-  }
-}
-
 /** Reuses a known person with that name, otherwise remembers a new one (no birth year: we only know the day). */
 function personFor(db: Db, np: { name: string; relation: string }): Person {
   const have = db.people.find((p) => p.name.trim().toLowerCase() === np.name.toLowerCase());
@@ -165,23 +132,26 @@ const withNext = (o: Occasion) => ({ ...o, nextDate: nextOccurrence(o) });
 
 // ---------------------------------------------------------------- routes
 export function manageRoutes(app: Hono) {
-  // ---- Radar: watches
+  // ---- Tracking: items (watches)
   app.post("/api/watches", async (c) => {
     try {
       const b = await parse(c, watchCreate);
       const w = await mutate((db) => {
         const dupe = db.watches.find((x) => sameWatch(x, b));
         if (dupe) throw new HttpError(409, `Already tracking “${dupe.query}”${dupe.active ? "" : " (paused)"}`);
+        const project = b.projectId ? projectFor(db, b.projectId) : undefined;
         const w: Watch = {
           id: newId(),
           kind: b.kind,
           query: b.query,
           ...(b.maxPrice ? { maxPrice: b.maxPrice } : {}),
           ...(b.notes ? { notes: b.notes } : {}),
+          ...(project ? { projectId: project.id } : {}),
           active: true,
           createdAt: new Date().toISOString(),
         };
         db.watches.unshift(w);
+        if (project) touchProject(project);
         return w;
       });
       return c.json(w, 201);
@@ -208,6 +178,8 @@ export function manageRoutes(app: Hono) {
         else if (b.maxPrice) w.maxPrice = b.maxPrice;
         if (b.notes === null || b.notes === "") delete w.notes;
         else if (b.notes) w.notes = b.notes;
+        if (b.projectId === null) delete w.projectId;
+        else if (b.projectId) w.projectId = projectFor(db, b.projectId).id;
         return w;
       });
       return c.json(w);

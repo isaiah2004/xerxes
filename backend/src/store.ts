@@ -33,11 +33,46 @@ export type Watch = {
   query: string;
   maxPrice?: Money;
   notes?: string;
+  /** The project this item is tracked for (e.g. homelab gear for "Home lab"). */
+  projectId?: string;
   active: boolean;
   createdAt: string;
   lastCheckedAt?: string;
   /** Short, user-facing reason the last check failed (cleared on the next good check). */
   lastError?: string;
+};
+
+/**
+ * A project is a bucket of context for a chain of purchases (a living room makeover, a home lab): how things are
+ * now, what was bought, what's planned and what was asked. Xerxes builds on all of it for the next purchase.
+ */
+export type ProjectIcon = "home" | "sofa" | "server" | "book" | "game" | "gift" | "camera" | "plant" | "fitness" | "travel" | "kitchen" | "other";
+export type ProjectEntryKind = "setup" | "plan" | "purchase" | "search";
+export type ProjectEntry = {
+  id: string;
+  /** setup: how things are now · plan: something to get · purchase: something bought · search: something asked */
+  kind: ProjectEntryKind;
+  text: string;
+  price?: Money;
+  /** purchases: the day it was bought (YYYY-MM-DD) */
+  date?: string;
+  url?: string;
+  /** searches: what Xerxes came back with last */
+  reply?: string;
+  /** searches: the chat or call it came from (one search entry per conversation) */
+  conversationId?: string;
+  at: string;
+};
+export type Project = {
+  id: string;
+  name: string;
+  icon: ProjectIcon;
+  goal?: string;
+  budget?: Money;
+  status: "active" | "done";
+  entries: ProjectEntry[];
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type Notification = {
@@ -74,14 +109,19 @@ export type Db = {
   people: Person[];
   occasions: Occasion[];
   watches: Watch[];
+  projects: Project[];
   notifications: Notification[];
   shortlist: ShortlistItem[];
   /** app conversation id -> Codex thread */
   conversations?: Record<string, { threadId: string; updatedAt: string }>;
+  /** app conversation id (chat or voice call) -> the project it belongs to */
+  conversationProjects?: Record<string, string>;
   /** Seed watch ids already offered once, so a watch the user removes isn't re-added on the next start. */
   seededWatches?: string[];
   /** Same for seed occasions: a deleted birthday/festival stays deleted. */
   seededOccasions?: string[];
+  /** Same for seed projects. */
+  seededProjects?: string[];
   /** dedupeKeys of finds the user dismissed, so the watcher doesn't announce the same deal again. */
   dismissedFinds?: string[];
 };
@@ -114,6 +154,53 @@ const moreOccasions: Occasion[] = [
   occ("ganesh-chaturthi-2027", "Ganesh Chaturthi", "festival", "2027-09-04", 2000, [], 21, 3),
 ];
 const now = () => new Date().toISOString();
+
+const entry = (kind: ProjectEntryKind, text: string, extra: Partial<ProjectEntry> = {}): ProjectEntry => ({ id: randomUUID(), kind, text, at: now(), ...extra });
+const bought = (text: string, amount: number, date: string): ProjectEntry =>
+  entry("purchase", text, { price: { amount, currency: "INR" }, date, at: `${date}T12:00:00.000Z` });
+/** The demo's two projects, matching the two ways people actually shop in chains: a room and a hobby rig. */
+const HOMELAB_WATCH_QUERY = "Optiplex micro OR ThinkCentre tiny OR EliteDesk mini";
+const seedProjects = (): Project[] => [
+  {
+    id: "home-lab",
+    name: "Home lab",
+    icon: "server",
+    goal: "A quiet, power-efficient Proxmox box and a NAS for backups, all in an apartment.",
+    budget: { amount: 80000, currency: "INR" },
+    status: "active",
+    entries: [
+      entry("setup", "Lives in an apartment, so everything has to be quiet and easy on power."),
+      entry("setup", "Wants Proxmox for VMs, a NAS for media and backups, and 10GbE eventually."),
+      entry("setup", "Needs 32 GB of RAM for agentic development and containers."),
+      bought("Raspberry Pi 5 (8 GB) running Home Assistant", 8400, "2026-07-12"),
+      bought("TP-Link 8-port gigabit switch", 1899, "2026-08-03"),
+      entry("plan", "Quiet mini PC with 32 GB RAM for Proxmox"),
+      entry("plan", "2-bay NAS for backups"),
+    ],
+    createdAt: "2026-07-01T09:00:00.000Z",
+    updatedAt: now(),
+  },
+  {
+    id: "living-room",
+    name: "Living room",
+    icon: "sofa",
+    goal: "A cosy reading room: proper storage for the books and a good reading corner.",
+    budget: { amount: 60000, currency: "INR" },
+    status: "active",
+    entries: [
+      entry("setup", "About 14 × 12 ft, with one big north-facing window."),
+      entry("setup", "Off-white walls, teak floor and a grey three-seater sofa."),
+      entry("setup", "Around 1,000 books, most of them still in boxes."),
+      bought("Grey three-seater sofa", 24500, "2026-08-20"),
+      bought("Jute rug, 5 × 7 ft", 3200, "2026-09-14"),
+      entry("plan", "Tall bookshelf that holds about 1,000 books"),
+      entry("plan", "Reading chair and a warm floor lamp"),
+    ],
+    createdAt: "2026-08-10T09:00:00.000Z",
+    updatedAt: now(),
+  },
+];
+
 const seed = (): Db => ({
   profile: { name: "Isaiah", city: "Bengaluru", postalCode: "560001", country: "IN", currency: "INR" },
   memory: {
@@ -186,13 +273,15 @@ const seed = (): Db => ({
     {
       id: "watch-homelab-minis",
       kind: "hardware",
-      query: "Optiplex micro OR ThinkCentre tiny OR EliteDesk mini",
+      query: HOMELAB_WATCH_QUERY,
       maxPrice: { amount: 250, currency: "USD" },
       notes: "Quiet Proxmox node",
+      projectId: "home-lab",
       active: true,
       createdAt: now(),
     },
   ],
+  projects: seedProjects(),
   notifications: [],
   shortlist: [],
 });
@@ -246,6 +335,18 @@ function mergeSeed(db: Db): boolean {
     db.seededWatches.push(w.id);
     changed = true;
   }
+  // projects: offered once too; the homelab watch an older file already has joins its project
+  db.projects ??= [];
+  db.seededProjects ??= [];
+  for (const p of s.projects) {
+    if (db.seededProjects.includes(p.id)) continue;
+    if (!db.projects.some((x) => x.id === p.id)) db.projects.push(p);
+    db.seededProjects.push(p.id);
+    changed = true;
+    if (p.id === "home-lab")
+      for (const w of db.watches)
+        if (!w.projectId && w.kind === "hardware" && w.query.toLowerCase() === HOMELAB_WATCH_QUERY.toLowerCase()) w.projectId = p.id;
+  }
   return changed;
 }
 
@@ -280,3 +381,22 @@ export function notify(n: Omit<Notification, "id" | "createdAt" | "read">): Prom
 }
 
 export const newId = () => randomUUID();
+
+/** "Mom & Dad's anniversary" → "mom-dads-anniversary" */
+export const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+
+/** A readable id from `base`, with a short random suffix when it's taken. */
+export function uniqueId(base: string, taken: (id: string) => boolean) {
+  const root = base || "item";
+  if (!taken(root)) return root;
+  for (;;) {
+    const id = `${root}-${newId().slice(0, 4)}`;
+    if (!taken(id)) return id;
+  }
+}

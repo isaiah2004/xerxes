@@ -1,7 +1,7 @@
 import { Asset } from "expo-asset";
 import { LinearGradient } from "expo-linear-gradient";
 import type { LucideIcon } from "lucide-react-native";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -290,6 +290,46 @@ export function SectionHeader({ title, action, onAction }: { title: string; acti
   );
 }
 
+/** Two or three views inside one screen (Projects | Items). The white thumb springs over to the chosen one. */
+export function Segmented<K extends string>({ value, options, onChange }: { value: K; options: { id: K; label: string; count?: number }[]; onChange: (k: K) => void }) {
+  const [width, setWidth] = useState(0);
+  const index = Math.max(0, options.findIndex((o) => o.id === value));
+  const [x] = useState(() => new Animated.Value(index));
+  useEffect(() => {
+    Animated.spring(x, { toValue: index, useNativeDriver: Platform.OS !== "web", speed: 20, bounciness: 5 }).start();
+  }, [index, x]);
+  const seg = width ? (width - 12) / options.length : 0; // inside the 1px border and 5px padding
+  return (
+    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={styles.segTrack} accessibilityRole="tablist">
+      {seg ? <Animated.View style={[styles.segThumb, shadow.card, { width: seg, transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [0, seg] }) }] }]} /> : null}
+      {options.map((o) => {
+        const on = o.id === value;
+        return (
+          <Pressable
+            key={o.id}
+            onPress={() => {
+              if (on) return;
+              haptic.tap();
+              onChange(o.id);
+            }}
+            style={styles.segItem}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={o.label}
+          >
+            <Text style={[styles.segLabel, { color: on ? color.ink : color.muted }]}>{o.label}</Text>
+            {o.count !== undefined ? (
+              <View style={[styles.segCount, { backgroundColor: on ? color.okBg : color.line }]}>
+                <Text style={[styles.segCountText, { color: on ? color.ok : color.muted }]}>{o.count}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function ProgressBar({ value, grad = "primary" }: { value: number; grad?: GradientName }) {
   const pct = Math.max(0, Math.min(1, value));
   return (
@@ -349,6 +389,12 @@ const styles = StyleSheet.create({
   card: { backgroundColor: color.card, borderRadius: radius.xl, borderWidth: 1, borderColor: color.line },
   chip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, alignSelf: "flex-start", maxWidth: "100%" },
   chipText: { fontFamily: font.strong, fontSize: 11.5, flexShrink: 1 },
+  segTrack: { flexDirection: "row", backgroundColor: color.chip, borderRadius: 18, padding: 5, borderWidth: 1, borderColor: color.line },
+  segThumb: { position: "absolute", top: 5, left: 5, bottom: 5, borderRadius: 14, backgroundColor: "#fff" },
+  segItem: { flex: 1, height: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+  segLabel: { fontFamily: font.bold, fontSize: 15, letterSpacing: -0.1 },
+  segCount: { minWidth: 22, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: "center", justifyContent: "center" },
+  segCountText: { fontFamily: font.bold, fontSize: 11.5 },
 });
 
 export { shadow };

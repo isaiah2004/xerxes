@@ -11,6 +11,7 @@ import { handleMcp } from "./mcp.js";
 import { upcoming } from "./occasions.js";
 import { getRun } from "./runs.js";
 import { manageRoutes } from "./manage.js";
+import { listProjects, projectRoutes, projectSummary } from "./projects.js";
 import { readDb, mutate } from "./store.js";
 import { murfStream } from "./integrations/murf.js";
 import { publicUrlAnswers, voiceRoutes } from "./voice.js";
@@ -59,6 +60,7 @@ app.get("/api/feed", async (c) => {
     upcoming: occasions,
     notifications: db.notifications.slice(0, 30),
     watches: db.watches,
+    projects: listProjects(db).map((p) => projectSummary(db, p)),
     shortlist: db.shortlist,
   });
 });
@@ -74,10 +76,11 @@ app.post("/api/notifications/:id/read", async (c) => {
 // ---- Agent conversation ----
 app.post("/api/conversations", (c) => c.json({ id: randomUUID() }));
 
+// projectId: the chat was opened from a project, so it builds on (and is logged in) that project
 app.post("/api/conversations/:id/messages", async (c) => {
-  const { text } = await c.req.json<{ text: string }>();
+  const { text, projectId } = await c.req.json<{ text: string; projectId?: string }>();
   if (!text?.trim()) return c.json({ error: "text required" }, 400);
-  const run = await startTurn(c.req.param("id"), text.trim());
+  const run = await startTurn(c.req.param("id"), text.trim(), "text", undefined, typeof projectId === "string" ? projectId : undefined);
   return c.json({ runId: run.id });
 });
 
@@ -100,7 +103,8 @@ app.get("/api/tts", async (c) => {
   }
 });
 
-manageRoutes(app); // Radar / Calendar add-edit-delete, dismiss finds
+manageRoutes(app); // tracked items / Calendar add-edit-delete, dismiss finds
+projectRoutes(app);
 voiceRoutes(app);
 
 serve({ fetch: app.fetch, port: env.port, hostname: "0.0.0.0" }, (info) => {

@@ -254,7 +254,7 @@ export default function Today() {
 
       {deals.length ? (
         <>
-          <SectionHeader title="Fresh finds" action="Open radar" onAction={() => router.push("/watches")} />
+          <SectionHeader title="Fresh finds" action="See all" onAction={() => router.push({ pathname: "/tracking", params: { view: "items" } })} />
           <View style={{ gap: 10 }}>
             {deals.map((n) => (
               <DealRow key={n.id} n={n} />
