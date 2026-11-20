@@ -1,0 +1,102 @@
+import { router } from "expo-router";
+import { ChevronRight } from "lucide-react-native";
+import { View } from "react-native";
+import type { Upcoming } from "@/lib/api";
+import { dayNum, money, monthShort, weekdayShort } from "@/lib/format";
+import { color, font } from "@/lib/theme";
+import { Card, Chip, Row, T, Tap, type Tone } from "./ui";
+
+/** Orange once it's inside the reminder window (time to buy), red when it's 3 days or less. */
+export const urgencyOf = (o: Upcoming): Extract<Tone, "bad" | "warn" | "neutral"> =>
+  o.daysLeft <= 3 ? "bad" : o.daysLeft <= 7 || o.inReminderWindow ? "warn" : "neutral";
+
+export const kindLabel = (o: Upcoming) => (o.kind === "birthday" ? "Birthday" : o.kind === "anniversary" ? "Anniversary" : "Festival");
+
+/** "Turns 57 · ₹3,000" / "Festival · ₹6,000" */
+export const occasionSub = (o: Upcoming) =>
+  `${o.kind === "birthday" && o.turningAge ? `Turns ${o.turningAge}` : kindLabel(o)} · ${money(o.budget.amount, o.budget.currency)}`;
+
+export const daysLabel = (n: number) => (n === 0 ? "Today" : n === 1 ? "Tomorrow" : `${n} days`);
+
+export function openOccasion(o: Upcoming) {
+  const person = o.people.length === 1 ? o.people[0] : undefined;
+  router.push({
+    pathname: "/chat/[id]",
+    params: { id: "new", occasionId: o.id, title: person ? `Gift for ${person.name.toLowerCase()}` : `${o.label} gifts` },
+  });
+}
+
+const tones = {
+  neutral: { bg: color.chip, month: color.muted, day: color.ink },
+  warn: { bg: color.warnBg, month: color.warn, day: color.warn },
+  bad: { bg: color.badBg, month: color.bad, day: color.bad },
+} as const;
+
+/** Little calendar leaf: month (or weekday) over the day number. */
+export function DateBlock({ iso, tone = "neutral", top = "month", size = 48 }: { iso: string; tone?: keyof typeof tones; top?: "month" | "weekday"; size?: number }) {
+  const t = tones[tone];
+  return (
+    <View style={{ width: size, height: size + 4, borderRadius: 14, backgroundColor: t.bg, alignItems: "center", justifyContent: "center" }}>
+      <T v="eyebrow" style={{ fontSize: 10, lineHeight: 12, letterSpacing: 0.8, color: t.month }}>
+        {top === "month" ? monthShort(iso) : weekdayShort(iso)}
+      </T>
+      <T v="num" style={{ fontSize: 19, lineHeight: 23, color: t.day }}>
+        {dayNum(iso)}
+      </T>
+    </View>
+  );
+}
+
+/** Horizontal "coming up" card on Today. */
+export function OccasionCard({ o }: { o: Upcoming }) {
+  const tone = urgencyOf(o);
+  return (
+    <Tap onPress={() => openOccasion(o)} style={{ width: 176 }} accessibilityLabel={`${o.label}, in ${o.daysLeft} days`}>
+      <Card pad={14} style={{ gap: 12, flexGrow: 1, justifyContent: "space-between" }}>
+        <Row style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+          <DateBlock iso={o.nextDate} tone={tone} />
+          <Chip label={daysLabel(o.daysLeft)} tone={tone} />
+        </Row>
+        <View style={{ gap: 3 }}>
+          <T v="h3" style={{ fontSize: 16.5, lineHeight: 21 }} numberOfLines={2}>
+            {o.label}
+          </T>
+          <T v="sub" style={{ fontSize: 13.5, lineHeight: 18 }} numberOfLines={1}>
+            {occasionSub(o)}
+          </T>
+        </View>
+      </Card>
+    </Tap>
+  );
+}
+
+/** Agenda row in the calendar. */
+export function OccasionRow({ o, highlight }: { o: Upcoming; highlight?: boolean }) {
+  const tone = urgencyOf(o);
+  return (
+    <Tap onPress={() => openOccasion(o)} accessibilityLabel={`${o.label}, in ${o.daysLeft} days`}>
+      <Card pad={12} style={highlight ? { borderColor: color.primary, borderWidth: 1.5 } : undefined}>
+        <Row gap={12}>
+          <DateBlock iso={o.nextDate} tone={tone} top="weekday" />
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <T v="h3" numberOfLines={1}>
+              {o.label}
+            </T>
+            <T v="sub" numberOfLines={1}>
+              {occasionSub(o)}
+            </T>
+            {o.inReminderWindow ? (
+              <T v="caption" style={{ color: color.warn, fontFamily: font.strong }}>
+                Gift should arrive by {monthShort(o.arriveBy)} {dayNum(o.arriveBy)}
+              </T>
+            ) : null}
+          </View>
+          <View style={{ alignItems: "flex-end", gap: 6 }}>
+            <Chip label={daysLabel(o.daysLeft)} tone={tone} />
+            <ChevronRight size={18} color={color.faint} />
+          </View>
+        </Row>
+      </Card>
+    </Tap>
+  );
+}
