@@ -1,8 +1,8 @@
 import Constants from "expo-constants";
 import { router, useLocalSearchParams } from "expo-router";
-import { Mic, MicOff, PhoneOff, RotateCcw, X } from "lucide-react-native";
+import { Mic, MicOff, PhoneOff, RotateCcw, Settings, X } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Platform, Pressable, ScrollView, View } from "react-native";
+import { Animated, Easing, Linking, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TurnView, type Turn } from "@/components/Conversation";
 import { Button, GradientSurface, Row, T } from "@/components/ui";
@@ -10,17 +10,23 @@ import { api } from "@/lib/api";
 import { haptic } from "@/lib/haptics";
 import { openLink } from "@/lib/links";
 import { color, ledge, shadow } from "@/lib/theme";
-import { joinVoice, openMic, type MicHandle, type VoiceHandle } from "@/lib/voice";
+import { joinVoice, openMic, voiceAvailable, type MicHandle, type VoiceHandle } from "@/lib/voice";
 
 type Phase = "connecting" | "mic" | "waiting" | "live" | "ended" | "error";
+
+/** The call runs in the app on web and in builds with the Agora module; Expo Go hands it to the browser. */
+const inApp = Platform.OS === "web" || voiceAvailable;
 
 /** Browser/Agora errors → what to do about them. */
 function friendlyError(e: unknown): string {
   const m = e instanceof Error ? e.message : String(e);
+  if (m === "MIC_BLOCKED") return "Microphone access is off for Xerxes. Turn it on in Settings, then come back and tap Try again.";
   if (/PERMISSION_DENIED|NotAllowedError|Permission (denied|dismissed)/i.test(m))
-    return "Xerxes needs your microphone to hear you. Tap Try again and choose Allow (if the browser stopped asking, allow it from the icon next to the address).";
+    return Platform.OS === "web"
+      ? "Xerxes needs your microphone to hear you. Tap Try again and choose Allow (if the browser stopped asking, allow it from the icon next to the address)."
+      : "Xerxes needs your microphone to hear you. Tap Try again and choose Allow.";
   if (/NotFoundError|DEVICE_NOT_FOUND|device not found/i.test(m)) return "No microphone found. Connect or enable one, then try again.";
-  if (/NotReadableError|Could not start audio source/i.test(m)) return "Your microphone is busy in another app. Free it up, then try again.";
+  if (/NotReadableError|Could not start audio source|MIC_UNAVAILABLE/i.test(m)) return "Your microphone is busy in another app. Free it up, then try again.";
   return m;
 }
 
@@ -62,8 +68,9 @@ function Orb({ level, phase, size }: { level: Animated.Value; phase: Phase; size
 export default function Voice() {
   const params = useLocalSearchParams<{ conversationId?: string; occasionId?: string; topic?: string; context?: string; hello?: string }>();
   const insets = useSafeAreaInsets();
-  const [phase, setPhase] = useState<Phase>(Platform.OS === "web" ? "connecting" : "waiting");
+  const [phase, setPhase] = useState<Phase>(inApp ? "connecting" : "waiting");
   const [error, setError] = useState<string | null>(null);
+  const [micBlocked, setMicBlocked] = useState(false);
   const [greeting, setGreeting] = useState<string>("");
   const [muted, setMuted] = useState(false);
   const [speaker, setSpeaker] = useState<"agent" | "me" | null>(null);
@@ -76,8 +83,8 @@ export default function Voice() {
   useEffect(() => {
     let alive = true;
     let poll: ReturnType<typeof setTimeout> | undefined;
-    if (Platform.OS !== "web") {
-      // Expo Go has no Agora RTC module, so on the phone the call runs in the browser, which has WebRTC.
+    if (!inApp) {
+      // Expo Go has no Agora RTC module, so there the call runs in the browser, which has WebRTC.
       // (localhost / 127.0.0.1 count as secure, so the mic works there; a hosted build sets EXPO_PUBLIC_WEB_URL.)
       openLink(webVoiceUrl(params))
         .catch((e: Error) => {
@@ -106,7 +113,7 @@ export default function Voice() {
         session.current = s.sessionId;
         setGreeting(s.greeting);
         setPhase("waiting");
-        handle.current = await joinVoice(
+        const call = await joinVoice(
           s,
           {
             level: (who, l) => {
@@ -123,6 +130,8 @@ export default function Voice() {
           mic,
         );
         mic = undefined; // the call owns it now; leave() closes it
+        if (!alive) return void call.leave().catch(() => undefined); // hung up while connecting (cleanup already stopped the agent)
+        handle.current = call;
         setPhase((p) => (p === "waiting" ? "live" : p));
         const tick = async () => {
           try {
@@ -138,6 +147,7 @@ export default function Voice() {
         session.current = null;
         if (!alive) return;
         haptic.error();
+        setMicBlocked(e instanceof Error && e.message === "MIC_BLOCKED");
         setError(friendlyError(e));
         setPhase("error");
       }
@@ -218,7 +228,12 @@ export default function Voice() {
                   : "Real-time voice by Agora Conversational AI, spoken with Murf Falcon.")}
           </T>
         ) : null}
-        {phase === "error" && Platform.OS === "web" ? <Button kind="grad" grad="primary" icon={RotateCcw} label="Try again" style={{ marginTop: 18 }} onPress={retry} /> : null}
+        {phase === "error" && inApp ? (
+          <Row gap={10} style={{ marginTop: 18 }}>
+            {micBlocked ? <Button kind="ghost" icon={Settings} label="Open settings" onPress={() => void Linking.openSettings()} /> : null}
+            <Button kind="grad" grad="primary" icon={RotateCcw} label="Try again" onPress={retry} />
+          </Row>
+        ) : null}
       </View>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 18, gap: 16, width: "100%", maxWidth: 520, alignSelf: "center" }}>

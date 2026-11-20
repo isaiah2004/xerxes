@@ -19,6 +19,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "permissions": ["android.permission.RECORD_AUDIO", "android.permission.MODIFY_AUDIO_SETTINGS"],
       "package": "dev.xerxes.app"
     },
     "web": {
@@ -40,7 +41,13 @@
         }
       ],
       "expo-image",
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Xerxes listens to you only while a voice call is open.",
+          "recordAudioAndroid": true
+        }
+      ],
       "expo-asset"
     ],
     "experiments": {

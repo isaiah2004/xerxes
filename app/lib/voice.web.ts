@@ -4,6 +4,9 @@ import type { IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
 export type VoiceHandle = { leave: () => Promise<void>; setMuted: (muted: boolean) => Promise<void> };
 export type MicHandle = { close: () => void; track: IMicrophoneAudioTrack };
 
+/** Browsers have WebRTC, so the call always runs in the page. */
+export const voiceAvailable = true;
+
 const sdk = async () => {
   const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
   AgoraRTC.setLogLevel(4); // the call screen explains failures itself; SDK error logs only add dev-overlay noise
