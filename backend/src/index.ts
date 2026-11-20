@@ -13,7 +13,7 @@ import { getRun } from "./runs.js";
 import { manageRoutes } from "./manage.js";
 import { readDb, mutate } from "./store.js";
 import { murfStream } from "./integrations/murf.js";
-import { voiceRoutes } from "./voice.js";
+import { publicUrlAnswers, voiceRoutes } from "./voice.js";
 import { startWatchers } from "./watchers.js";
 
 // One stray error (a stream write after a client hung up, a flaky upstream) must not take the server down
@@ -26,8 +26,11 @@ app.use("/api/*", cors());
 
 app.get("/health", (c) => c.json({ ok: true }));
 /** Readiness detail for ops (no secrets): is Codex logged in, is voice configured. */
-app.get("/api/status", async (c) =>
-  c.json({ ok: true, codexLoggedIn: await codexLoggedIn(), voice: { publicUrl: env.publicUrl ?? null, agora: !!(env.agoraAppId && env.agoraAppCertificate), murf: !!env.murfApiKey } }));
+// reachable: whether Agora's cloud can actually get to us through PUBLIC_URL (a dead tunnel = "I hit a snag" on every turn).
+app.get("/api/status", async (c) => {
+  const [loggedIn, reachable] = await Promise.all([codexLoggedIn(), env.publicUrl ? publicUrlAnswers() : Promise.resolve(false)]);
+  return c.json({ ok: true, codexLoggedIn: loggedIn, voice: { publicUrl: env.publicUrl ?? null, reachable, agora: !!(env.agoraAppId && env.agoraAppCertificate), murf: !!env.murfApiKey } });
+});
 
 // ---- MCP endpoint for Codex: loopback only, and only for live runs ----
 const PROXY_HEADERS = ["x-forwarded-for", "x-real-ip", "cf-connecting-ip", "forwarded", "x-envoy-external-address"];

@@ -39,7 +39,8 @@ export default function People() {
                 </GradientSurface>
                 <View style={{ flex: 1 }}>
                   <T v="h3">{p.name}</T>
-                  <T v="caption">{p.relation}</T>
+                  {/* "Cousin sister / cousin sister" says nothing twice; show the relation only when it adds something */}
+                  {p.relation && p.relation.toLowerCase() !== p.name.toLowerCase() ? <T v="caption">{p.relation}</T> : null}
                 </View>
                 {next ? <Chip label={`${next.label.includes("irthday") ? "Birthday" : next.label} · ${next.daysLeft}d`} tone={next.daysLeft <= 21 ? "warn" : "neutral"} /> : null}
               </Row>

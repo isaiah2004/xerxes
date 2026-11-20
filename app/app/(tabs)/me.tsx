@@ -6,9 +6,9 @@ import { Card, Chip, IconTile, Row, SectionHeader, T } from "@/components/ui";
 import { API, api, type Feed } from "@/lib/api";
 import type { GradientName } from "@/lib/theme";
 
-type Status = { codexLoggedIn?: boolean; voice?: { publicUrl: string | null; agora: boolean; murf: boolean } };
+type Status = { codexLoggedIn?: boolean; voice?: { publicUrl: string | null; reachable?: boolean; agora: boolean; murf: boolean } };
 
-function Engine({ icon, grad, title, sub, ok }: { icon: LucideIcon; grad: GradientName; title: string; sub: string; ok?: boolean }) {
+function Engine({ icon, grad, title, sub, ok, problem = "Setup" }: { icon: LucideIcon; grad: GradientName; title: string; sub: string; ok?: boolean; problem?: string }) {
   return (
     <Card>
       <Row gap={12}>
@@ -17,7 +17,7 @@ function Engine({ icon, grad, title, sub, ok }: { icon: LucideIcon; grad: Gradie
           <T v="h3">{title}</T>
           <T v="caption">{sub}</T>
         </View>
-        {ok === undefined ? null : <Chip label={ok ? "Ready" : "Setup"} tone={ok ? "ok" : "warn"} />}
+        {ok === undefined ? null : <Chip label={ok ? "Ready" : problem} tone={ok ? "ok" : "warn"} />}
       </Row>
     </Card>
   );
@@ -53,7 +53,14 @@ export default function Me() {
       <SectionHeader title="Under the hood" />
       <View style={{ gap: 10 }}>
         <Engine icon={Bot} grad="primary" title="Agent brain" sub="Codex CLI + Xerxes MCP tools" ok={status.codexLoggedIn} />
-        <Engine icon={Radio} grad="navy" title="Real-time voice" sub="Agora Conversational AI Engine" ok={status.voice ? status.voice.agora && !!status.voice.publicUrl : undefined} />
+        <Engine
+          icon={Radio}
+          grad="navy"
+          title="Real-time voice"
+          sub="Agora Conversational AI Engine"
+          ok={status.voice ? status.voice.agora && !!status.voice.publicUrl && status.voice.reachable !== false : undefined}
+          problem={status.voice?.agora && status.voice.publicUrl && status.voice.reachable === false ? "Line down" : "Setup"}
+        />
         <Engine icon={AudioLines} grad="info" title="Voice of Xerxes" sub="Murf Falcon TTS" ok={status.voice?.murf} />
       </View>
       <T v="caption" style={{ marginTop: 14, textAlign: "center" }}>

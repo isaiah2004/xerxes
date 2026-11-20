@@ -18,7 +18,7 @@ const log = (id: string, msg: string) => console.log(`[voice ${id.slice(0, 8)}] 
 
 /** Agora's cloud reaches our LLM endpoint through PUBLIC_URL. If that tunnel is down, every turn fails and the agent
  *  only ever says its generic failure line, so check it before starting a call and say what's actually wrong. */
-async function publicUrlAnswers(): Promise<boolean> {
+export async function publicUrlAnswers(): Promise<boolean> {
   try {
     const r = await fetch(`${env.publicUrl}/health`, { signal: AbortSignal.timeout(5000) });
     return r.ok;
