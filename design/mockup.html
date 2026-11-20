@@ -1,0 +1,229 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#F5F4F0; --card:#FFFFFF; --ink:#121214; --ink2:#3A3A3F; --muted:#77757F; --line:#E8E6E0;
+    --g-aurora: linear-gradient(135deg,#FF8A3D 0%,#FF4F7B 45%,#7B5CFF 100%);
+    --g-mint: linear-gradient(135deg,#19C37D 0%,#0FB5AE 100%);
+    --g-sky: linear-gradient(135deg,#4F7BFF 0%,#8A5CFF 100%);
+    --g-sun: linear-gradient(135deg,#FFB547 0%,#FF7A45 100%);
+    --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  *{box-sizing:border-box;margin:0}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--ink);background:transparent;padding:8px}
+  .row{display:flex;gap:28px;justify-content:center;flex-wrap:wrap}
+  .phone{width:360px;min-height:760px;background:var(--paper);border-radius:44px;border:1px solid #DDDAD2;padding:18px 18px 22px;position:relative;overflow:hidden;box-shadow:0 30px 60px -30px rgba(20,20,30,.25)}
+  .label{font:600 12px Inter;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:center;margin:10px 0 0}
+  .status{display:flex;justify-content:space-between;font:600 13px Inter;padding:2px 8px 14px}
+  h1{font:700 28px/1.1 "Inter Tight";letter-spacing:-.02em}
+  h2{font:700 18px/1.2 "Inter Tight";letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:13.5px}
+  .noisy{position:relative;isolation:isolate;overflow:hidden}
+  .noisy::after{content:"";position:absolute;inset:0;background:var(--noise);mix-blend-mode:overlay;opacity:.8;pointer-events:none;z-index:-1}
+  .noisy::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 10% 0%,rgba(255,255,255,.35),transparent 60%);z-index:-1}
+  .hero{border-radius:28px;padding:20px;color:#fff;background:var(--g-aurora);margin-top:14px}
+  .hero .eyebrow{font:600 11.5px Inter;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+  .hero .big{font:700 26px/1.08 "Inter Tight";letter-spacing:-.025em;margin:10px 0 8px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,.28);border-radius:16px;overflow:hidden;margin:14px 0 14px}.stats>div{background:rgba(255,255,255,.14);padding:10px}.stats span{display:flex;gap:5px;align-items:center;font:500 11px Inter;opacity:.9}.stats b{display:block;font:700 14px "Inter Tight";margin-top:3px}
+  .glass{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);backdrop-filter:blur(8px);border-radius:999px;padding:6px 10px;font:600 12px Inter}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;border-radius:16px;font:700 15px "Inter Tight";padding:14px 16px;border:0;width:100%}
+  .btn-ink{background:var(--ink);color:#fff;box-shadow:0 4px 0 #000}
+  .btn-white{background:#fff;color:var(--ink);box-shadow:0 4px 0 rgba(0,0,0,.18)}
+  .btn-grad{color:#fff;background:var(--g-aurora);box-shadow:0 4px 0 #B8325A}
+  .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:0 3px 0 var(--line)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px}
+  .section{display:flex;justify-content:space-between;align-items:baseline;margin:22px 4px 10px}
+  .section a{font:600 13px Inter;color:var(--muted);text-decoration:none}
+  .deal{display:flex;gap:12px;align-items:center}
+  .thumb{width:52px;height:52px;border-radius:14px;flex:none;display:grid;place-items:center;color:#fff;font:800 18px "Inter Tight"}
+  .price{font:700 16px "Inter Tight"}
+  .strike{color:var(--muted);text-decoration:line-through;font-size:12px;margin-left:4px}
+  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 9px;font:600 11.5px Inter;background:#F1F0EC;color:var(--ink2)}
+  .chip.ok{background:#E6F8EF;color:#0B7A4B}.chip.warn{background:#FFF3E0;color:#A05A00}.chip.vio{background:#EFEBFF;color:#5B3FD9}
+  .tabbar{position:absolute;left:14px;right:14px;bottom:16px;height:66px;background:#fff;border:1px solid var(--line);border-radius:24px;display:flex;align-items:center;justify-content:space-around;padding:0 8px}
+  .tab{font:600 11px Inter;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:4px}
+  .tab.on{color:var(--ink)}
+  .dot{width:22px;height:22px;border-radius:8px;background:#ECEAE4}
+  .tab.on .dot{background:var(--ink)}
+  .orb{width:58px;height:58px;border-radius:20px;margin-top:-26px;background:var(--g-aurora);box-shadow:0 5px 0 #B8325A,0 14px 30px -10px rgba(255,79,123,.7);display:grid;place-items:center}
+  .orb i{width:16px;height:22px;border:3px solid #fff;border-radius:10px;display:block}
+  /* chat */
+  .bubble-me{align-self:flex-end;background:var(--ink);color:#fff;border-radius:20px 20px 6px 20px;padding:11px 14px;font-size:14px;max-width:84%}
+  .bubble-ai{background:#fff;border:1px solid var(--line);border-radius:20px 20px 20px 6px;padding:11px 14px;font-size:14px;max-width:90%}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .steps{padding:12px 14px}
+  .step{display:flex;gap:10px;align-items:center;font-size:13px;padding:5px 0;color:var(--ink2)}
+  .tick{width:18px;height:18px;border-radius:6px;background:var(--g-mint);flex:none;display:grid;place-items:center;color:#fff;font:800 11px Inter}
+  .spin{width:18px;height:18px;border-radius:6px;border:2px dashed #C9C6BE;flex:none}
+  .product{padding:0;overflow:hidden}
+  .product .top{display:flex;gap:12px;padding:14px}
+  .cover{width:72px;height:96px;border-radius:10px;flex:none;box-shadow:0 6px 14px -6px rgba(0,0,0,.35)}
+  .ptitle{font:700 15px/1.25 "Inter Tight"}
+  .verdict{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--line);font-size:12.5px}
+  .verdict b{font:700 13px "Inter Tight"}
+  .rank{position:absolute;top:10px;right:10px}
+  /* decision */
+  .bar{height:12px;border-radius:99px;background:#EEECE6;overflow:hidden}
+  .bar>i{display:block;height:100%;width:65%;background:var(--g-mint)}
+  .tl{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:12px}
+  .tl div{text-align:center;font-size:10.5px;color:var(--muted)}
+  .tl b{display:block;font:700 12px "Inter Tight";color:var(--ink);margin-top:6px}
+  .tl span{display:block;height:8px;border-radius:99px;background:#EEECE6}
+  .tl .a span{background:var(--g-sky)}.tl .b span{background:var(--g-mint)}.tl .c span{background:var(--g-aurora)}
+  .voice{border-radius:22px;padding:12px 14px;display:flex;gap:12px;align-items:center;background:var(--g-sky);color:#fff}
+  .wave{display:flex;gap:3px;align-items:center;height:22px}
+  .wave i{width:3px;border-radius:3px;background:#fff;display:block}
+</style>
+</head>
+<body>
+<div class="row">
+
+<!-- 1. TODAY -->
+<div>
+<div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+  <div style="padding:0 4px">
+    <div class="sub">Friday, 20 November</div>
+    <h1>Morning, Isaiah</h1>
+  </div>
+
+  <div class="hero noisy">
+    <div class="eyebrow">Xerxes noticed · Birthday</div>
+    <div class="big">Your cousin turns 14 in 12 days</div>
+    <div style="font-size:14px;opacity:.92">She's into animals. Want me to find something she'll actually geek out over?</div>
+    <div class="stats"><div><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Birthday</span><b>Wed 2 Dec</b></div><div><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Arrive by</span><b>Mon 30 Nov</b></div><div><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M16 12h2"/></svg>Budget</span><b>₹2,000</b></div></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-white"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v9H5v-9"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>Find a gift</button>
+      <button class="btn glass" style="width:54px;padding:0;border-radius:16px;color:#fff"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></button>
+    </div>
+  </div>
+
+  <div class="section"><h2>Deals I found</h2><a href="#">All 6</a></div>
+  <div class="stack">
+    <div class="card deal">
+      <div class="thumb noisy" style="background:var(--g-sky)">H</div>
+      <div style="flex:1;min-width:0">
+        <div style="font:600 14px Inter">Hades II · GOG</div>
+        <div class="sub" style="font-size:12px">Below your $20 target</div>
+      </div>
+      <div style="text-align:right"><div class="price">$17.99</div><span class="chip ok">−40%</span></div>
+    </div>
+    <div class="card deal">
+      <div class="thumb noisy" style="background:var(--g-sun)">μ</div>
+      <div style="flex:1;min-width:0">
+        <div style="font:600 14px Inter">ThinkCentre M720q ×3</div>
+        <div class="sub" style="font-size:12px">r/homelabsales · Proxmox-ready</div>
+      </div>
+      <div style="text-align:right"><div class="price">$210</div><span class="chip vio">Homelab</span></div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab on"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M3 10l9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Today</div>
+    <div class="tab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Watches</div>
+    <div class="orb"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
+    <div class="tab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>People</div>
+    <div class="tab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Me</div>
+  </div>
+</div>
+<div class="label">01 · Today — proactive feed</div>
+</div>
+
+<!-- 2. AGENT RUN -->
+<div>
+<div class="phone">
+  <div class="status"><span>9:42</span><span>●●● ▮</span></div>
+  <div style="display:flex;align-items:center;gap:10px;padding:0 4px 12px">
+    <span style="width:36px;height:36px;border-radius:12px;background:#fff;border:1px solid var(--line);display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="15 18 9 12 15 6"/></svg></span>
+    <div><h2>Gift for cousin</h2><div class="sub" style="font-size:12px">Birthday · 12 days · ₹2,000</div></div>
+  </div>
+  <div class="stack">
+    <div class="bubble-me">She's super nerdy about animals. A hardcover infographic book with cool visuals would be perfect.</div>
+    <div class="card steps">
+      <div style="font:600 12px Inter;color:var(--muted);margin-bottom:4px">XERXES IS WORKING</div>
+      <div class="step"><span class="tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"/></svg></span>Searched 40 animal books for ages 12–15</div>
+      <div class="step"><span class="tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"/></svg></span>Verified hardcover editions (Open Library)</div>
+      <div class="step"><span class="tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"/></svg></span>Checked price on Amazon, Flipkart, Bookswagon</div>
+      <div class="step"><span class="spin"></span>Delivery to 560001 before Mon 30 Nov…</div>
+    </div>
+
+    <div class="card product" style="position:relative">
+            <div class="top">
+        <div class="cover noisy" style="background:linear-gradient(160deg,#0FB5AE,#0B5E7A)"></div>
+        <div style="min-width:0">
+          <span class="chip vio" style="margin-bottom:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>Best pick</span><div class="ptitle">Animal Encyclopedia (DK)</div>
+          <div class="sub" style="font-size:12px;margin:3px 0 8px">Hardcover · 304 pages · Ages 9+</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip">2,500 species</span><span class="chip">Photo-led</span></div>
+        </div>
+      </div>
+      <div class="verdict"><div><b>₹1,299</b><div class="sub" style="font-size:11.5px">incl. free delivery</div></div><div style="text-align:right"><span class="chip ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"/></svg>Thu 26 Nov</span><div class="sub" style="font-size:11.5px;margin-top:3px">4 days to spare</div></div></div>
+    </div>
+
+    <div class="card product">
+      <div class="top">
+        <div class="cover noisy" style="background:linear-gradient(160deg,#FFB547,#E0482F)"></div>
+        <div style="min-width:0">
+          <div class="ptitle">Animals Infographica</div>
+          <div class="sub" style="font-size:12px;margin:3px 0 8px">Hardcover · 160 pages</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip">Infographics</span><span class="chip">Fun facts</span></div>
+        </div>
+      </div>
+      <div class="verdict"><div><b>₹1,700</b><div class="sub" style="font-size:11.5px">₹1,640 + ₹60 delivery</div></div><div style="text-align:right"><span class="chip warn">Sat 28 Nov</span><div class="sub" style="font-size:11.5px;margin-top:3px">Tight — 0 days spare</div></div></div>
+    </div>
+  </div>
+</div>
+<div class="label">02 · Agent run — generated cards</div>
+</div>
+
+<!-- 3. DECISION -->
+<div>
+<div class="phone">
+  <div class="status"><span>9:43</span><span>●●● ▮</span></div>
+  <div style="padding:0 4px"><div class="sub">Xerxes recommends</div><h1>Animal Encyclopedia</h1></div>
+
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <div class="sub">Total incl. delivery</div><div class="sub">Budget ₹2,000</div>
+    </div>
+    <div style="font:800 36px 'Inter Tight';letter-spacing:-.03em;margin:4px 0 10px">₹1,299</div>
+    <div class="bar"><i></i></div>
+    <div class="sub" style="font-size:12px;margin-top:8px">₹701 left — enough for a card and wrapping</div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h2 style="font-size:15px">Delivery timeline</h2>
+    <div class="tl">
+      <div class="a"><span></span><b>Today</b>Order</div>
+      <div class="a"><span></span><b>Sat 21</b>Ships</div>
+      <div class="b"><span></span><b>Thu 26</b>Arrives</div>
+      <div class="b"><span></span><b>Mon 30</b>Buffer</div>
+      <div class="c"><span></span><b>Wed 2</b>Birthday</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span class="chip ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"/></svg>Hardcover</span><span class="chip ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"/></svg>In budget</span><span class="chip ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="20 6 9 17 4 12"/></svg>4 days spare</span><span class="chip">Seller: Amazon.in</span>
+    </div>
+    <div class="sub" style="font-size:13px;margin-top:10px;color:var(--ink2)">Photo-led spreads on 2,500 species, with fact boxes on every page. It hits the "nerdy and visual" brief at 65% of your budget.</div>
+  </div>
+
+  <div class="voice noisy" style="margin-top:12px">
+    <div class="wave"><i style="height:8px"></i><i style="height:16px"></i><i style="height:22px"></i><i style="height:12px"></i><i style="height:18px"></i><i style="height:9px"></i></div>
+    <div style="font:600 13px Inter">"Want me to set a reminder to wrap it on the 29th?"</div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+    <button class="btn btn-grad">Buy on Amazon.in · ₹1,299</button>
+    <button class="btn btn-ghost">Save to plan</button>
+  </div>
+</div>
+<div class="label">03 · Decision — budget + delivery proof</div>
+</div>
+
+</div>
+</body>
+</html>

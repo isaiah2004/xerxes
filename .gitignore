@@ -1,0 +1,14 @@
+# secrets — never commit
+.env
+.env.*
+!.env.example
+env.download
+api-key.txt
+llm-key.txt
+*.pem
+
+node_modules/
+dist/
+.data/
+.expo/
+web-build/
