@@ -10,6 +10,7 @@ import { env, mask } from "./env.js";
 import { handleMcp } from "./mcp.js";
 import { upcoming } from "./occasions.js";
 import { getRun } from "./runs.js";
+import { manageRoutes } from "./manage.js";
 import { readDb, mutate } from "./store.js";
 import { murfStream } from "./integrations/murf.js";
 import { voiceRoutes } from "./voice.js";
@@ -96,6 +97,7 @@ app.get("/api/tts", async (c) => {
   }
 });
 
+manageRoutes(app); // Radar / Calendar add-edit-delete, dismiss finds
 voiceRoutes(app);
 
 serve({ fetch: app.fetch, port: env.port, hostname: "0.0.0.0" }, (info) => {

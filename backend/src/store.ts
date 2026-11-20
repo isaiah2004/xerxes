@@ -80,6 +80,10 @@ export type Db = {
   conversations?: Record<string, { threadId: string; updatedAt: string }>;
   /** Seed watch ids already offered once, so a watch the user removes isn't re-added on the next start. */
   seededWatches?: string[];
+  /** Same for seed occasions: a deleted birthday/festival stays deleted. */
+  seededOccasions?: string[];
+  /** dedupeKeys of finds the user dismissed, so the watcher doesn't announce the same deal again. */
+  dismissedFinds?: string[];
 };
 
 // ---------- seed (demo profile, editable in-app / by the agent) ----------
@@ -225,11 +229,13 @@ function mergeSeed(db: Db): boolean {
       changed = true;
     }
   }
+  // occasions: offer each seed occasion once, so one the user deletes isn't re-added on the next start
+  db.seededOccasions ??= [];
   for (const o of s.occasions) {
-    if (!db.occasions.some((x) => x.id === o.id)) {
-      db.occasions.push(o);
-      changed = true;
-    }
+    if (db.seededOccasions.includes(o.id)) continue;
+    if (!db.occasions.some((x) => x.id === o.id)) db.occasions.push(o);
+    db.seededOccasions.push(o.id);
+    changed = true;
   }
   // watches: offer each seed watch once (older data files have the same queries under random ids)
   const same = (a: Watch, b: Watch) => a.kind === b.kind && a.query.toLowerCase() === b.query.toLowerCase();
@@ -265,7 +271,7 @@ export function mutate<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
 /** Adds a notification unless one with the same dedupeKey exists. Returns it if new. */
 export function notify(n: Omit<Notification, "id" | "createdAt" | "read">): Promise<Notification | null> {
   return mutate((db) => {
-    if (db.notifications.some((x) => x.dedupeKey === n.dedupeKey)) return null;
+    if (db.notifications.some((x) => x.dedupeKey === n.dedupeKey) || db.dismissedFinds?.includes(n.dedupeKey)) return null;
     const full: Notification = { ...n, id: randomUUID(), createdAt: now(), read: false };
     db.notifications.unshift(full);
     db.notifications = db.notifications.slice(0, 200);
