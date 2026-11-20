@@ -62,7 +62,8 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
 
 export default function TabLayout() {
   return (
-    <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: color.paper } }}>
+    // "shift": the new tab slides in a touch from the side it sits on and cross-fades, instead of a hard cut.
+    <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false, animation: "shift", sceneStyle: { backgroundColor: color.paper } }}>
       <Tabs.Screen name="index" />
       <Tabs.Screen name="watches" />
       <Tabs.Screen name="calendar" />

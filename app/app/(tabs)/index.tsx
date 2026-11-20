@@ -6,6 +6,7 @@ import { ScrollView, useWindowDimensions, View } from "react-native";
 import { OccasionCard } from "@/components/dates";
 import { Screen } from "@/components/Screen";
 import { SpeakButton } from "@/components/Speak";
+import { findVoice, TalkButton } from "@/components/TalkButton";
 import { Button, Card, GradientSurface, IconTile, Ring, Row, SectionHeader, T, Tap } from "@/components/ui";
 import { api, type Feed, type Notification, type Upcoming } from "@/lib/api";
 import { dayDate, greeting, longToday, money, pronounsFor, shortDate } from "@/lib/format";
@@ -110,9 +111,12 @@ function DealRow({ n }: { n: Notification }) {
               {n.body}
             </T>
           </View>
-          <View style={{ alignItems: "flex-end", gap: 5 }}>
+          <View style={{ alignItems: "flex-end", gap: 6 }}>
             {n.price ? <T v="num">{n.price}</T> : null}
-            <SpeakButton text={`${n.title}. ${n.body}`} />
+            <Row gap={6}>
+              <SpeakButton text={`${n.title}. ${n.body}`} />
+              <TalkButton voice={findVoice(n)} label={`Talk to Xerxes about ${n.title}`} />
+            </Row>
           </View>
         </Row>
       </Card>
@@ -121,18 +125,25 @@ function DealRow({ n }: { n: Notification }) {
 }
 
 // ---------------------------------------------------------------- quick asks
-const ASKS: { icon: LucideIcon; grad: GradientName; title: string; sub: string; prompt: string }[] = [
-  { icon: BookOpen, grad: "navy", title: "Hunt a book", sub: "New or second-hand", prompt: "I'm looking for a specific book. Find where to get it cheapest and fastest — second-hand is fine." },
-  { icon: Cpu, grad: "primary", title: "Homelab deals", sub: "Used enterprise gear", prompt: "Look for great second-hand homelab deals that fit my setup right now." },
-  { icon: Library, grad: "info", title: "Big purchase", sub: "Compare, DIY or plan", prompt: "I want a really tall bookshelf that fits about 1000 books. Explore my options." },
-  { icon: Gamepad2, grad: "navy", title: "Game sales", sub: "Across PC stores", prompt: "Which games I'd like are on sale right now across PC stores?" },
+// prompt: prefilled when you tap the card (chat); hello: what Xerxes opens with when you tap its mic (voice).
+const ASKS: { icon: LucideIcon; grad: GradientName; title: string; sub: string; prompt: string; hello: string }[] = [
+  { icon: BookOpen, grad: "navy", title: "Hunt a book", sub: "New or second-hand", prompt: "I'm looking for a specific book. Find where to get it cheapest and fastest — second-hand is fine.", hello: "Which book are we hunting for?" },
+  { icon: Cpu, grad: "primary", title: "Homelab deals", sub: "Used enterprise gear", prompt: "Look for great second-hand homelab deals that fit my setup right now.", hello: "Want me to scout second-hand homelab gear? Tell me what you're after." },
+  { icon: Library, grad: "info", title: "Big purchase", sub: "Compare, DIY or plan", prompt: "I want a really tall bookshelf that fits about 1000 books. Explore my options.", hello: "What's the big purchase? I'll weigh up the options with you." },
+  { icon: Gamepad2, grad: "navy", title: "Game sales", sub: "Across PC stores", prompt: "Which games I'd like are on sale right now across PC stores?", hello: "Which games should I check for sales?" },
 ];
 
 function QuickAsk({ a }: { a: (typeof ASKS)[number] }) {
   return (
     <Tap onPress={() => startChat({ prompt: a.prompt, title: a.title })} style={{ width: "48.5%" }} accessibilityLabel={a.title}>
       <Card pad={16} style={{ gap: 14, flexGrow: 1 }}>
-        <IconTile icon={a.icon} grad={a.grad} size={44} />
+        <Row style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+          <IconTile icon={a.icon} grad={a.grad} size={44} />
+          <TalkButton
+            voice={{ topic: a.title, hello: a.hello, context: `That shortcut (${a.sub.toLowerCase()}) usually means: "${a.prompt}"` }}
+            label={`Talk to Xerxes: ${a.title}`}
+          />
+        </Row>
         <View style={{ gap: 2 }}>
           <T v="h3" style={{ fontSize: 17, lineHeight: 21 }}>
             {a.title}

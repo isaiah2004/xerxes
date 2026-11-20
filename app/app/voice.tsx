@@ -40,7 +40,7 @@ function Orb({ level, phase, size }: { level: Animated.Value; phase: Phase; size
 }
 
 export default function Voice() {
-  const params = useLocalSearchParams<{ conversationId?: string }>();
+  const params = useLocalSearchParams<{ conversationId?: string; occasionId?: string; topic?: string; context?: string; hello?: string }>();
   const insets = useSafeAreaInsets();
   const [phase, setPhase] = useState<Phase>("connecting");
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,8 @@ export default function Voice() {
     let poll: ReturnType<typeof setTimeout> | undefined;
     (async () => {
       try {
-        const s = await api.voiceStart(params.conversationId);
+        const { conversationId, occasionId, topic, context, hello } = params;
+        const s = await api.voiceStart({ conversationId, occasionId, topic, context, hello });
         if (!alive) return void api.voiceStop(s.sessionId);
         session.current = s.sessionId;
         setGreeting(s.greeting);
@@ -124,7 +125,9 @@ export default function Voice() {
     <View style={{ flex: 1, backgroundColor: color.paper, paddingTop: insets.top + 8 }}>
       <Row style={{ justifyContent: "space-between", paddingHorizontal: 18, width: "100%", maxWidth: 520, alignSelf: "center" }}>
         <View>
-          <T v="eyebrow">Voice · Agora + Murf</T>
+          <T v="eyebrow" numberOfLines={1}>
+            {params.topic ? `Voice · ${params.topic}` : "Voice · Agora + Murf"}
+          </T>
           <T v="h2">Xerxes</T>
         </View>
         <Pressable onPress={hangUp} hitSlop={10}>

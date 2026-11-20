@@ -44,19 +44,21 @@ How you work:
 Context (JSON): ${JSON.stringify(ctx)}`;
 }
 
-export async function startTurn(conversationId: string, userText: string, mode: Mode = "text"): Promise<Run> {
+/** context: app-side facts the user didn't say (e.g. which card started a voice call); goes in the prompt, not the transcript. */
+export async function startTurn(conversationId: string, userText: string, mode: Mode = "text", context?: string): Promise<Run> {
   const run = createRun(conversationId, userText);
-  void execute(run, mode);
+  void execute(run, mode, context);
   return run;
 }
 
-async function execute(run: Run, mode: Mode) {
+async function execute(run: Run, mode: Mode, context?: string) {
   try {
     const db = await readDb();
     const threadId = db.conversations?.[run.conversationId]?.threadId;
+    const note = context ? `(Context, not said by the user: ${context})\n` : "";
     const prompt = threadId
-      ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : ""}] ${run.userText}`
-      : `${await preamble(mode)}\n\nUser: ${run.userText}`;
+      ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : ""}] ${note}${run.userText}`
+      : `${await preamble(mode)}\n\n${note}User: ${run.userText}`;
     const out = await runCodex({
       prompt,
       threadId,

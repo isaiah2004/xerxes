@@ -54,6 +54,8 @@ export type Feed = {
   shortlist: unknown[];
 };
 
+export type VoiceStart = { conversationId?: string; occasionId?: string; topic?: string; context?: string; hello?: string };
+
 export type Verdict = "safe" | "tight" | "late" | "over_budget" | "late_and_over_budget" | "info";
 export type ProductItem = {
   title: string;
@@ -107,10 +109,11 @@ export const api = {
   run: (runId: string, after: number) => j<{ status: "running" | "done" | "error"; events: RunEvent[] }>(`/api/runs/${runId}?after=${after}`),
   markRead: (id: string) => j(`/api/notifications/${id}/read`, { method: "POST" }),
   ttsUrl: (text: string) => `${API}/api/tts?text=${encodeURIComponent(text)}`,
-  voiceStart: (conversationId?: string) =>
+  /** topic/context/hello: where the call started (an Ask Xerxes card, a Radar find) so Xerxes opens on it. */
+  voiceStart: (start: VoiceStart = {}) =>
     j<{ sessionId: string; appId: string; channel: string; uid: number; agentUid: number; token: string; agentId: string; greeting: string }>(
       "/api/voice/start",
-      { method: "POST", body: JSON.stringify({ conversationId }) },
+      { method: "POST", body: JSON.stringify(start) },
     ),
   voiceStop: (sessionId: string) => j("/api/voice/stop", { method: "POST", body: JSON.stringify({ sessionId }) }),
   voiceSession: (id: string) => j<{ runIds: string[]; runs: ({ id: string; userText: string; status: string } | null)[] }>(`/api/voice/sessions/${id}`),

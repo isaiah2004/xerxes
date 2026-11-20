@@ -36,7 +36,7 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.paper } }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="chat/[id]" />
+        <Stack.Screen name="chat/[id]" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="voice" options={{ presentation: "fullScreenModal", animation: "fade_from_bottom" }} />
       </Stack>
     </>

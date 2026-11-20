@@ -10,10 +10,24 @@ import { readDb } from "./store.js";
 // Agora Conversational AI: Agora handles ASR + turn-taking + Murf Falcon TTS in the RTC channel,
 // and calls our OpenAI-compatible endpoint below as its "custom LLM" — which runs the same Codex agent + tools.
 
-/** llmKey: per-session secret handed to Agora as llm.api_key; checked when Agora sends it back as a Bearer token. */
-type VoiceSession = { id: string; channel: string; agentId?: string; llmKey?: string; runIds: string[] };
+/** llmKey: per-session secret handed to Agora as llm.api_key; checked when Agora sends it back as a Bearer token.
+ *  context: where the call was started from (a card, a deal) + what Xerxes opened with; handed to the first turn only. */
+type VoiceSession = { id: string; channel: string; agentId?: string; llmKey?: string; runIds: string[]; context?: string };
 const sessions = new Map<string, VoiceSession>();
 const log = (id: string, msg: string) => console.log(`[voice ${id.slice(0, 8)}] ${msg}`);
+
+/** Agora's cloud reaches our LLM endpoint through PUBLIC_URL. If that tunnel is down, every turn fails and the agent
+ *  only ever says its generic failure line, so check it before starting a call and say what's actually wrong. */
+async function publicUrlAnswers(): Promise<boolean> {
+  try {
+    const r = await fetch(`${env.publicUrl}/health`, { signal: AbortSignal.timeout(5000) });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+const clip = (s: unknown, n: number) => (typeof s === "string" ? s.replace(/\s+/g, " ").trim().slice(0, n) : "") || undefined;
 
 const SITES: Record<string, string> = {
   "amazon.in": "Amazon", "amazon.com": "Amazon", "flipkart.com": "Flipkart", "bookswagon.com": "Bookswagon",
@@ -64,14 +78,32 @@ function sseChunk(id: string, content: string | null, finish: string | null = nu
 export function voiceRoutes(app: Hono) {
   app.post("/api/voice/start", async (c) => {
     if (!env.publicUrl) return c.json({ error: "PUBLIC_URL is not set — Agora's cloud must be able to reach this backend." }, 400);
-    const { conversationId } = await c.req.json<{ conversationId?: string }>().catch(() => ({ conversationId: undefined }));
-    const id = conversationId ?? randomUUID();
+    if (!(await publicUrlAnswers())) {
+      console.warn(`[voice] PUBLIC_URL ${env.publicUrl} isn't answering; not starting a call`);
+      return c.json({ error: "Xerxes' voice line is down: the public tunnel to this backend isn't answering. Restart the tunnel and update PUBLIC_URL." }, 503);
+    }
+    // Where the call was started from: an occasion card, an "Ask Xerxes" shortcut or a Radar find.
+    type Start = { conversationId?: string; occasionId?: string; topic?: string; context?: string; hello?: string };
+    const body = await c.req.json<Start>().catch((): Start => ({}));
+    const id = clip(body.conversationId, 64) ?? randomUUID();
     const channel = `xerxes-${id.slice(0, 8)}`;
     const db = await readDb();
-    const nudge = upcoming(db, 60).find((o) => o.inReminderWindow);
-    const greeting = nudge
-      ? `Hey ${db.profile.name}! Heads up, ${nudge.label.toLowerCase()} is in ${nudge.daysLeft} days. Want me to find something?`
-      : `Hey ${db.profile.name}, Xerxes here. What are we shopping for?`;
+    const name = db.profile.name;
+    const topic = clip(body.topic, 80);
+    const hello = clip(body.hello, 200);
+    const occasion = body.occasionId ? upcoming(db, 366).find((o) => o.id === body.occasionId) : undefined;
+    const nudge = occasion ?? (topic ? undefined : upcoming(db, 60).find((o) => o.inReminderWindow));
+    const greeting = hello
+      ? `Hey ${name}! ${hello}`
+      : nudge
+        ? `Hey ${name}! Heads up, ${nudge.label.toLowerCase()} is in ${nudge.daysLeft} days. Want me to find something?`
+        : `Hey ${name}, Xerxes here. What are we shopping for?`;
+    // The caller's first words are often just "yes, go ahead", so the first turn needs to know what that answers.
+    const context = [
+      topic && `The caller started this call from "${topic}" in the app.${body.context ? ` ${clip(body.context, 600)}` : ""}`,
+      nudge && `It's about ${nudge.label} (occasionId ${nudge.id}): ${nudge.daysLeft} days left, arrive by ${nudge.arriveBy}, budget ${nudge.budget.amount} ${nudge.budget.currency}.`,
+      `You opened the call by saying: "${greeting}"`,
+    ].filter(Boolean).join(" ");
     const llmKey = randomUUID();
     try {
       const agent = await startAgent({
@@ -81,8 +113,8 @@ export function voiceRoutes(app: Hono) {
         greeting,
         instructions: "You are Xerxes, a proactive voice shopping agent.",
       });
-      sessions.set(id, { id, channel, agentId: agent.agent_id, llmKey, runIds: sessions.get(id)?.runIds ?? [] });
-      log(id, `agent ${agent.agent_id} started in ${channel} (${agent.status})`);
+      sessions.set(id, { id, channel, agentId: agent.agent_id, llmKey, runIds: sessions.get(id)?.runIds ?? [], context });
+      log(id, `agent ${agent.agent_id} started in ${channel} (${agent.status})${topic ? ` from "${topic}"` : ""}`);
       return c.json({ sessionId: id, appId: env.agoraAppId, channel, uid: USER_UID, agentUid: AGENT_UID, token: userRtcToken(channel), agentId: agent.agent_id, greeting });
     } catch (e) {
       log(id, `agent failed to start: ${(e as Error).message}`);
@@ -139,7 +171,9 @@ export function voiceRoutes(app: Hono) {
         : "").trim();
     if (!text) return c.json({ error: { message: "no user message" } }, 400);
 
-    const run = await startTurn(id, text, "voice");
+    const context = session.context;
+    session.context = undefined;
+    const run = await startTurn(id, text, "voice", context);
     session.runIds.push(run.id);
     const chunkId = `chatcmpl-${run.id.slice(0, 8)}`;
     const t0 = Date.now();
