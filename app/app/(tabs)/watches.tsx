@@ -1,5 +1,4 @@
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { BookOpen, Cpu, Gamepad2, Gift, MoreHorizontal, Pause, Pencil, Play, Plus, Sparkles, Trash2, X, type LucideIcon } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
@@ -7,10 +6,12 @@ import { ChoiceChip, Field, Input } from "@/components/forms";
 import { Screen } from "@/components/Screen";
 import { ConfirmPanel, FormError, IconButton, Sheet, SheetAction, SheetActions, SheetBody, SheetFooter } from "@/components/Sheet";
 import { SpeakButton } from "@/components/Speak";
+import { findVoice, TalkButton } from "@/components/TalkButton";
 import { Button, Card, Chip, IconTile, Row, SectionHeader, T, Tap } from "@/components/ui";
 import { api, manage, type Feed, type Watch, type WatchKind } from "@/lib/api";
 import { money } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
+import { openLink } from "@/lib/links";
 import { color, type GradientName } from "@/lib/theme";
 
 // Radar = the things Xerxes is quietly hunting for you (game sales, homelab gear, books, price drops).
@@ -139,7 +140,7 @@ export default function Radar() {
           {finds.map((n) => {
             const k = kindOf(n.kind);
             return (
-              <Tap key={n.id} onPress={() => n.url && WebBrowser.openBrowserAsync(n.url)} accessibilityLabel={n.title}>
+              <Tap key={n.id} onPress={() => openLink(n.url)} accessibilityLabel={n.title}>
                 <Card>
                   <Row gap={12} style={{ alignItems: "flex-start" }}>
                     <IconTile icon={k.icon} grad={k.grad} size={44} />
@@ -153,6 +154,7 @@ export default function Radar() {
                       <Row gap={8} style={{ marginTop: 8 }}>
                         {n.price ? <T v="num">{n.price}</T> : null}
                         <SpeakButton text={`${n.title}. ${n.body}`} />
+                        <TalkButton voice={findVoice(n)} label={`Talk to Xerxes about ${n.title}`} />
                       </Row>
                     </View>
                     <IconButton icon={X} size={30} label={`Dismiss ${n.title}`} onPress={() => dismiss(n.id)} />
