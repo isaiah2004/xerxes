@@ -1,16 +1,18 @@
 import { router } from "expo-router";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronRight, MoreHorizontal } from "lucide-react-native";
 import { View } from "react-native";
 import type { Upcoming } from "@/lib/api";
 import { dayNum, money, monthShort, weekdayShort } from "@/lib/format";
 import { color, font } from "@/lib/theme";
+import { IconButton } from "./Sheet";
 import { Card, Chip, Row, T, Tap, type Tone } from "./ui";
 
 /** Orange once it's inside the reminder window (time to buy), red when it's 3 days or less. */
 export const urgencyOf = (o: Upcoming): Extract<Tone, "bad" | "warn" | "neutral"> =>
   o.daysLeft <= 3 ? "bad" : o.daysLeft <= 7 || o.inReminderWindow ? "warn" : "neutral";
 
-export const kindLabel = (o: Upcoming) => (o.kind === "birthday" ? "Birthday" : o.kind === "anniversary" ? "Anniversary" : "Festival");
+export const kindLabel = (o: Pick<Upcoming, "kind">) =>
+  o.kind === "birthday" ? "Birthday" : o.kind === "anniversary" ? "Anniversary" : o.kind === "festival" ? "Festival" : "Occasion";
 
 /** "Turns 57 · ₹3,000" / "Festival · ₹6,000" */
 export const occasionSub = (o: Upcoming) =>
@@ -70,8 +72,8 @@ export function OccasionCard({ o }: { o: Upcoming }) {
   );
 }
 
-/** Agenda row in the calendar. */
-export function OccasionRow({ o, highlight }: { o: Upcoming; highlight?: boolean }) {
+/** Agenda row in the calendar. Tapping it opens the gift chat; `onMore` adds a trailing ⋯ (edit / delete / find a gift). */
+export function OccasionRow({ o, highlight, onMore }: { o: Upcoming; highlight?: boolean; onMore?: () => void }) {
   const tone = urgencyOf(o);
   return (
     <Tap onPress={() => openOccasion(o)} accessibilityLabel={`${o.label}, in ${o.daysLeft} days`}>
@@ -93,7 +95,7 @@ export function OccasionRow({ o, highlight }: { o: Upcoming; highlight?: boolean
           </View>
           <View style={{ alignItems: "flex-end", gap: 6 }}>
             <Chip label={daysLabel(o.daysLeft)} tone={tone} />
-            <ChevronRight size={18} color={color.faint} />
+            {onMore ? <IconButton icon={MoreHorizontal} size={30} label={`Manage ${o.label}`} onPress={onMore} /> : <ChevronRight size={18} color={color.faint} />}
           </View>
         </Row>
       </Card>

@@ -65,8 +65,11 @@ export function Input({
   );
 }
 
-/** Pressable chip with an on/off state (people, quick amounts). `tile` = equal-width icon-over-label tile for kind pickers. */
-export function ChoiceChip({ label, selected, onPress, icon: Icon, tile }: { label: string; selected: boolean; onPress: () => void; icon?: LucideIcon; tile?: boolean }) {
+/**
+ * Pressable chip with an on/off state (people, quick amounts). For kind pickers: `tile` = equal-width icon-over-label
+ * tile (four in a row), `tile="wide"` = equal-width icon-beside-label tile (two in a row, for longer labels).
+ */
+export function ChoiceChip({ label, selected, onPress, icon: Icon, tile }: { label: string; selected: boolean; onPress: () => void; icon?: LucideIcon; tile?: boolean | "wide" }) {
   const fg = selected ? color.ok : color.ink2;
   return (
     <Pressable
@@ -80,9 +83,9 @@ export function ChoiceChip({ label, selected, onPress, icon: Icon, tile }: { lab
       style={tile ? { flex: 1, minWidth: 0 } : undefined}
     >
       {({ pressed }) => (
-        <View style={[tile ? styles.tile : styles.choice, selected ? styles.choiceOn : null, pressed ? { transform: [{ scale: 0.96 }] } : null]}>
-          {Icon ? <Icon size={tile ? 20 : 15} color={fg} strokeWidth={2.3} /> : null}
-          <Text style={[styles.choiceText, tile ? { fontSize: 12.5 } : null, { color: fg }]} numberOfLines={1}>
+        <View style={[tile === "wide" ? styles.wide : tile ? styles.tile : styles.choice, selected ? styles.choiceOn : null, pressed ? { transform: [{ scale: 0.96 }] } : null]}>
+          {Icon ? <Icon size={tile ? 19 : 15} color={fg} strokeWidth={2.3} /> : null}
+          <Text style={[styles.choiceText, tile === true ? { fontSize: 12.5 } : tile ? { fontSize: 14 } : null, { color: fg }]} numberOfLines={1}>
             {label}
           </Text>
         </View>
@@ -150,6 +153,18 @@ const styles = StyleSheet.create({
     gap: 6,
     height: 66,
     paddingHorizontal: 4,
+    borderRadius: radius.lg,
+    backgroundColor: color.card,
+    borderWidth: 1.5,
+    borderColor: color.line,
+  },
+  wide: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 50,
+    paddingHorizontal: 8,
     borderRadius: radius.lg,
     backgroundColor: color.card,
     borderWidth: 1.5,
