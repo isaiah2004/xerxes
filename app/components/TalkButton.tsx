@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { Mic } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import type { Notification, VoiceStart } from "@/lib/api";
 import { haptic } from "@/lib/haptics";
 import { color } from "@/lib/theme";
@@ -26,7 +26,8 @@ export function TalkButton({ voice, label = "Talk to Xerxes about this" }: { voi
         router.push({ pathname: "/voice", params });
       }}
       hitSlop={10}
-      accessibilityRole="button"
+      // it sits inside a tappable card, and on web a role="button" here would nest a <button> in a <button>
+      accessibilityRole={Platform.OS === "web" ? undefined : "button"}
       accessibilityLabel={label}
     >
       {({ pressed }) => (

@@ -1,15 +1,15 @@
 import { Image } from "expo-image";
-import * as WebBrowser from "expo-web-browser";
 import { AlertTriangle, BookOpen, Check, Eye, Sparkles, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Animated, Easing, Platform, Pressable, View } from "react-native";
 import type { Card as CardT, ProductItem, RunEvent } from "@/lib/api";
 import { addDaysIso, dayNum, money, todayIso, weekdayDay, weekdayShort } from "@/lib/format";
+import { openLink } from "@/lib/links";
 import { color, font, palette, radius, type GradientName } from "@/lib/theme";
 import { SpeakButton } from "./Speak";
 import { Button, Card, Chip, GradientSurface, IconTile, Ring, Row, T, Tap, type Tone } from "./ui";
 
-const open = (url?: string) => url && WebBrowser.openBrowserAsync(url);
+const open = (url?: string) => void openLink(url);
 
 // ---------------------------------------------------------------- verdict
 function verdictView(item: ProductItem): { tone: Tone; label: string; caption: string } {

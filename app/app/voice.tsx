@@ -1,16 +1,36 @@
+import Constants from "expo-constants";
 import { router, useLocalSearchParams } from "expo-router";
-import { Mic, MicOff, PhoneOff, X } from "lucide-react-native";
+import { Mic, MicOff, PhoneOff, RotateCcw, X } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TurnView, type Turn } from "@/components/Conversation";
-import { GradientSurface, Row, T } from "@/components/ui";
+import { Button, GradientSurface, Row, T } from "@/components/ui";
 import { api } from "@/lib/api";
 import { haptic } from "@/lib/haptics";
+import { openLink } from "@/lib/links";
 import { color, ledge, shadow } from "@/lib/theme";
-import { joinVoice, type VoiceHandle } from "@/lib/voice";
+import { joinVoice, openMic, type MicHandle, type VoiceHandle } from "@/lib/voice";
 
-type Phase = "connecting" | "waiting" | "live" | "ended" | "error";
+type Phase = "connecting" | "mic" | "waiting" | "live" | "ended" | "error";
+
+/** Browser/Agora errors → what to do about them. */
+function friendlyError(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e);
+  if (/PERMISSION_DENIED|NotAllowedError|Permission (denied|dismissed)/i.test(m))
+    return "Xerxes needs your microphone to hear you. Tap Try again and choose Allow (if the browser stopped asking, allow it from the icon next to the address).";
+  if (/NotFoundError|DEVICE_NOT_FOUND|device not found/i.test(m)) return "No microphone found. Connect or enable one, then try again.";
+  if (/NotReadableError|Could not start audio source/i.test(m)) return "Your microphone is busy in another app. Free it up, then try again.";
+  return m;
+}
+
+/** The web build's /voice page with the same params (the dev server serves web too). */
+function webVoiceUrl(params: Record<string, string | string[] | undefined>) {
+  const host = Constants.expoConfig?.hostUri?.split(":")[0] ?? "localhost";
+  const base = process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/$/, "") ?? `http://${host}:8081`;
+  const qs = new URLSearchParams(Object.entries(params).flatMap(([k, v]) => (typeof v === "string" && v ? [[k, v]] : []))).toString();
+  return `${base}/voice${qs ? `?${qs}` : ""}`;
+}
 
 function Orb({ level, phase, size }: { level: Animated.Value; phase: Phase; size: number }) {
   const [breathe] = useState(() => new Animated.Value(0));
@@ -42,39 +62,67 @@ function Orb({ level, phase, size }: { level: Animated.Value; phase: Phase; size
 export default function Voice() {
   const params = useLocalSearchParams<{ conversationId?: string; occasionId?: string; topic?: string; context?: string; hello?: string }>();
   const insets = useSafeAreaInsets();
-  const [phase, setPhase] = useState<Phase>("connecting");
+  const [phase, setPhase] = useState<Phase>(Platform.OS === "web" ? "connecting" : "waiting");
   const [error, setError] = useState<string | null>(null);
   const [greeting, setGreeting] = useState<string>("");
   const [muted, setMuted] = useState(false);
   const [speaker, setSpeaker] = useState<"agent" | "me" | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [level] = useState(() => new Animated.Value(0));
+  const [attempt, setAttempt] = useState(0);
   const handle = useRef<VoiceHandle | null>(null);
   const session = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     let poll: ReturnType<typeof setTimeout> | undefined;
+    if (Platform.OS !== "web") {
+      // Expo Go has no Agora RTC module, so on the phone the call runs in the browser, which has WebRTC.
+      // (localhost / 127.0.0.1 count as secure, so the mic works there; a hosted build sets EXPO_PUBLIC_WEB_URL.)
+      openLink(webVoiceUrl(params))
+        .catch((e: Error) => {
+          setError(e.message);
+          setPhase("error");
+        })
+        .finally(() => alive && router.canGoBack() && router.back());
+      return () => {
+        alive = false;
+      };
+    }
     (async () => {
+      let mic: MicHandle | undefined;
       try {
+        // Mic first: if the browser says no, no agent gets started (and nobody greets an empty room).
+        const askTimer = setTimeout(() => alive && setPhase((p) => (p === "connecting" ? "mic" : p)), 400);
+        mic = await openMic().finally(() => clearTimeout(askTimer));
+        if (!alive) return mic.close();
+        setPhase("connecting");
         const { conversationId, occasionId, topic, context, hello } = params;
         const s = await api.voiceStart({ conversationId, occasionId, topic, context, hello });
-        if (!alive) return void api.voiceStop(s.sessionId);
+        if (!alive) {
+          mic.close();
+          return void api.voiceStop(s.sessionId);
+        }
         session.current = s.sessionId;
         setGreeting(s.greeting);
         setPhase("waiting");
-        handle.current = await joinVoice(s, {
-          level: (who, l) => {
-            if (who === "agent") level.setValue(l);
-            if (l > 18) setSpeaker(who);
-            else setSpeaker((cur) => (cur === who ? null : cur));
+        handle.current = await joinVoice(
+          s,
+          {
+            level: (who, l) => {
+              if (who === "agent") level.setValue(l);
+              if (l > 18) setSpeaker(who);
+              else setSpeaker((cur) => (cur === who ? null : cur));
+            },
+            agentJoined: () => {
+              haptic.success();
+              setPhase("live");
+            },
+            agentLeft: () => setPhase("ended"),
           },
-          agentJoined: () => {
-            haptic.success();
-            setPhase("live");
-          },
-          agentLeft: () => setPhase("ended"),
-        });
+          mic,
+        );
+        mic = undefined; // the call owns it now; leave() closes it
         setPhase((p) => (p === "waiting" ? "live" : p));
         const tick = async () => {
           try {
@@ -85,7 +133,12 @@ export default function Voice() {
         };
         tick();
       } catch (e) {
-        setError((e as Error).message);
+        mic?.close();
+        if (session.current) api.voiceStop(session.current).catch(() => undefined);
+        session.current = null;
+        if (!alive) return;
+        haptic.error();
+        setError(friendlyError(e));
         setPhase("error");
       }
     })();
@@ -93,9 +146,20 @@ export default function Voice() {
       alive = false;
       clearTimeout(poll);
       handle.current?.leave().catch(() => undefined);
+      handle.current = null;
       if (session.current) api.voiceStop(session.current).catch(() => undefined);
+      session.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [attempt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const retry = () => {
+    haptic.press();
+    setError(null);
+    setTurns([]);
+    setGreeting("");
+    setPhase("connecting");
+    setAttempt((a) => a + 1);
+  };
 
   const hangUp = () => {
     haptic.heavy();
@@ -106,7 +170,9 @@ export default function Voice() {
   const status =
     phase === "connecting"
       ? "Connecting…"
-      : phase === "waiting"
+      : phase === "mic"
+        ? "Allow your microphone"
+        : phase === "waiting"
         ? "Calling Xerxes…"
         : phase === "error"
           ? "Couldn't start the call"
@@ -124,7 +190,7 @@ export default function Voice() {
   return (
     <View style={{ flex: 1, backgroundColor: color.paper, paddingTop: insets.top + 8 }}>
       <Row style={{ justifyContent: "space-between", paddingHorizontal: 18, width: "100%", maxWidth: 520, alignSelf: "center" }}>
-        <View>
+        <View style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
           <T v="eyebrow" numberOfLines={1}>
             {params.topic ? `Voice · ${params.topic}` : "Voice · Agora + Murf"}
           </T>
@@ -144,9 +210,15 @@ export default function Voice() {
         </T>
         {!compact ? (
           <T v="sub" style={{ marginTop: 8, textAlign: "center", paddingHorizontal: 40 }}>
-            {error ?? (greeting ? `“${greeting}”` : "Real-time voice by Agora Conversational AI, spoken with Murf Falcon.")}
+            {error ??
+              (phase === "mic"
+                ? "Xerxes only listens while this call is open."
+                : greeting
+                  ? `“${greeting}”`
+                  : "Real-time voice by Agora Conversational AI, spoken with Murf Falcon.")}
           </T>
         ) : null}
+        {phase === "error" && Platform.OS === "web" ? <Button kind="grad" grad="primary" icon={RotateCcw} label="Try again" style={{ marginTop: 18 }} onPress={retry} /> : null}
       </View>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 18, gap: 16, width: "100%", maxWidth: 520, alignSelf: "center" }}>

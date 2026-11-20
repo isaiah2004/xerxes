@@ -1,5 +1,4 @@
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { BookOpen, Cake, Cpu, Gamepad2, Gift, Library, Mic, PartyPopper, Truck, Wallet, type LucideIcon } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { ScrollView, useWindowDimensions, View } from "react-native";
@@ -10,6 +9,7 @@ import { findVoice, TalkButton } from "@/components/TalkButton";
 import { Button, Card, GradientSurface, IconTile, Ring, Row, SectionHeader, T, Tap } from "@/components/ui";
 import { api, type Feed, type Notification, type Upcoming } from "@/lib/api";
 import { dayDate, greeting, longToday, money, pronounsFor, shortDate } from "@/lib/format";
+import { openLink } from "@/lib/links";
 import { color, radius, type GradientName } from "@/lib/theme";
 
 function startChat(params: { prompt?: string; occasionId?: string; title?: string }) {
@@ -99,7 +99,7 @@ const dealStyle: Record<string, { icon: LucideIcon; grad: GradientName }> = {
 function DealRow({ n }: { n: Notification }) {
   const s = dealStyle[n.kind] ?? dealStyle.product;
   return (
-    <Tap onPress={() => n.url && WebBrowser.openBrowserAsync(n.url)} accessibilityLabel={n.title}>
+    <Tap onPress={() => openLink(n.url)} accessibilityLabel={n.title}>
       <Card>
         <Row gap={12}>
           <IconTile icon={s.icon} grad={s.grad} size={46} />
