@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
-import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useState, type ReactNode } from "react";
+import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { isoOf, monthTitle, todayIso } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
 import { color, font, radius } from "@/lib/theme";
@@ -21,6 +21,21 @@ export function monthCells({ y, m }: Ym): (number | null)[] {
   const cells: (number | null)[] = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
   while (cells.length % 7) cells.push(null);
   return cells;
+}
+
+/** Whole weeks as explicit 7-cell rows. (Percent widths + flexWrap can push the 7th day onto the next row on
+ *  Android, which shifts every date a column left.) */
+export function WeekRows({ cells, render, style }: { cells: (number | null)[]; render: (d: number | null, i: number) => ReactNode; style?: StyleProp<ViewStyle> }) {
+  const weeks = Array.from({ length: Math.ceil(cells.length / 7) }, (_, w) => cells.slice(w * 7, w * 7 + 7));
+  return (
+    <View style={style}>
+      {weeks.map((week, w) => (
+        <View key={w} style={{ flexDirection: "row" }}>
+          {week.map((d, i) => render(d, w * 7 + i))}
+        </View>
+      ))}
+    </View>
+  );
 }
 
 export function MonthArrow({ dir, enabled, onPress }: { dir: -1 | 1; enabled: boolean; onPress: () => void }) {
@@ -46,7 +61,7 @@ export function WeekdayHeader() {
   return (
     <View style={{ flexDirection: "row" }}>
       {WEEKDAYS.map((d, i) => (
-        <T key={i} v="caption" style={{ width: `${100 / 7}%`, textAlign: "center", color: color.faint }}>
+        <T key={i} v="caption" style={{ flex: 1, textAlign: "center", color: color.faint }}>
           {d}
         </T>
       ))}
@@ -66,9 +81,11 @@ export function DatePicker({ value, onChange, min, max }: { value: string | null
         <MonthArrow dir={1} enabled={ymKey(view) < ymKey(ymOf(max))} onPress={() => setView(shiftYm(view, 1))} />
       </Row>
       <WeekdayHeader />
-      <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 4 }}>
-        {monthCells(view).map((d, i) => {
-          if (!d) return <View key={i} style={{ width: `${100 / 7}%`, height: 42 }} />;
+      <WeekRows
+        cells={monthCells(view)}
+        style={{ marginTop: 4 }}
+        render={(d, i) => {
+          if (!d) return <View key={i} style={{ flex: 1, height: 42 }} />;
           const iso = isoOf(view.y, view.m, d);
           const off = iso < min || iso > max;
           const on = iso === value;
@@ -80,7 +97,7 @@ export function DatePicker({ value, onChange, min, max }: { value: string | null
                 haptic.tap();
                 onChange(iso);
               }}
-              style={{ width: `${100 / 7}%`, height: 42, alignItems: "center", justifyContent: "center" }}
+              style={{ flex: 1, height: 42, alignItems: "center", justifyContent: "center" }}
               accessibilityRole="button"
               accessibilityState={{ selected: on, disabled: off }}
               accessibilityLabel={iso}
@@ -103,8 +120,8 @@ export function DatePicker({ value, onChange, min, max }: { value: string | null
               </View>
             </Pressable>
           );
-        })}
-      </View>
+        }}
+      />
     </View>
   );
 }

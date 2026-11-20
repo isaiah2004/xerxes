@@ -1,7 +1,7 @@
 import { Cake, CalendarDays, Check, Gift, Heart, Pencil, Plus, Sparkles, Trash2, UserPlus, type LucideIcon } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { DatePicker, MonthArrow, monthCells, shiftYm, WeekdayHeader, ymKey, ymOf, type Ym } from "@/components/DatePicker";
+import { DatePicker, MonthArrow, monthCells, shiftYm, WeekdayHeader, WeekRows, ymKey, ymOf, type Ym } from "@/components/DatePicker";
 import { daysLabel, OccasionRow, openOccasion, urgencyOf } from "@/components/dates";
 import { ChoiceChip, Field, Input, Toggle } from "@/components/forms";
 import { Screen } from "@/components/Screen";
@@ -73,9 +73,11 @@ function MonthGrid({ view, byDay, selected, onSelect, onShift, canBack }: {
         <MonthArrow dir={1} enabled onPress={() => onShift(1)} />
       </Row>
       <WeekdayHeader />
-      <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 4 }}>
-        {monthCells(view).map((d, i) => {
-          if (!d) return <View key={i} style={{ width: `${100 / 7}%`, height: 48 }} />;
+      <WeekRows
+        cells={monthCells(view)}
+        style={{ marginTop: 4 }}
+        render={(d, i) => {
+          if (!d) return <View key={i} style={{ flex: 1, height: 48 }} />;
           const iso = isoOf(view.y, view.m, d);
           const events = byDay.get(iso) ?? [];
           const isToday = iso === today;
@@ -91,7 +93,7 @@ function MonthGrid({ view, byDay, selected, onSelect, onShift, canBack }: {
               // empty days from today on can be picked too: that's where "Add something on …" comes from
               disabled={past && !events.length}
               onPress={() => onSelect(iso)}
-              style={{ width: `${100 / 7}%`, height: 48, alignItems: "center", justifyContent: "center" }}
+              style={{ flex: 1, height: 48, alignItems: "center", justifyContent: "center" }}
               accessibilityLabel={events.length ? `${iso}: ${events.map((e) => e.label).join(", ")}` : iso}
             >
               <View
@@ -124,8 +126,8 @@ function MonthGrid({ view, byDay, selected, onSelect, onShift, canBack }: {
               </View>
             </Pressable>
           );
-        })}
-      </View>
+        }}
+      />
       <Row gap={16} style={{ marginTop: 8, justifyContent: "center" }}>
         <Row gap={6}>
           <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color.primary }} />
