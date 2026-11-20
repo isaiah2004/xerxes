@@ -12,3 +12,4 @@ dist/
 .data/
 .expo/
 web-build/
+*.log

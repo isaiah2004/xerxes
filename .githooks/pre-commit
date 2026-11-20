@@ -1,0 +1,12 @@
+#!/bin/sh
+# Blocks commits containing any value from backend/.env (values never printed).
+[ -f backend/.env ] || exit 0
+node -e '
+process.loadEnvFile("backend/.env");
+const {execSync}=require("child_process");
+const vals=Object.values(process.env).filter(v=>v&&v.length>=16);
+const keys=Object.keys(require("fs").readFileSync("backend/.env","utf8").split("\n").reduce((a,l)=>{const k=l.split("=")[0];if(k)a[k]=1;return a},{}));
+const secrets=keys.map(k=>process.env[k]).filter(v=>v&&v.length>=16);
+const diff=execSync("git diff --cached -U0",{encoding:"utf8",maxBuffer:1<<28});
+if(secrets.some(s=>diff.includes(s))){console.error("pre-commit: staged changes contain a secret from backend/.env — commit blocked.");process.exit(1)}
+'

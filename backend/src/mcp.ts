@@ -14,6 +14,18 @@ import { toIso, today } from "./dates.js";
 // Xerxes tools, exposed to Codex CLI over MCP. The run id in the URL ties tool calls to the app's live view.
 
 type Json = Record<string, unknown>;
+
+/** Fill a missing product image: ISBN in an Amazon /dp/ URL -> Open Library cover, else Google Books by title. */
+async function withCover(item: { title: string; imageUrl?: string; url?: string }) {
+  if (item.imageUrl) return;
+  try {
+    const isbn = item.url?.match(/\/dp\/(\d{9}[\dX])/)?.[1];
+    const books = await searchBooks(isbn ? `isbn:${isbn}` : `intitle:${item.title}`, { max: 3 });
+    item.imageUrl = books.find((b) => b.imageUrl)?.imageUrl?.replace("&edge=curl", "").replace("zoom=1", "zoom=2");
+  } catch {
+    /* best effort */
+  }
+}
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
 
 export function buildServer(runId: string) {
@@ -139,6 +151,7 @@ export function buildServer(runId: string) {
   tool("show_products", "Render product cards in the user's app (2-4 items). Use after check_offers so verdicts are real.",
     { heading: z.string(), items: z.array(productItem).min(1).max(6) },
     () => "Showing options", async (a) => {
+      await Promise.all(a.items.map(withCover));
       emit(runId, { type: "card", card: { id: newCardId(), type: "products", ...a } });
       return { shown: true };
     }, { silent: true });
@@ -157,6 +170,7 @@ export function buildServer(runId: string) {
       followUp: z.string().optional().describe("A proactive next step to offer, e.g. a wrap reminder"),
     },
     () => "Prepared recommendation", async (a) => {
+      await withCover(a.item);
       emit(runId, { type: "card", card: { id: newCardId(), type: "recommendation", ...a } });
       return { shown: true };
     }, { silent: true });

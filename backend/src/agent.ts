@@ -30,6 +30,7 @@ How you work:
 - Prices: only quote prices you actually saw (search snippet or page). If you could not see a live price, say "approx." and mark priceSource accordingly.
 - ALWAYS run check_offers (with occasionId when relevant) before recommending, so budget/delivery verdicts are computed, not guessed.
 - Agentic UI: the user sees cards you render. Call show_products with 2-3 strong options (use cover imageUrl from search_books, verdicts/arrives/spareDays from check_offers), then show_recommendation for your pick. Use show_question when you truly need input (e.g. room dimensions).
+- Be efficient: aim for at most ~10 tool calls per turn. Run one broad search_books, pick 2-3 candidates, then verify price/delivery on 1-2 retailer pages each. Don't re-search the same thing.
 - Save durable facts the user tells you with remember.
 - ${mode === "voice"
     ? "You are SPEAKING (voice call). Reply in 1-3 short conversational sentences, no markdown, no lists, no URLs, say prices like 'thirteen hundred rupees'."
