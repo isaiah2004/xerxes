@@ -118,3 +118,43 @@ export const api = {
   voiceStop: (sessionId: string) => j("/api/voice/stop", { method: "POST", body: JSON.stringify({ sessionId }) }),
   voiceSession: (id: string) => j<{ runIds: string[]; runs: ({ id: string; userText: string; status: string } | null)[] }>(`/api/voice/sessions/${id}`),
 };
+
+// ---------- manage it yourself: Radar watches, Calendar occasions, Fresh finds ----------
+export type WatchKind = "game" | "hardware" | "book" | "product";
+export type OccasionKind = Upcoming["kind"];
+/** The stored fields behind a feed occasion (the feed sends them alongside the computed ones). */
+export type OccasionFields = {
+  date: string; // MM-DD = every year, YYYY-MM-DD = once
+  personIds: string[];
+  remindDaysBefore: number;
+  bufferDays: number;
+};
+export type OccasionInput = {
+  kind: OccasionKind;
+  label: string;
+  date: string;
+  personIds?: string[];
+  /** someone Xerxes doesn't know yet (remembered as a person) */
+  newPerson?: { name: string; relation?: string };
+  budget: Money;
+  remindDaysBefore?: number;
+  bufferDays?: number;
+};
+export type SavedOccasion = OccasionFields & { id: string; kind: OccasionKind; label: string; budget: Money; nextDate: string | null };
+export type WatchInput = { kind: WatchKind; query: string; maxPrice?: Money; notes?: string };
+export type WatchPatch = { active?: boolean; query?: string; maxPrice?: Money | null; notes?: string | null };
+
+const init = (method: "POST" | "PATCH" | "DELETE", body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) });
+const at = (id: string) => encodeURIComponent(id);
+
+export const manage = {
+  people: () => j<Person[]>("/api/people"),
+  addWatch: (w: WatchInput) => j<Watch>("/api/watches", init("POST", w)),
+  updateWatch: (id: string, patch: WatchPatch) => j<Watch>(`/api/watches/${at(id)}`, init("PATCH", patch)),
+  deleteWatch: (id: string) => j<{ ok: true }>(`/api/watches/${at(id)}`, init("DELETE")),
+  addOccasion: (o: OccasionInput & { id?: string }) => j<SavedOccasion>("/api/occasions", init("POST", o)),
+  updateOccasion: (id: string, patch: Partial<OccasionInput>) => j<SavedOccasion>(`/api/occasions/${at(id)}`, init("PATCH", patch)),
+  deleteOccasion: (id: string) => j<{ ok: true; removed: OccasionFields & OccasionInput & { id: string } }>(`/api/occasions/${at(id)}`, init("DELETE")),
+  /** Removes a Fresh find from the feed for good (the same deal won't be announced again). */
+  dismissFind: (id: string) => j<{ ok: true }>(`/api/notifications/${at(id)}`, init("DELETE")),
+};
