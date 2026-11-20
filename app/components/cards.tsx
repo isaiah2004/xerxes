@@ -38,7 +38,15 @@ function Cover({ uri, w = 72, h = 96 }: { uri?: string; w?: number; h?: number }
   return (
     <View style={[frame, { backgroundColor: color.chip, shadowColor: palette.navy, shadowOpacity: 0.22, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } }]}>
       {uri && !failed ? (
-        <Image source={{ uri }} style={frame} contentFit="cover" transition={250} onError={() => setFailed(true)} />
+        <Image
+          source={{ uri }}
+          style={frame}
+          contentFit="cover"
+          transition={250}
+          onError={() => setFailed(true)}
+          // "no cover" placeholders (Open Library, Amazon) load fine but are 1×1: show our own cover instead
+          onLoad={(e) => e.source.width <= 2 && setFailed(true)}
+        />
       ) : (
         <GradientSurface name="navy" glow={0.4} style={[frame, { alignItems: "center", justifyContent: "center" }]}>
           <BookOpen size={24} color="#fff" />

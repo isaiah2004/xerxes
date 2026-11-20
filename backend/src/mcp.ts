@@ -26,34 +26,51 @@ function isbn13to10(isbn13: string): string | undefined {
   return core + (check === 10 ? "X" : String(check));
 }
 
-/** Amazon serves a cover for a book ASIN; when it has none it returns a tiny placeholder GIF instead. */
-async function amazonCover(asin: string): Promise<string | undefined> {
-  const url = `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.LZZZZZZZ.jpg`;
+/**
+ * Is there a real picture at this URL? Open Library and Amazon answer "no cover" with a tiny placeholder
+ * image (HTTP 200, 1×1), which would render as an empty box. "unknown" = the host refused a server fetch.
+ */
+async function realImage(url: string): Promise<"yes" | "no" | "unknown"> {
+  // Open Library only 404s for a missing cover when asked to
+  const u = /covers\.openlibrary\.org/.test(url) && !/[?&]default=/.test(url) ? `${url}${url.includes("?") ? "&" : "?"}default=false` : url;
   try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    const size = (await r.arrayBuffer()).byteLength;
-    return r.ok && size > 1000 ? url : undefined;
+    const r = await fetch(u, { signal: AbortSignal.timeout(6000) });
+    if (r.status === 404) return "no";
+    if (!r.ok) return "unknown";
+    return (await r.arrayBuffer()).byteLength > 1000 ? "yes" : "no";
   } catch {
-    return undefined;
+    return "unknown";
   }
 }
 
-/** Fill a missing product image: Amazon cover by ASIN / ISBN in the URL, else Google Books (ISBN, then title). */
+/** Amazon serves a cover for a book ASIN (ISBN-10). */
+async function amazonCover(asin: string): Promise<string | undefined> {
+  const url = `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.LZZZZZZZ.jpg`;
+  return (await realImage(url)) === "yes" ? url : undefined;
+}
+
+/** Make sure a product shows a real cover: the agent's image if it is one, else Amazon by ASIN / ISBN, else Google Books. */
 async function withCover(item: { title: string; imageUrl?: string; url?: string }) {
-  if (item.imageUrl) return;
+  const given = item.imageUrl;
+  const check = given ? await realImage(given) : "no";
+  if (check === "yes") return;
+  item.imageUrl = undefined;
   try {
     const asin = item.url?.match(/\/(?:dp|gp\/product)\/([0-9A-Z]{10})(?:[/?]|$)/)?.[1];
-    const isbn13 = item.url?.match(/97[89]\d{10}/)?.[0];
+    const isbn13 = item.url?.match(/97[89]\d{10}/)?.[0] ?? given?.match(/97[89]\d{10}/)?.[0]; // e.g. an Open Library cover URL
     for (const id of new Set([asin, isbn13 && isbn13to10(isbn13)].filter((x): x is string => !!x))) {
       const hit = await amazonCover(id);
       if (hit) return void (item.imageUrl = hit);
     }
     const isbn = asin && /^\d{9}[\dX]$/.test(asin) ? asin : isbn13;
     const books = await searchBooks(isbn ? `isbn:${isbn}` : `intitle:${item.title}`, { max: 3 });
-    item.imageUrl = books.find((b) => b.imageUrl)?.imageUrl?.replace("&edge=curl", "").replace("zoom=1", "zoom=2");
+    const found = books.find((b) => b.imageUrl)?.imageUrl?.replace("&edge=curl", "").replace("zoom=1", "zoom=2");
+    if (found) return void (item.imageUrl = found);
   } catch {
     /* best effort */
   }
+  // nothing better: keep an image we couldn't check (the app shows its own cover if it doesn't load)
+  if (check === "unknown") item.imageUrl = given;
 }
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
 /** Step labels are shown in the app; agent queries can be very long. */
