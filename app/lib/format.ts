@@ -26,7 +26,8 @@ export function pronounsFor(relation?: string) {
   return { subj: "they", obj: "them", is: "They're", will: "they'll" };
 }
 
-export const todayIso = () => new Date().toISOString().slice(0, 10);
+/** The device's local calendar day (toISOString would give the UTC day, which lags India until 05:30). */
+export const todayIso = (d = new Date()) => isoOf(d.getFullYear(), d.getMonth(), d.getDate());
 export const addDaysIso = (iso: string, n: number) => new Date(parse(iso).getTime() + n * DAY).toISOString().slice(0, 10);
 
 export function money(amount: number | undefined, currency = "INR") {

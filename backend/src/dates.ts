@@ -3,7 +3,19 @@ const DAY = 86_400_000;
 
 export const toIso = (d: Date) => d.toISOString().slice(0, 10);
 export const parseIso = (s: string) => new Date(`${s}T00:00:00Z`);
-export const today = (now = new Date()) => parseIso(toIso(now));
+
+/** The user's calendar day (XERXES_TZ, default India) — the server itself may run in UTC (Docker, Railway). */
+function userDay(now: Date): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: process.env.XERXES_TZ?.trim() || "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+export const today = (now = new Date()) => parseIso(userDay(now));
 export const addDays = (d: Date, n: number) => new Date(d.getTime() + n * DAY);
 export const diffDays = (a: Date, b: Date) => Math.round((a.getTime() - b.getTime()) / DAY);
 
