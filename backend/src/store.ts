@@ -36,6 +36,8 @@ export type Watch = {
   active: boolean;
   createdAt: string;
   lastCheckedAt?: string;
+  /** Short, user-facing reason the last check failed (cleared on the next good check). */
+  lastError?: string;
 };
 
 export type Notification = {
@@ -76,9 +78,37 @@ export type Db = {
   shortlist: ShortlistItem[];
   /** app conversation id -> Codex thread */
   conversations?: Record<string, { threadId: string; updatedAt: string }>;
+  /** Seed watch ids already offered once, so a watch the user removes isn't re-added on the next start. */
+  seededWatches?: string[];
 };
 
 // ---------- seed (demo profile, editable in-app / by the agent) ----------
+const occ = (
+  id: string,
+  label: string,
+  kind: Occasion["kind"],
+  date: string,
+  budget: number,
+  personIds: string[] = [],
+  remindDaysBefore = 21,
+  bufferDays = 2,
+): Occasion => ({ id, personIds, kind, label, date, budget: { amount: budget, currency: "INR" }, remindDaysBefore, bufferDays });
+
+// Birthdays + the festivals people actually shop for. Lunar festivals are pinned to their 2027 dates.
+const moreOccasions: Occasion[] = [
+  occ("rohan-birthday", "Rohan's birthday", "birthday", "12-09", 1500, ["rohan"]),
+  occ("dad-birthday", "Dad's birthday", "birthday", "12-19", 3000, ["dad"]),
+  occ("new-year", "New Year", "festival", "01-01", 2000, [], 21, 3),
+  occ("sankranti-2027", "Sankranti", "festival", "2027-01-15", 2500, [], 21, 3),
+  occ("mom-birthday", "Mom's birthday", "birthday", "01-18", 3000, ["mom"]),
+  occ("parents-anniversary", "Mom & Dad's anniversary", "anniversary", "02-06", 4000, ["mom", "dad"]),
+  occ("eid-2027", "Eid al-Fitr", "festival", "2027-03-10", 2000, [], 21, 3),
+  occ("holi-2027", "Holi", "festival", "2027-03-22", 1500, [], 21, 3),
+  occ("mothers-day-2027", "Mother's Day", "festival", "2027-05-09", 2000, ["mom"]),
+  occ("fathers-day-2027", "Father's Day", "festival", "2027-06-20", 2000, ["dad"]),
+  occ("raksha-bandhan-2027", "Raksha Bandhan", "festival", "2027-08-17", 2500, ["cousin-sister"], 21, 3),
+  occ("ganesh-chaturthi-2027", "Ganesh Chaturthi", "festival", "2027-09-04", 2000, [], 21, 3),
+];
 const now = () => new Date().toISOString();
 const seed = (): Db => ({
   profile: { name: "Isaiah", city: "Bengaluru", postalCode: "560001", country: "IN", currency: "INR" },
@@ -100,8 +130,16 @@ const seed = (): Db => ({
       interests: ["animals", "wildlife", "nature"],
       notes: ["Really nerdy about animals — loves facts and cool visuals."],
     },
-    { id: "mom", name: "Mom", relation: "mother", interests: ["gardening", "cooking", "Carnatic music"], notes: [] },
-    { id: "dad", name: "Dad", relation: "father", interests: ["cricket", "gadgets", "history books"], notes: [] },
+    { id: "mom", name: "Mom", relation: "mother", birthDate: "1972-01-18", interests: ["gardening", "cooking", "Carnatic music"], notes: [] },
+    { id: "dad", name: "Dad", relation: "father", birthDate: "1969-12-19", interests: ["cricket", "gadgets", "history books"], notes: [] },
+    {
+      id: "rohan",
+      name: "Rohan",
+      relation: "best friend",
+      birthDate: "2001-12-09",
+      interests: ["photography", "trekking", "specialty coffee"],
+      notes: ["Just got into film photography."],
+    },
   ],
   occasions: [
     {
@@ -134,12 +172,15 @@ const seed = (): Db => ({
       remindDaysBefore: 30,
       bufferDays: 4,
     },
+    ...moreOccasions,
   ],
   watches: [
-    { id: randomUUID(), kind: "game", query: "Hades II", maxPrice: { amount: 20, currency: "USD" }, active: true, createdAt: now() },
-    { id: randomUUID(), kind: "game", query: "Baldur's Gate 3", maxPrice: { amount: 35, currency: "USD" }, active: true, createdAt: now() },
+    { id: "watch-hades-2", kind: "game", query: "Hades II", maxPrice: { amount: 20, currency: "USD" }, active: true, createdAt: now() },
+    { id: "watch-bg3", kind: "game", query: "Baldur's Gate 3", maxPrice: { amount: 35, currency: "USD" }, active: true, createdAt: now() },
+    { id: "watch-dead-cells", kind: "game", query: "Dead Cells", maxPrice: { amount: 15, currency: "USD" }, active: true, createdAt: now() },
+    { id: "watch-outer-wilds", kind: "game", query: "Outer Wilds", maxPrice: { amount: 12, currency: "USD" }, active: true, createdAt: now() },
     {
-      id: randomUUID(),
+      id: "watch-homelab-minis",
       kind: "hardware",
       query: "Optiplex micro OR ThinkCentre tiny OR EliteDesk mini",
       maxPrice: { amount: 250, currency: "USD" },
@@ -161,12 +202,45 @@ export async function readDb(): Promise<Db> {
   if (cache) return cache;
   try {
     cache = JSON.parse(await fs.readFile(file(), "utf8")) as Db;
+    if (mergeSeed(cache)) await persist(cache);
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
     cache = seed();
     await persist(cache);
   }
   return cache;
+}
+
+/** Adds seed people/occasions that an older data file doesn't have yet (never overwrites user edits). */
+function mergeSeed(db: Db): boolean {
+  const s = seed();
+  let changed = false;
+  for (const p of s.people) {
+    const have = db.people.find((x) => x.id === p.id);
+    if (!have) {
+      db.people.push(p);
+      changed = true;
+    } else if (!have.birthDate && p.birthDate) {
+      have.birthDate = p.birthDate;
+      changed = true;
+    }
+  }
+  for (const o of s.occasions) {
+    if (!db.occasions.some((x) => x.id === o.id)) {
+      db.occasions.push(o);
+      changed = true;
+    }
+  }
+  // watches: offer each seed watch once (older data files have the same queries under random ids)
+  const same = (a: Watch, b: Watch) => a.kind === b.kind && a.query.toLowerCase() === b.query.toLowerCase();
+  db.seededWatches ??= [];
+  for (const w of s.watches) {
+    if (db.seededWatches.includes(w.id)) continue;
+    if (!db.watches.some((x) => same(x, w))) db.watches.push(w);
+    db.seededWatches.push(w.id);
+    changed = true;
+  }
+  return changed;
 }
 
 async function persist(db: Db) {

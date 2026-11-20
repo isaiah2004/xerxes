@@ -35,6 +35,28 @@ export function codexLoggedIn(): Promise<boolean> {
 }
 
 const TURN_TIMEOUT_MS = Number(process.env.CODEX_TURN_TIMEOUT_MS ?? 240_000);
+// Codex's own web search goes through OpenAI, so it keeps working where scraping search engines get bot-walled.
+const WEB_SEARCH = ["live", "cached", "disabled"].includes(process.env.CODEX_WEB_SEARCH ?? "") ? process.env.CODEX_WEB_SEARCH : "live";
+
+/** A Codex web_search item → a step label for the app ("Searched amazon.in: hardcover animal atlas"). */
+function searchLabel(item: any): string {
+  const a = item?.action ?? {};
+  const host = (u?: string) => {
+    try {
+      return new URL(String(u)).hostname.replace(/^www\./, "");
+    } catch {
+      return undefined;
+    }
+  };
+  if (a.type === "open_page" && host(a.url)) return `Opened ${host(a.url)}`;
+  if (a.type === "find_in_page" && host(a.url)) return `Checked ${host(a.url)}`;
+  const raw = String(a.query ?? item?.query ?? "").trim();
+  if (!raw) return "Searching the web";
+  const site = raw.match(/\bsite:(\S+)/)?.[1]?.replace(/^www\./, "");
+  const q = raw.replace(/\bsite:\S+/g, "").replace(/\s+/g, " ").trim();
+  const short = q.length > 64 ? `${q.slice(0, 61)}…` : q;
+  return site ? `Searched ${site}: ${short}` : `Searched the web: ${short}`;
+}
 
 const WORKDIR = path.resolve(env.dataDir, "codex-work");
 mkdirSync(WORKDIR, { recursive: true });
@@ -44,6 +66,8 @@ export async function runCodex(opts: {
   threadId?: string;
   mcpUrl: string;
   onMessage?: (text: string) => void;
+  /** Codex's built-in web searches, so the app can show them as live steps next to the MCP tools. */
+  onSearch?: (s: { id: string; label: string; done: boolean }) => void;
   signal?: AbortSignal;
 }): Promise<CodexTurn> {
   if (!(await codexLoggedIn())) throw new CodexAuthError();
@@ -54,7 +78,7 @@ export async function runCodex(opts: {
     `approval_policy="never"`,
     `sandbox_mode="read-only"`,
     `model_reasoning_effort="${process.env.CODEX_REASONING ?? "low"}"`,
-    `web_search="disabled"`,
+    `web_search="${WEB_SEARCH}"`,
   ].flatMap((c) => ["-c", c]);
   const common = ["--json", "--skip-git-repo-check", "--ignore-user-config", "--ignore-rules", ...cfg];
   if (process.env.CODEX_MODEL) common.push("-m", process.env.CODEX_MODEL);
@@ -87,6 +111,8 @@ export async function runCodex(opts: {
           else if (ev.type === "item.completed" && ev.item?.type === "agent_message") {
             messages.push(ev.item.text);
             opts.onMessage?.(ev.item.text);
+          } else if (ev.item?.type === "web_search" && (ev.type === "item.started" || ev.type === "item.completed")) {
+            opts.onSearch?.({ id: String(ev.item.id), label: searchLabel(ev.item), done: ev.type === "item.completed" });
           } else if (ev.type === "error" || ev.type === "turn.failed") lastError = ev.message ?? ev.error?.message ?? line;
         } catch {
           /* ignore non-JSON */

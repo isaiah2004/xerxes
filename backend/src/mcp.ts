@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
+import { env } from "./env.js";
 import { searchBooks } from "./integrations/books.js";
 import { findGameDeals } from "./integrations/games.js";
 import { searchHardware } from "./integrations/hardware.js";
@@ -15,11 +16,39 @@ import { toIso, today } from "./dates.js";
 
 type Json = Record<string, unknown>;
 
-/** Fill a missing product image: ISBN in an Amazon /dp/ URL -> Open Library cover, else Google Books by title. */
+/** ISBN-13 (978…) → ISBN-10, which is also the Amazon ASIN for a book. */
+function isbn13to10(isbn13: string): string | undefined {
+  const d = isbn13.replace(/\D/g, "");
+  if (d.length !== 13 || !d.startsWith("978")) return undefined;
+  const core = d.slice(3, 12);
+  const sum = [...core].reduce((s, c, i) => s + Number(c) * (10 - i), 0);
+  const check = (11 - (sum % 11)) % 11;
+  return core + (check === 10 ? "X" : String(check));
+}
+
+/** Amazon serves a cover for a book ASIN; when it has none it returns a tiny placeholder GIF instead. */
+async function amazonCover(asin: string): Promise<string | undefined> {
+  const url = `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.LZZZZZZZ.jpg`;
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    const size = (await r.arrayBuffer()).byteLength;
+    return r.ok && size > 1000 ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Fill a missing product image: Amazon cover by ASIN / ISBN in the URL, else Google Books (ISBN, then title). */
 async function withCover(item: { title: string; imageUrl?: string; url?: string }) {
   if (item.imageUrl) return;
   try {
-    const isbn = item.url?.match(/\/dp\/(\d{9}[\dX])/)?.[1];
+    const asin = item.url?.match(/\/(?:dp|gp\/product)\/([0-9A-Z]{10})(?:[/?]|$)/)?.[1];
+    const isbn13 = item.url?.match(/97[89]\d{10}/)?.[0];
+    for (const id of new Set([asin, isbn13 && isbn13to10(isbn13)].filter((x): x is string => !!x))) {
+      const hit = await amazonCover(id);
+      if (hit) return void (item.imageUrl = hit);
+    }
+    const isbn = asin && /^\d{9}[\dX]$/.test(asin) ? asin : isbn13;
     const books = await searchBooks(isbn ? `isbn:${isbn}` : `intitle:${item.title}`, { max: 3 });
     item.imageUrl = books.find((b) => b.imageUrl)?.imageUrl?.replace("&edge=curl", "").replace("zoom=1", "zoom=2");
   } catch {
@@ -80,10 +109,12 @@ export function buildServer(runId: string) {
     (a) => `Searched book catalogues for “${a.query}”`,
     async ({ query, max }) => searchBooks(query, { max: max ?? 8, country: (await readDb()).profile.country }));
 
-  tool("web_search", "Search the web (retailers, prices, second-hand listings, reviews). Prefer Indian retailers for India.",
-    { query: z.string() },
-    (a) => `Searched the web: ${a.query}`,
-    async ({ query }) => webSearch(query, 8));
+  // Keyed search only: without Tavily the scraping fallback gets bot-walled, so Codex's built-in web search covers it.
+  if (env.tavilyKey)
+    tool("web_search", "Search the web (retailers, prices, second-hand listings, reviews). Prefer Indian retailers for India.",
+      { query: z.string() },
+      (a) => `Searched the web: ${a.query}`,
+      async ({ query }) => webSearch(query, 8));
 
   tool("read_page", "Open a web page and read its text, e.g. a product page to confirm price, stock and delivery estimate.",
     { url: z.string().url() },

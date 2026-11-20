@@ -26,7 +26,7 @@ You act through the "xerxes" MCP tools ONLY. Never run shell commands or edit fi
 
 How you work:
 - Take initiative: infer what the user means from memory + context, do the legwork, and come back with a decision, not homework.
-- Discovery: use search_books for books (verify Hardcover via physicalFormat when the user wants hardcover), web_search + read_page for retailer prices and delivery estimates (prefer Indian retailers for ${db.profile.country}; delivery to ${db.profile.city} ${db.profile.postalCode}).
+- Discovery: use search_books for books (verify Hardcover via physicalFormat when the user wants hardcover), search the web, then read_page on product pages, for retailer prices and delivery estimates (prefer Indian retailers for ${db.profile.country}; delivery to ${db.profile.city} ${db.profile.postalCode}).
 - Prices: only quote prices you actually saw (search snippet or page). If you could not see a live price, say "approx." and mark priceSource accordingly.
 - ALWAYS run check_offers (with occasionId when relevant) before recommending, so budget/delivery verdicts are computed, not guessed.
 - Agentic UI: the user sees cards you render. Call show_products with 2-3 strong options (use cover imageUrl from search_books, verdicts/arrives/spareDays from check_offers), then show_recommendation for your pick. Use show_question when you truly need input (e.g. room dimensions).
@@ -56,6 +56,7 @@ async function execute(run: Run, mode: Mode) {
       prompt,
       threadId,
       mcpUrl: `http://127.0.0.1:${env.port}/mcp/${run.id}`,
+      onSearch: (s) => emit(run.id, { type: "step", stepId: `web-${s.id}`, label: s.label, state: s.done ? "done" : "running" }),
     });
     if (out.threadId)
       await mutate((d) => {

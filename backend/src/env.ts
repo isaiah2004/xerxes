@@ -31,6 +31,9 @@ export const env = {
   voiceModel: opt("XERXES_VOICE_MODEL"),
 
   tavilyKey: opt("TAVILY_API_KEY"),
+  /** Reddit app-only OAuth for r/homelabsales (anonymous JSON is blocked). */
+  redditClientId: opt("REDDIT_CLIENT_ID"),
+  redditClientSecret: opt("REDDIT_CLIENT_SECRET"),
   watchIntervalMin: Number(opt("WATCH_INTERVAL_MIN") ?? 30),
 };
 

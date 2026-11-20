@@ -1,6 +1,6 @@
 import { env } from "./env.js";
 import { findGameDeals } from "./integrations/games.js";
-import { searchHardware } from "./integrations/hardware.js";
+import { searchHardware, SourceUnavailable } from "./integrations/hardware.js";
 import { upcoming } from "./occasions.js";
 import { mutate, notify, readDb } from "./store.js";
 import { pretty } from "./dates.js";
@@ -25,8 +25,9 @@ async function checkWatches() {
   for (const w of db.watches.filter((x) => x.active)) {
     try {
       if (w.kind === "game") {
-        const deals = await findGameDeals(w.query, { maxPrice: w.maxPrice?.amount, limit: 5 });
-        const best = deals.find((d) => d.savingsPct > 0);
+        // only the game itself (or an edition of it), never a soundtrack/DLC/sequel that happens to match the search
+        const deals = await findGameDeals(w.query, { maxPrice: w.maxPrice?.amount, limit: 10, onSaleOnly: true });
+        const best = deals.find((d) => d.savingsPct > 0 && (d.match === "game" || d.match === "edition"));
         if (best)
           await notify({
             kind: "game",
@@ -57,10 +58,18 @@ async function checkWatches() {
       }
       await mutate((d) => {
         const x = d.watches.find((y) => y.id === w.id);
-        if (x) x.lastCheckedAt = new Date().toISOString();
+        if (!x) return;
+        x.lastCheckedAt = new Date().toISOString();
+        delete x.lastError;
       });
     } catch (e) {
-      console.warn(`watch ${w.query} failed:`, (e as Error).message);
+      const msg = (e as Error).message;
+      console.warn(`watch ${w.query} failed:`, msg);
+      // the Radar shows this instead of pretending it looked and found nothing
+      await mutate((d) => {
+        const x = d.watches.find((y) => y.id === w.id);
+        if (x) x.lastError = e instanceof SourceUnavailable ? msg : "couldn't reach the store";
+      });
     }
   }
 }
