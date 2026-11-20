@@ -56,6 +56,8 @@ async function withCover(item: { title: string; imageUrl?: string; url?: string 
   }
 }
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
+/** Step labels are shown in the app; agent queries can be very long. */
+const clip = (s: string, n = 60) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 
 export function buildServer(runId: string) {
   const server = new McpServer({ name: "xerxes", version: "0.1.0" });
@@ -94,7 +96,7 @@ export function buildServer(runId: string) {
 
   tool("remember", "Save a durable fact about the user or a person (preferences, home lab gear, room size...).",
     { topic: z.string().describe("e.g. homelab, room, preferences, gaming, or a personId"), fact: z.string() },
-    (a) => `Remembered: ${a.fact.slice(0, 60)}`,
+    (a) => `Remembered: ${clip(a.fact)}`,
     async ({ topic, fact }) =>
       mutate((db) => {
         const person = db.people.find((p) => p.id === topic);
@@ -106,14 +108,14 @@ export function buildServer(runId: string) {
   // ---------- discovery ----------
   tool("search_books", "Search real book catalogues (Google Books + Open Library). Returns covers, page counts, ISBNs and verified physical format (Hardcover/Paperback) where known.",
     { query: z.string(), max: z.number().int().min(1).max(15).optional() },
-    (a) => `Searched book catalogues for “${a.query}”`,
+    (a) => `Searched book catalogues for “${clip(a.query)}”`,
     async ({ query, max }) => searchBooks(query, { max: max ?? 8, country: (await readDb()).profile.country }));
 
   // Keyed search only: without Tavily the scraping fallback gets bot-walled, so Codex's built-in web search covers it.
   if (env.tavilyKey)
     tool("web_search", "Search the web (retailers, prices, second-hand listings, reviews). Prefer Indian retailers for India.",
       { query: z.string() },
-      (a) => `Searched the web: ${a.query}`,
+      (a) => `Searched the web: ${clip(a.query)}`,
       async ({ query }) => webSearch(query, 8));
 
   tool("read_page", "Open a web page and read its text, e.g. a product page to confirm price, stock and delivery estimate.",
@@ -123,12 +125,12 @@ export function buildServer(runId: string) {
 
   tool("find_game_deals", "Current PC game deals across Steam, GOG, Epic, Humble etc. (USD).",
     { title: z.string(), maxPrice: z.number().optional() },
-    (a) => `Checked game stores for ${a.title}`,
+    (a) => `Checked game stores for ${clip(a.title)}`,
     async ({ title, maxPrice }) => findGameDeals(title, { maxPrice, limit: 8 }));
 
   tool("search_used_hardware", "Recent second-hand hardware listings from r/homelabsales and r/hardwareswap.",
     { query: z.string() },
-    (a) => `Scanned second-hand listings for ${a.query}`,
+    (a) => `Scanned second-hand listings for ${clip(a.query)}`,
     async ({ query }) => searchHardware(query));
 
   // ---------- decision support ----------
@@ -226,7 +228,7 @@ export function buildServer(runId: string) {
 
   tool("create_watch", "Start watching for deals (game sale, used hardware, a book, a product). Xerxes checks periodically and notifies.",
     { kind: z.enum(["game", "hardware", "book", "product"]), query: z.string(), maxPrice: z.number().optional(), currency: z.string().optional(), notes: z.string().optional() },
-    (a) => `Watching for ${a.query}`,
+    (a) => `Watching for ${clip(a.query)}`,
     async (a) => mutate((db) => {
       const w = { id: newId(), kind: a.kind, query: a.query, maxPrice: a.maxPrice !== undefined ? { amount: a.maxPrice, currency: a.currency ?? (a.kind === "game" || a.kind === "hardware" ? "USD" : db.profile.currency) } : undefined, notes: a.notes, active: true, createdAt: new Date().toISOString() };
       db.watches.unshift(w);

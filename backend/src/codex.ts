@@ -50,7 +50,8 @@ function searchLabel(item: any): string {
   };
   if (a.type === "open_page" && host(a.url)) return `Opened ${host(a.url)}`;
   if (a.type === "find_in_page" && host(a.url)) return `Checked ${host(a.url)}`;
-  const raw = String(a.query ?? item?.query ?? "").trim();
+  // A search action carries either `query` or (for a batch) `queries`.
+  const raw = String(a.query ?? a.queries?.[0] ?? item?.query ?? "").trim();
   if (!raw) return "Searching the web";
   const site = raw.match(/\bsite:(\S+)/)?.[1]?.replace(/^www\./, "");
   const q = raw.replace(/\bsite:\S+/g, "").replace(/\s+/g, " ").trim();
