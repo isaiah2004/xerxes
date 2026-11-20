@@ -1,4 +1,4 @@
-import { runCodex } from "./codex.js";
+import { CodexAuthError, runCodex } from "./codex.js";
 import { env } from "./env.js";
 import { upcoming } from "./occasions.js";
 import { createRun, emit, type Run } from "./runs.js";
@@ -65,6 +65,8 @@ async function execute(run: Run, mode: Mode) {
     emit(run.id, { type: "message", text: out.text });
     emit(run.id, { type: "done" });
   } catch (e) {
+    // Surface auth problems as a readable (and, in voice, speakable) message before the error.
+    if (e instanceof CodexAuthError) emit(run.id, { type: "message", text: e.message });
     emit(run.id, { type: "error", message: e instanceof Error ? e.message : String(e) });
   }
 }

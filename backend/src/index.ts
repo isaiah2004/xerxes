@@ -1,9 +1,11 @@
 import "./env.js";
 import { serve } from "@hono/node-server";
+import { getConnInfo } from "@hono/node-server/conninfo";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { randomUUID } from "node:crypto";
 import { startTurn } from "./agent.js";
+import { codexLoggedIn } from "./codex.js";
 import { env, mask } from "./env.js";
 import { handleMcp } from "./mcp.js";
 import { upcoming } from "./occasions.js";
@@ -17,9 +19,26 @@ const app = new Hono();
 app.use("/api/*", cors());
 
 app.get("/health", (c) => c.json({ ok: true }));
+/** Readiness detail for ops (no secrets): is Codex logged in, is voice configured. */
+app.get("/api/status", async (c) =>
+  c.json({ ok: true, codexLoggedIn: await codexLoggedIn(), voice: { publicUrl: env.publicUrl ?? null, agora: !!(env.agoraAppId && env.agoraAppCertificate), murf: !!env.murfApiKey } }));
 
-// ---- MCP endpoint for Codex (local only in practice; run id scopes events) ----
-app.all("/mcp/:runId", (c) => handleMcp(c.req.param("runId"), c.req.raw));
+// ---- MCP endpoint for Codex: loopback only, and only for live runs ----
+const PROXY_HEADERS = ["x-forwarded-for", "x-real-ip", "cf-connecting-ip", "forwarded", "x-envoy-external-address"];
+app.all("/mcp/:runId", async (c) => {
+  const run = getRun(c.req.param("runId"));
+  if (!run || run.status !== "running") return c.json({ error: "not found" }, 404);
+  let addr = "";
+  try {
+    addr = getConnInfo(c).remote.address ?? "";
+  } catch {
+    /* non-node runtime */
+  }
+  const loopback = /^(127\.|::1$|::ffff:127\.)/.test(addr);
+  // Tunnels/reverse proxies connect from loopback too — any forwarding header means the request is external.
+  if (!loopback || PROXY_HEADERS.some((h) => c.req.header(h))) return c.json({ error: "forbidden" }, 403);
+  return handleMcp(run.id, c.req.raw);
+});
 
 // ---- Today feed: proactive nudges + notifications ----
 app.get("/api/feed", async (c) => {

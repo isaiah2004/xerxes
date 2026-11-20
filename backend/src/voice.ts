@@ -2,7 +2,7 @@ import type { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { startTurn } from "./agent.js";
 import { env } from "./env.js";
-import { AGENT_UID, USER_UID, startAgent, stopAgent, userRtcToken } from "./integrations/agora.js";
+import { AGENT_UID, USER_UID, agentStatus, startAgent, stopAgent, userRtcToken } from "./integrations/agora.js";
 import { upcoming } from "./occasions.js";
 import { getRun, type Run } from "./runs.js";
 import { readDb } from "./store.js";
@@ -10,7 +10,8 @@ import { readDb } from "./store.js";
 // Agora Conversational AI: Agora handles ASR + turn-taking + Murf Falcon TTS in the RTC channel,
 // and calls our OpenAI-compatible endpoint below as its "custom LLM" — which runs the same Codex agent + tools.
 
-type VoiceSession = { id: string; channel: string; agentId?: string; runIds: string[] };
+/** llmKey: per-session secret handed to Agora as llm.api_key; checked when Agora sends it back as a Bearer token. */
+type VoiceSession = { id: string; channel: string; agentId?: string; llmKey?: string; runIds: string[] };
 const sessions = new Map<string, VoiceSession>();
 
 const waitForRun = (run: Run) =>
@@ -38,15 +39,16 @@ export function voiceRoutes(app: Hono) {
     const greeting = nudge
       ? `Hey ${db.profile.name}! Heads up, ${nudge.label.toLowerCase()} is in ${nudge.daysLeft} days. Want me to find something?`
       : `Hey ${db.profile.name}, Xerxes here. What are we shopping for?`;
+    const llmKey = randomUUID();
     try {
       const agent = await startAgent({
         channel,
         llmUrl: `${env.publicUrl}/v1/sessions/${id}/chat/completions`,
-        llmKey: id,
+        llmKey,
         greeting,
         instructions: "You are Xerxes, a proactive voice shopping agent.",
       });
-      sessions.set(id, { id, channel, agentId: agent.agent_id, runIds: [] });
+      sessions.set(id, { id, channel, agentId: agent.agent_id, llmKey, runIds: sessions.get(id)?.runIds ?? [] });
       return c.json({ sessionId: id, appId: env.agoraAppId, channel, uid: USER_UID, agentUid: AGENT_UID, token: userRtcToken(channel), agentId: agent.agent_id, greeting });
     } catch (e) {
       return c.json({ error: (e as Error).message }, 502);
@@ -56,8 +58,14 @@ export function voiceRoutes(app: Hono) {
   app.post("/api/voice/stop", async (c) => {
     const { sessionId } = await c.req.json<{ sessionId: string }>();
     const s = sessions.get(sessionId);
-    if (s?.agentId) await stopAgent(s.channel, s.agentId).catch(() => undefined);
-    return c.json({ ok: true });
+    if (!s?.agentId) return c.json({ ok: true });
+    try {
+      await stopAgent(s.channel, s.agentId);
+      s.agentId = undefined;
+      return c.json({ ok: true });
+    } catch (e) {
+      return c.json({ ok: false, error: (e as Error).message }, 502);
+    }
   });
 
   /** App polls this to render the cards/steps produced during the call. */
@@ -67,14 +75,32 @@ export function voiceRoutes(app: Hono) {
     return c.json({ runIds: s.runIds, runs: s.runIds.map((r) => { const run = getRun(r); return run && { id: run.id, userText: run.userText, status: run.status }; }) });
   });
 
+  /** Live Agora agent state (IDLE/STARTING/RUNNING/STOPPING/STOPPED/FAILED). */
+  app.get("/api/voice/sessions/:id/agent", async (c) => {
+    const s = sessions.get(c.req.param("id"));
+    if (!s?.agentId) return c.json({ error: "no active agent" }, 404);
+    try {
+      return c.json(await agentStatus(s.channel, s.agentId));
+    } catch (e) {
+      return c.json({ error: (e as Error).message }, 502);
+    }
+  });
+
   // OpenAI-compatible streaming endpoint Agora calls for every user turn.
   app.post("/v1/sessions/:id/chat/completions", async (c) => {
     const id = c.req.param("id");
-    const body = await c.req.json<{ messages: { role: string; content: unknown }[] }>();
-    const lastUser = [...body.messages].reverse().find((m) => m.role === "user");
-    const text = typeof lastUser?.content === "string" ? lastUser.content : JSON.stringify(lastUser?.content ?? "");
-    const session = sessions.get(id) ?? { id, channel: "", runIds: [] };
-    sessions.set(id, session);
+    const session = sessions.get(id);
+    if (!session) return c.json({ error: { message: "unknown voice session" } }, 404);
+    const auth = c.req.header("authorization");
+    if (auth && session.llmKey && auth !== `Bearer ${session.llmKey}`) return c.json({ error: { message: "bad api key" } }, 401);
+    const body = await c.req.json<{ messages?: { role: string; content: unknown }[] }>().catch(() => ({ messages: undefined }));
+    const lastUser = [...(body.messages ?? [])].reverse().find((m) => m.role === "user");
+    const text = (typeof lastUser?.content === "string"
+      ? lastUser.content
+      : Array.isArray(lastUser?.content)
+        ? lastUser.content.map((p: any) => (typeof p === "string" ? p : p?.text ?? "")).join(" ")
+        : "").trim();
+    if (!text) return c.json({ error: { message: "no user message" } }, 400);
 
     const run = await startTurn(id, text, "voice");
     session.runIds.push(run.id);
@@ -84,10 +110,14 @@ export function voiceRoutes(app: Hono) {
       async start(ctrl) {
         const enc = new TextEncoder();
         const send = (s: string) => ctrl.enqueue(enc.encode(s));
-        // Spoken filler if the agent is doing real work (tool calls) — keeps the call feeling alive.
-        const filler = setTimeout(() => send(sseChunk(chunkId, "On it, give me a few seconds. ")), 2500);
+        // Codex turns take 10-60s. Spoken fillers keep the call alive while tools run.
+        const fillers = [
+          setTimeout(() => send(sseChunk(chunkId, "On it, give me a few seconds. ")), 2500),
+          setTimeout(() => send(sseChunk(chunkId, "Still digging, I'm checking prices and delivery dates. ")), 15_000),
+          setTimeout(() => send(sseChunk(chunkId, "Almost there, just comparing the best options. ")), 35_000),
+        ];
         await waitForRun(run);
-        clearTimeout(filler);
+        fillers.forEach(clearTimeout);
         const msg = run.events.find((e) => e.type === "message");
         const reply = msg && msg.type === "message" ? msg.text : "Sorry, I couldn't finish that one. Mind trying again?";
         for (const part of reply.match(/[^.!?]+[.!?]*\s*/g) ?? [reply]) send(sseChunk(chunkId, part));

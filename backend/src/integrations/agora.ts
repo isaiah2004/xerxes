@@ -18,16 +18,23 @@ export function userRtcToken(channel: string, uid = USER_UID) {
   return RtcTokenBuilder.buildTokenWithUid(appId, cert, channel, uid, RtcRole.PUBLISHER, TTL, TTL);
 }
 
+// One ConvoAI token per channel: Agora requires the REST Authorization token to match properties.token
+// (same channel + agent uid). Reused for join, status and leave.
+const tokens = new Map<string, { token: string; exp: number }>();
 export function agentToken(channel: string, uid = AGENT_UID) {
   const { appId, cert } = need();
-  return ConvoAITokenBuilder.buildToken(appId, cert, channel, String(uid), TTL, TTL);
+  const hit = tokens.get(channel);
+  if (hit && hit.exp > Date.now() + 60_000) return hit.token;
+  const token = ConvoAITokenBuilder.buildToken(appId, cert, channel, String(uid), TTL, TTL);
+  tokens.set(channel, { token, exp: Date.now() + TTL * 1000 });
+  return token;
 }
 
 /** REST auth: Basic (customer key/secret) if provided, otherwise ConvoAI token auth from the App Certificate. */
 function authHeader(channel: string) {
   if (env.agoraCustomerId && env.agoraCustomerSecret)
     return `Basic ${Buffer.from(`${env.agoraCustomerId}:${env.agoraCustomerSecret}`).toString("base64")}`;
-  return `agora token=${agentToken(channel)}`;
+  return `agora token="${agentToken(channel)}"`;
 }
 
 async function call(path: string, channel: string, body?: unknown) {
@@ -89,7 +96,12 @@ export async function startAgent(i: StartAgentInput): Promise<{ agent_id: string
   });
 }
 
-export const stopAgent = (channel: string, agentId: string) => call(`/agents/${agentId}/leave`, channel, {});
-export const agentStatus = (channel: string, agentId: string) => call(`/agents/${agentId}`, channel);
+export const stopAgent = async (channel: string, agentId: string) => {
+  const r = await call(`/agents/${agentId}/leave`, channel, {});
+  tokens.delete(channel);
+  return r;
+};
+export const agentStatus = (channel: string, agentId: string): Promise<{ agent_id: string; status: string; message?: string; start_ts?: number; stop_ts?: number }> =>
+  call(`/agents/${agentId}`, channel);
 export const speak = (channel: string, agentId: string, text: string) =>
   call(`/agents/${agentId}/speak`, channel, { text: text.slice(0, 500), priority: "APPEND", interruptable: true });

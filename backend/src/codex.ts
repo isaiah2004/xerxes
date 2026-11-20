@@ -8,16 +8,45 @@ import { env } from "./env.js";
 
 export type CodexTurn = { threadId?: string; text: string };
 
+export const CODEX_NOT_LOGGED_IN = "Codex is not logged in on the server. Run `codex login --device-auth` on the backend host (Docker: `docker compose exec backend codex login --device-auth`).";
+
+export class CodexAuthError extends Error {
+  constructor() {
+    super(CODEX_NOT_LOGGED_IN);
+  }
+}
+
+const bin = () => process.env.CODEX_BIN ?? "codex";
+let authCache: { ok: boolean; at: number } | undefined;
+
+/** `codex login status` (exit 0 = logged in). Positive results cached 5 min; negatives re-checked every call. */
+export function codexLoggedIn(): Promise<boolean> {
+  if (authCache?.ok && Date.now() - authCache.at < 5 * 60_000) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const child = spawn(bin(), ["login", "status"], { env: process.env, shell: process.platform === "win32", stdio: "ignore" });
+    const t = setTimeout(() => child.kill(), 15_000);
+    child.on("error", () => (clearTimeout(t), resolve(false)));
+    child.on("close", (code) => {
+      clearTimeout(t);
+      authCache = { ok: code === 0, at: Date.now() };
+      resolve(code === 0);
+    });
+  });
+}
+
+const TURN_TIMEOUT_MS = Number(process.env.CODEX_TURN_TIMEOUT_MS ?? 240_000);
+
 const WORKDIR = path.resolve(env.dataDir, "codex-work");
 mkdirSync(WORKDIR, { recursive: true });
 
-export function runCodex(opts: {
+export async function runCodex(opts: {
   prompt: string;
   threadId?: string;
   mcpUrl: string;
   onMessage?: (text: string) => void;
   signal?: AbortSignal;
 }): Promise<CodexTurn> {
+  if (!(await codexLoggedIn())) throw new CodexAuthError();
   const cfg = [
     `mcp_servers.xerxes.url="${opts.mcpUrl}"`,
     `mcp_servers.xerxes.tool_timeout_sec=60`,
@@ -32,7 +61,7 @@ export function runCodex(opts: {
   const args = opts.threadId ? ["exec", "resume", ...common, opts.threadId, "-"] : ["exec", ...common, "-"];
 
   return new Promise((resolve, reject) => {
-    const child = spawn(process.env.CODEX_BIN ?? "codex", args, {
+    const child = spawn(bin(), args, {
       cwd: WORKDIR,
       env: process.env,
       shell: process.platform === "win32", // resolve .cmd shims on Windows; args contain no user text
@@ -65,8 +94,19 @@ export function runCodex(opts: {
       }
     });
     child.stderr.on("data", (d) => (stderr = (stderr + d).slice(-4000)));
-    child.on("error", reject);
+    // Unauthenticated / stuck codex retries forever — cap the turn.
+    const timer = setTimeout(() => {
+      lastError ||= `turn timed out after ${Math.round(TURN_TIMEOUT_MS / 1000)}s`;
+      child.kill();
+    }, TURN_TIMEOUT_MS);
+    child.on("error", (e) => (clearTimeout(timer), reject(e)));
     child.on("close", (code) => {
+      clearTimeout(timer);
+      const out = `${lastError} ${stderr}`;
+      if (!messages.length && /not logged in|401 Unauthorized|login required|refresh token/i.test(out)) {
+        authCache = undefined;
+        return reject(new CodexAuthError());
+      }
       if (code === 0 || messages.length) resolve({ threadId, text: messages.at(-1) ?? "" });
       else reject(new Error(`codex exited ${code}: ${lastError || stderr.slice(-800)}`));
     });
