@@ -21,7 +21,7 @@ const kinds: Record<string, { icon: LucideIcon; grad: GradientName; label: strin
 const ago = (iso?: string) => {
   if (!iso) return "first check soon";
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  return m < 1 ? "looked just now" : m < 60 ? `looked ${m} min ago` : `looked ${Math.round(m / 60)} h ago`;
+  return m < 1 ? "checked just now" : m < 60 ? `checked ${m} min ago` : `checked ${Math.round(m / 60)} h ago`;
 };
 
 export default function Radar() {
@@ -55,19 +55,22 @@ export default function Radar() {
       <View style={{ gap: 10 }}>
         {active.map((w) => {
           const k = kinds[w.kind] ?? kinds.product;
+          // icon says what kind it is; the second line gets the full width for target + status
           return (
             <Card key={w.id}>
               <Row gap={12}>
                 <IconTile icon={k.icon} grad={k.grad} size={46} />
-                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                  <T v="h3" numberOfLines={1}>
+                <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+                  <T v="h3" numberOfLines={2}>
                     {w.query.replace(/\s+OR\s+/gi, " · ")}
                   </T>
-                  <T v="sub" numberOfLines={1} style={w.lastError ? { color: color.warn } : undefined}>
-                    {k.label} · {w.lastError ?? ago(w.lastCheckedAt)}
-                  </T>
+                  <Row gap={8}>
+                    {w.maxPrice ? <Chip label={`Under ${money(w.maxPrice.amount, w.maxPrice.currency)}`} tone="info" /> : null}
+                    <T v="sub" numberOfLines={1} style={{ flexShrink: 1, color: w.lastError ? color.warn : color.muted }}>
+                      {w.lastError ?? ago(w.lastCheckedAt)}
+                    </T>
+                  </Row>
                 </View>
-                {w.maxPrice ? <Chip label={`Under ${money(w.maxPrice.amount, w.maxPrice.currency)}`} tone="info" /> : null}
               </Row>
             </Card>
           );
