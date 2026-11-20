@@ -15,6 +15,11 @@ import { murfStream } from "./integrations/murf.js";
 import { voiceRoutes } from "./voice.js";
 import { startWatchers } from "./watchers.js";
 
+// One stray error (a stream write after a client hung up, a flaky upstream) must not take the server down
+// and drop every live voice call with it. Log it and keep serving.
+process.on("uncaughtException", (e) => console.error("[uncaught]", e));
+process.on("unhandledRejection", (e) => console.error("[unhandled rejection]", e));
+
 const app = new Hono();
 app.use("/api/*", cors());
 
