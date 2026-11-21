@@ -11,11 +11,12 @@ This is the two-minute pitch for **Build with Agora, Bengaluru 2026**. The deck 
 | 1 | 0:00–0:10 | Meet Xerxes (animated intro) |
 | 2 | 0:10–0:24 | Not a list of links. A decision. |
 | 3 | 0:24–1:04 | Watch it do the legwork (the demo) |
-| 4 | 1:04–1:28 | How it works |
-| 5 | 1:28–1:44 | The line never goes quiet |
-| 6 | 1:44–1:54 | It keeps watching |
-| 7 | 1:54–2:00 | Close, with the QR code to this repo |
-| 8–9 | appendix | Under the hood · What's live, what's seeded (for Q&A only) |
+| 4 | 1:04–1:22 | How it works |
+| 5 | 1:22–1:34 | Bring your own everything (privacy) |
+| 6 | 1:34–1:46 | The line never goes quiet |
+| 7 | 1:46–1:54 | It keeps watching |
+| 8 | 1:54–2:00 | Close, with the QR code to this repo |
+| 9–10 | appendix | Under the hood · What's live, what's next (for Q&A only) |
 
 ## Presenting
 
@@ -56,9 +57,9 @@ python presentation/tools/build_pptx.py   # dist/xerxes-pitch.pptx
 
 `dist/` is git-ignored, so only the PDF is committed.
 
-## What's illustrative
+## Notes for Q&A
 
-- People, occasions, budgets and the starting Radar watch list are seeded demo data. Searches, prices, delivery estimates and the voice call are live.
+- The deck doesn't call out sample data on the slides. If asked: the people and occasions in the demo are sample entries; searches, prices, delivery estimates and the voice call are live. The appendix slide "What's live, what's next" covers this, and doesn't claim SQLite, Drive backup or watches beyond games and hardware.
 - The slide 2 decision card comes from a live search on 21 Nov 2026. Its delivery date is Amazon's own estimate.
 - The slide 3 storyboard uses real app screens from a typed chat, not the voice call. The recorded clip replaces it.
-- In slide 5's transcript, the times are illustrative and labelled so. Every line is a real string from `backend/src/voice.ts`. The stat tiles and the bar chart are measured.
+- In slide 6's animated conversation ("The line never goes quiet"), the timing and the tool timeline are illustrative and labelled so. Every Xerxes line is a real string from `backend/src/voice.ts`. The two numbers (1.6 s to first words, 6.5 s for a quick question) are measured.

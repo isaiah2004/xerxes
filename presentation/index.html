@@ -216,7 +216,7 @@
 </section>
 
 <!-- ============================================================ 4 · ARCHITECTURE -->
-<section class="slide s-arch" data-title="How it works" data-time="1:04–1:28" data-at="64" data-dur="24">
+<section class="slide s-arch" data-title="How it works" data-time="1:04–1:22" data-at="64" data-dur="18">
   <div class="aurora a-blue" style="left:-500px;top:-500px;width:1300px;height:1300px"></div>
   <div class="aurora a-green" style="right:-500px;bottom:-600px;width:1400px;height:1400px"></div>
   <header class="topbar">
@@ -282,6 +282,7 @@
     <div class="box" style="left:636px;top:408px;width:382px;height:300px">
       <div class="bt"><span class="ic" style="background:var(--g-navy)"><svg class="i"><use href="#i-cpu"/></svg></span>Codex CLI</div>
       <div class="bd">One thread per conversation, one turn per message. Read-only sandbox: it acts only through Xerxes tools and live web search.</div>
+      <div class="row"><span class="chip info">or any MCP agent</span></div>
     </div>
     <div class="box" style="left:1056px;top:408px;width:636px;height:300px">
       <div class="bt"><span class="ic" style="background:var(--g-primary)"><svg class="i"><use href="#i-wrench"/></svg></span>Xerxes tools · MCP</div>
@@ -304,8 +305,55 @@
   </aside>
 </section>
 
+<!-- ============================================================ 4b · BRING YOUR OWN EVERYTHING -->
+<section class="slide s-byo" data-title="Bring your own everything" data-time="1:22–1:34" data-at="82" data-dur="12">
+  <div class="aurora a-green" style="left:-500px;top:-560px;width:1300px;height:1300px"></div>
+  <div class="aurora a-blue" style="right:-560px;bottom:-640px;width:1400px;height:1400px"></div>
+  <header class="topbar">
+    <div class="brand"><span class="mark"><svg class="i logo"><use href="#i-logo"/></svg></span>Xerxes</div>
+    <div class="event">Maximum privacy</div>
+  </header>
+  <div class="title">
+    <h2 class="h2">Bring your own key. And your own<br><span class="accent">compute, intelligence and storage.</span></h2>
+  </div>
+
+  <div class="byo-grid">
+    <div class="box byo-card c1">
+      <div class="bt"><span class="ic" style="background:var(--g-primary)"><svg class="i"><use href="#i-cpu"/></svg></span>Intelligence</div>
+      <div class="bd">Codex CLI on <b>your own login</b>. <code>CODEX_MODEL</code> picks the model. The 13 tools are a standard MCP server, so Claude Code, Cursor or any MCP agent can plug in.</div>
+      <div class="term"><div class="tl"><span class="p">$</span> codex exec --json -m $CODEX_MODEL \</div><div class="tl">&nbsp;&nbsp;-c mcp_servers.xerxes.url=127.0.0.1:8787/mcp/:runId</div><div class="tl ok">✓ 13 tools · get_context, find_game_deals …</div></div>
+    </div>
+    <div class="box byo-card c2">
+      <div class="bt"><span class="ic" style="background:var(--g-navy)"><svg class="i"><use href="#i-server"/></svg></span>Compute</div>
+      <div class="bd">The backend runs <b>on your machine</b>. The MCP endpoint answers loopback only. Just the voice call needs a tunnel, so Agora can reach it.</div>
+      <div class="row"><span class="chip ok">localhost</span><span class="chip line">tunnel for voice only</span></div>
+    </div>
+    <div class="box byo-card c3">
+      <div class="bt"><span class="ic" style="background:var(--g-warning)"><svg class="i"><use href="#i-wrench"/></svg></span>Keys</div>
+      <div class="bd">Your own Agora and Murf keys, plus optional Tavily, in <b>your</b> <code>.env</code>. No Xerxes account, no middleman.</div>
+      <div class="row"><span class="chip ok">Agora</span><span class="chip ok">Murf</span><span class="chip line">Tavily · optional</span></div>
+    </div>
+    <div class="box byo-card c4">
+      <div class="bt"><span class="ic" style="background:var(--g-info)"><svg class="i"><use href="#i-bookmark"/></svg></span>Data</div>
+      <div class="bd">Today: one local file, <code>.data/xerxes.json</code>. Your plans, watches and memory never sit on our server.</div>
+      <div class="row"><span class="chip ok">Local file · live</span><span class="chip line">SQLite <span class="next">Next</span></span><span class="chip line">Google Drive backup <span class="next">Next</span></span></div>
+    </div>
+  </div>
+
+  <div class="byo-leaves">
+    <span class="lbl">What leaves your machine</span>
+    <span class="chip line">voice audio → Agora</span><span class="chip line">reply text → Murf</span><span class="chip line">prompts → your model provider</span><span class="chip line">searches → retailers</span>
+  </div>
+
+  <aside class="notes">
+    <p>And it’s yours end to end. Bring your own key, but also your own compute and intelligence.</p>
+    <p>The agent is Codex CLI on your own login, any model you like, and the tools are a standard MCP server, so Claude Code, Cursor or any MCP agent can drive Xerxes.</p>
+    <p>It runs on your machine, your data stays in a local file, and SQLite with Google Drive backup is next. Only the voice, the reply text and the searches ever leave.</p>
+  </aside>
+</section>
+
 <!-- ============================================================ 5 · LATENCY -->
-<section class="slide s-latency" data-title="The line never goes quiet" data-time="1:28–1:44" data-at="88" data-dur="16">
+<section class="slide s-latency" data-title="The line never goes quiet" data-time="1:34–1:46" data-at="94" data-dur="12">
   <div class="aurora a-green" style="left:-400px;top:-500px;width:1300px;height:1300px"></div>
   <div class="aurora a-blue" style="right:-500px;bottom:-500px;width:1300px;height:1300px"></div>
   <header class="topbar">
@@ -317,57 +365,38 @@
     <p class="lead">Real agent work takes time, so Xerxes talks you through it.</p>
   </div>
 
-  <div class="stats">
-    <div class="stat">
-      <div class="lbl"><span class="ic" style="background:var(--g-primary)"><svg class="i"><use href="#i-zap"/></svg></span>Time to first words</div>
-      <div class="val">1.6<small>s</small></div>
-      <div class="note">“On it, give me a moment.”</div>
-    </div>
-    <div class="stat">
-      <div class="lbl"><span class="ic" style="background:var(--g-info)"><svg class="i" style="color:#101828"><use href="#i-check"/></svg></span>Quick question, fully answered</div>
-      <div class="val">6.5<small>s</small></div>
-      <div class="note">“How many days until her birthday?”</div>
-    </div>
-    <div class="stat">
-      <div class="lbl"><span class="ic" style="background:var(--g-navy)"><svg class="i"><use href="#i-search"/></svg></span>Full gift search</div>
-      <div class="val">30–90<small>s</small></div>
-      <div class="note">Narrated live, step by step.</div>
-    </div>
+  <div class="lc-chat">
+    <div class="lc-b you" style="--d:.3s"><div class="who">You</div>“Find her a hardcover animal book.”</div>
+    <div class="lc-b x" style="--d:1.6s"><div class="who"><i class="wv"><b></b><b></b><b></b><b></b></i>Xerxes</div>“On it, give me a moment.”</div>
+    <div class="lc-b x" style="--d:3.4s"><div class="who"><i class="wv"><b></b><b></b><b></b><b></b></i>Xerxes</div>“Looking through book catalogues.”</div>
+    <div class="lc-b x" style="--d:5.2s"><div class="who"><i class="wv"><b></b><b></b><b></b><b></b></i>Xerxes</div>“Checking Amazon for the price and delivery date.”</div>
+    <div class="lc-b x" style="--d:7s"><div class="who"><i class="wv"><b></b><b></b><b></b><b></b></i>Xerxes</div>“Still on it, I’m comparing prices and delivery dates.”</div>
+    <div class="lc-b x ans" style="--d:9s"><div class="who"><i class="wv"><b></b><b></b><b></b><b></b></i>Xerxes</div>“I’d get DK’s <em>Our World in Pictures: The Animal Book</em>…”</div>
   </div>
 
-  <div class="panel tl-panel">
-    <div class="ph">How a gift search sounds<span class="chip warn">Illustrative timing</span></div>
-    <ol class="transcript">
-      <li class="you"><span class="ts">0 s</span><span class="who">You</span><span class="line">“Find her a hardcover animal book.”</span></li>
-      <li><span class="ts">1.6 s</span><span class="who">Xerxes</span><span class="line">“On it, give me a moment.”</span><span class="kind plain">acknowledge</span></li>
-      <li><span class="ts">9 s</span><span class="who">Xerxes</span><span class="line">“Looking through book catalogues.”</span><span class="kind">search_books</span></li>
-      <li><span class="ts">17 s</span><span class="who">Xerxes</span><span class="line">“Checking Amazon for the price and delivery date.”</span><span class="kind">read_page</span></li>
-      <li><span class="ts">33 s</span><span class="who">Xerxes</span><span class="line">“Still on it, I’m comparing prices and delivery dates.”</span><span class="kind plain">filler</span></li>
-      <li class="answer"><span class="ts">42 s</span><span class="who">Xerxes</span><span class="line">“I’d get DK’s Our World in Pictures: The Animal Book…”</span><span class="kind">show_products</span></li>
-    </ol>
-    <div class="foot">Every line is a real string from <code>backend/src/voice.ts</code>: “On it” at 1.5 s, each tool step narrated as it starts, a filler after 16 s of quiet.</div>
+  <div class="lc-nums">
+    <div class="lc-n"><div class="v">1.6<small>s</small></div><div class="l">to first words</div></div>
+    <div class="lc-n"><div class="v">6.5<small>s</small></div><div class="l">quick question, fully answered</div></div>
+    <div class="lc-src">Measured, from the voice log</div>
   </div>
 
-  <div class="panel log-panel">
-    <div class="ph">Real calls, from the voice log</div>
-    <div class="sub">Agent run time per question</div>
-    <div class="logbars">
-      <div class="lr"><div class="q">How many days until her birthday?<span>“Eleven days, Isaiah.”</span></div><div class="track"><div class="bar" style="width:48px"></div><div class="val" style="left:48px">6 s</div></div></div>
-      <div class="lr"><div class="q">Around the World in Eighty Days<span>Bookswagon, ₹197</span></div><div class="track"><div class="bar" style="width:302px"></div><div class="val" style="left:302px">38 s</div></div></div>
-      <div class="lr"><div class="q">To Kill a Mockingbird<span>Amazon, ₹315</span></div><div class="track"><div class="bar" style="width:333px"></div><div class="val" style="left:333px">42 s</div></div></div>
-      <div class="lr"><div class="q">32 GB mini PC for agent dev<span>refurbished OptiPlex</span></div><div class="track"><div class="bar" style="width:484px"></div><div class="val" style="left:484px">61 s</div></div></div>
-      <div class="axis"><span style="left:0">0</span><span style="left:238px">30 s</span><span style="left:476px">60 s</span></div>
+  <div class="lc-tl">
+    <div class="lc-track">
+      <div class="seg tool" style="left:14%;width:70%"></div>
+      <div class="lc-say" style="left:14%"></div><div class="lc-say" style="left:30%"></div><div class="lc-say" style="left:46%"></div><div class="lc-say" style="left:62%"></div><div class="lc-say ans" style="left:80%"></div>
+      <div class="lc-head"></div>
     </div>
+    <div class="lc-cap"><span class="k tool"></span>tools running, where a voice bot goes silent <span class="k say"></span>Xerxes speaking <span class="lc-ill">Lines are real strings from <code>backend/src/voice.ts</code> · timing illustrative</span></div>
   </div>
 
   <aside class="notes">
-    <p>Agent work takes time, so Xerxes never goes quiet. First words in 1.6 seconds. A quick question answered in about six and a half.</p>
-    <p>A full gift search takes 30 to 90 seconds, and Xerxes narrates its real steps the whole way.</p>
+    <p>Agent work takes time, but Xerxes never goes quiet. First words in 1.6 seconds, and a quick question is fully answered in about six and a half.</p>
+    <p>On a long search, every gap where a normal bot would sit silent, Xerxes narrates its real steps, then lands the answer.</p>
   </aside>
 </section>
 
 <!-- ============================================================ 6 · ALWAYS ON -->
-<section class="slide s-always" data-title="It keeps watching" data-time="1:44–1:54" data-at="104" data-dur="10">
+<section class="slide s-always" data-title="It keeps watching" data-time="1:46–1:54" data-at="106" data-dur="8">
   <div class="aurora a-blue" style="left:-500px;top:-400px;width:1400px;height:1400px"></div>
   <div class="aurora a-green" style="right:-400px;bottom:-600px;width:1400px;height:1400px"></div>
   <header class="topbar">
@@ -376,7 +405,7 @@
   </header>
   <div class="title">
     <h2 class="h2">It keeps watching.</h2>
-    <p class="lead">Radar, Calendar and People run in the background. That’s how Xerxes can speak first.</p>
+    <p class="lead">Radar re-checks your game and hardware watches. Calendar and People are its memory.</p>
   </div>
 
   <div class="trio">
@@ -385,8 +414,8 @@
       <div class="cap">
         <span class="ic" style="background:var(--g-primary)"><svg class="i"><use href="#i-radar"/></svg></span>
         <h3>Radar</h3>
-        <p>Tracks prices around the clock. Only pings when it’s worth it.</p>
-        <div class="bubble x"><div class="who"><svg class="i"><use href="#i-volume"/></svg>Spoken by Murf</div>“Outer Wilds · Fanatical. $9.74 (was $24.99) — 61% off, under your $12 target.”</div>
+        <p>Re-checks the games and hardware you watch. Only pings when it’s worth it.</p>
+        <div class="bubble x"><div class="who"><svg class="i"><use href="#i-volume"/></svg>Read aloud</div>“Outer Wilds · Fanatical. $9.74 (was $24.99) — 61% off, under your $12 target.”</div>
       </div>
     </div>
     <div class="unit" style="left:584px">
@@ -408,6 +437,7 @@
       </div>
     </div>
   </div>
+  <div class="skip">Click to see all three</div>
 
   <aside class="notes">
     <p>And it keeps watching. Radar tracks prices and reads deals aloud, like a game at 61% off, under my target.</p>
@@ -446,7 +476,6 @@
 
   <div class="honest">
     <span class="chip ok"><svg class="i"><use href="#i-check"/></svg>Live: the voice call, searches, prices and delivery estimates</span>
-    <span class="chip info"><svg class="i"><use href="#i-seed"/></svg>Seeded for the demo: people and occasions</span>
   </div>
 
   <aside class="notes">
@@ -499,14 +528,14 @@
   <aside class="notes"><p>Appendix for readers of the PDF. Not presented.</p></aside>
 </section>
 
-<!-- ============================================================ A2 · REAL vs SEEDED (appendix) -->
-<section class="slide s-honest" data-title="Appendix: what's real" data-time="appendix" data-at="120" data-dur="0">
+<!-- ============================================================ A2 · LIVE vs NEXT (appendix) -->
+<section class="slide s-honest" data-title="Appendix: what's live, what's next" data-time="appendix" data-at="120" data-dur="0">
   <div class="aurora a-green" style="left:-500px;bottom:-600px;width:1300px;height:1300px"></div>
   <header class="topbar">
     <div class="brand"><span class="mark"><svg class="i logo"><use href="#i-logo"/></svg></span>Xerxes</div>
-    <div class="event">Appendix · What’s real</div>
+    <div class="event">Appendix · Q&amp;A</div>
   </header>
-  <div class="title"><h2 class="h2">What’s live, what’s seeded.</h2></div>
+  <div class="title"><h2 class="h2">What’s live, what’s next.</h2></div>
 
   <div class="cols3">
     <div class="cl">
@@ -516,25 +545,25 @@
         <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Every search: book catalogues, retailer pages, game stores</li>
         <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Prices and delivery dates, as each retailer states them</li>
         <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Covers, game deals and the step-by-step narration</li>
-        <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Radar’s scheduled price checks</li>
+        <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Radar watchers re-checking game deals and used hardware every 30 minutes</li>
       </ul>
     </div>
     <div class="cl">
-      <h3><span class="ic" style="background:var(--g-info)"><svg class="i" style="color:#101828"><use href="#i-seed"/></svg></span>Seeded</h3>
+      <h3><span class="ic" style="background:var(--g-info)"><svg class="i" style="color:#101828"><use href="#i-users"/></svg></span>Remembers</h3>
       <ul>
-        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-seed"/></svg>Your profile</li>
-        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-seed"/></svg>People, and what Xerxes remembers about them</li>
-        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-seed"/></svg>Occasions, budgets and arrive-by dates (you can add and edit your own)</li>
-        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-seed"/></svg>The starting watch list on Radar</li>
+        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>Your profile and preferences</li>
+        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>The people you shop for, and what Xerxes learns about them</li>
+        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>Occasions, budgets and arrive-by dates, added and edited in the app</li>
+        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>Deal watches you start by voice</li>
       </ul>
     </div>
     <div class="cl">
-      <h3><span class="ic" style="background:var(--g-warning)"><svg class="i"><use href="#i-alert"/></svg></span>Not yet</h3>
+      <h3><span class="ic" style="background:var(--g-warning)"><svg class="i"><use href="#i-arrow"/></svg></span>Next</h3>
       <ul>
-        <li><svg class="i" style="color:var(--warn)"><use href="#i-alert"/></svg>No checkout: Buy opens the retailer, and you pay there</li>
-        <li><svg class="i" style="color:var(--warn)"><use href="#i-alert"/></svg>Delivery dates are the retailer’s estimate, or a typical window flagged “estimated”</li>
-        <li><svg class="i" style="color:var(--warn)"><use href="#i-alert"/></svg>Voice needs a public tunnel to the backend</li>
-        <li><svg class="i" style="color:var(--warn)"><use href="#i-alert"/></svg>Used-hardware search needs Reddit API access</li>
+        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Checkout in the app; today Buy opens the retailer</li>
+        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>A hosted backend, so voice needs no tunnel</li>
+        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Durable storage (SQLite) and Google Drive backup</li>
+        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Price watches for any product, not just games and hardware</li>
       </ul>
     </div>
   </div>
@@ -547,7 +576,7 @@ cd backend &amp;&amp; npm install &amp;&amp; npm run dev        <span class="c">
 cloudflared tunnel --url http://localhost:8787  <span class="c"># then set PUBLIC_URL</span></pre>
   </div>
 
-  <aside class="notes"><p>Appendix for readers of the PDF. Not presented.</p></aside>
+  <aside class="notes"><p>Appendix for Q&amp;A. If asked: the people and occasions in the demo are sample entries we loaded so the app has something to remember; everything Xerxes looks up is live. Delivery dates are the retailer’s estimate, or a typical window flagged “estimated”. Used-hardware search needs Reddit API access.</p></aside>
 </section>
 
 </div>

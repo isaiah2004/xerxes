@@ -109,6 +109,64 @@
     tourTimers.push(setTimeout(endTour, TOUR[3] * 1000));
   }
 
+  /* ---------------------------------------------------------------- slide 6: tour Radar, Calendar, People, then the overview */
+  const always = document.querySelector(".slide.s-always");
+  const trio = always && always.querySelector(".trio");
+  const units = trio ? [...trio.querySelectorAll(".unit")] : [];
+  const ATOUR = [0, 2.7, 5.4, 8.1]; // seconds: Radar, Calendar, People, back to the overview (10s slot)
+  let aTimers = [];
+  const aTouring = () => !!always && always.classList.contains("touring");
+  function focusUnit(k) {
+    units.forEach((u, i) => u.classList.toggle("on", i === k));
+    const u = units[k], cx = u.offsetLeft + u.offsetWidth / 2, cy = trio.clientHeight / 2;
+    trio.style.transformOrigin = `${cx}px ${cy}px`;
+    trio.style.transform = `translate(${960 - (trio.offsetLeft + cx)}px, ${560 - (trio.offsetTop + cy)}px) scale(1.15)`;
+  }
+  function resetAlways() {
+    aTimers.forEach(clearTimeout); aTimers = [];
+    if (!always) return;
+    always.classList.remove("touring", "overview");
+    units.forEach((u) => u.classList.remove("on"));
+    if (trio) trio.style.transform = "";
+  }
+  function endAlways() {
+    resetAlways();
+    if (!always) return;
+    void always.offsetWidth; always.classList.add("overview");
+  }
+  function startAlways() {
+    if (!units.length || EXPORT) return;
+    resetAlways();
+    always.classList.add("touring");
+    units.forEach((_, k) => aTimers.push(setTimeout(() => focusUnit(k), ATOUR[k] * 1000 + 300)));
+    aTimers.push(setTimeout(endAlways, ATOUR[3] * 1000));
+  }
+
+  /* ---------------------------------------------------------------- slide 4: the call flows through the diagram in numbered order */
+  function archSeq(slide) {
+    const a = slide.querySelector(".arch");
+    if (!a || a.dataset.seq) return;
+    a.dataset.seq = "1";
+    const box = [...a.querySelectorAll(".box")], p = [...a.querySelectorAll(".wires path")], wl = [...a.querySelectorAll(".wlabel")];
+    const at = (el, d) => { if (el) { el.classList.add("seq"); el.style.setProperty("--d", `${d}s`); } };
+    a.querySelectorAll(".lane").forEach((el) => at(el, 0.1));
+    at(box[0], 0.3);                                   // you
+    at(p[0], 0.8); at(wl[0], 0.8);                    // ① speak
+    at(box[1], 1.1);                                   // agora
+    at(p[4], 1.9); at(a.querySelector(".bridge"), 1.9); // ② custom LLM
+    at(box[3], 2.5);                                   // backend
+    at(p[6], 3.1); at(wl[5], 3.1);                    // ③
+    at(box[4], 3.4);                                   // codex
+    at(p[7], 4.0); at(wl[6], 4.0);                    // ④
+    at(box[5], 4.3);                                   // tools
+    box[5] && box[5].querySelectorAll(".tool").forEach((t, k) => at(t, 4.6 + k * 0.07));
+    at(p[5], 5.8); at(wl[4], 5.8);                    // ⑤ narration + answer
+    at(p[2], 6.4); at(wl[2], 6.4);                    // ⑥ text to murf
+    at(box[2], 6.7);                                   // murf
+    at(p[3], 7.2); at(wl[3], 7.2);                    // voice back
+    at(p[1], 7.6); at(wl[1], 7.6);                    // hear it
+  }
+
   /* ---------------------------------------------------------------- slide 2: the price counts up as the card fills in */
   function countUp(slide) {
     const el = slide.querySelector(".decision .amount");
@@ -133,6 +191,7 @@
     const to = slides[i];
     if (from === hook && to !== hook) intro && intro.leave();
     if (from === demo && to !== demo) { leaveDemo(); resetTour(); }
+    if (from === always && to !== always) resetAlways();
 
     if (opts.instant || EXPORT) {
       slides.forEach((s) => (s.style.transition = "none"));
@@ -145,8 +204,9 @@
     cur = i;
 
     if (to === hook) intro && intro.enter();
-    else if (!EXPORT) { to.classList.remove("play"); void to.offsetWidth; to.classList.add("play"); if (to.classList.contains("s-legwork")) countUp(to); }
+    else if (!EXPORT) { to.classList.remove("play"); void to.offsetWidth; to.classList.add("play"); if (to.classList.contains("s-legwork")) countUp(to); if (to.classList.contains("s-arch")) archSeq(to); }
     if (to === demo) { enterDemo(); startTour(); }
+    if (to === always) startAlways();
     if (!EXPORT && !PRESENTER && location.hash !== `#${i + 1}`) history.replaceState(null, "", `#${i + 1}`);
     renderChrome();
     sync();
@@ -155,6 +215,7 @@
   function next() {
     if (!t0) startClock();
     if (slides[cur] === demo && touring()) { endTour(); return; } // first click skips the tour to the overview
+    if (slides[cur] === always && aTouring()) { endAlways(); return; }
     go(cur + 1);
   }
   function prev() { go(cur - 1); }
