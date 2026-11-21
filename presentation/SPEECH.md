@@ -64,7 +64,7 @@ About two minutes. The same lines are in each slide's speaker notes (press **N**
 
 ### 5 · Bring your own (1:38–1:52)
 
-> And it's yours. Bring your own keys, your own agent, Codex CLI on your login with any model, and your own storage: everything lives in a local file on your machine.
+> And it's yours. Bring your own AI keys, your own agent, Codex CLI on your login with any model, and your own storage: everything lives in a local file on your machine.
 
 *Click.*
 
