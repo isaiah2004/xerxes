@@ -129,6 +129,8 @@ export type Db = {
   dismissedFinds?: string[];
   /** Gift ideas thought up ahead for upcoming occasions (ideas.ts), by occasionId. key: what they were based on. */
   ideas?: Record<string, { text: string; card: IdeasCard; at: string; key: string }>;
+  /** Map lookups already made (stores.ts): "560001 bengaluru" → where that is, so "near you" costs nothing the next time. */
+  places?: Record<string, { lat: number; lon: number; label: string }>;
 };
 
 export type Idea = { title: string; why: string; price?: string; emoji?: string };

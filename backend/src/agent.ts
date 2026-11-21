@@ -13,7 +13,14 @@ export type Mode = "text" | "voice";
 
 /** Voice turns are spoken while the caller waits, so they get a tighter tool budget than text turns. */
 const VOICE_PACE =
-  "Be quick. Ideas: just show_ideas, no searching. A full search (only once they've picked): about 5 tool calls (one search, at most one product page, check_offers, then show_products and show_recommendation).";
+  "Be quick. Ideas: just show_ideas, no searching. Shops nearby: find_stores, then show_stores, nothing else. A full search (only once they've picked): about 5 tool calls (one search, at most one product page, check_offers, then show_products and show_recommendation).";
+
+/** When it has to be today: real shops nearby, on a map, instead of (or next to) delivery. */
+const NEARBY =
+  "Nearby shops, for when it can't wait: when they need it today or tomorrow, say they're in a hurry or ask where to get something near them, or check_offers says delivery won't make it in time, " +
+  "call find_stores with the shop kinds that would stock it (or chains by name), then show_stores with the best 2-4 (open now first, then nearest), " +
+  "and say which one to head to, how far it is and until when it's open. You can't see a shop's stock: say it likely has it and suggest calling ahead. " +
+  "When they ask for shops, show the shops right away (which shop rarely depends on the exact item); if they haven't settled on what to buy, add a few quick ideas with show_ideas in the same turn.";
 
 /** Ideas first; the slow comparative search is a step the user chooses. */
 const TWO_SPEEDS =
@@ -60,7 +67,8 @@ How you work:
 - Discovery (the full search): use search_books for books (verify Hardcover via physicalFormat when the user wants hardcover). For retailer prices and delivery estimates, use your built-in web search (e.g. "site:amazon.in <title> hardcover"; the user watches each search live), then read_page on the best product pages (prefer Indian retailers for ${db.profile.country}; delivery to ${db.profile.city} ${db.profile.postalCode}).
 - Prices: only quote prices you actually saw (search snippet or page). If you could not see a live price, say "approx." and mark priceSource accordingly.
 - Delivery: retailer pages show their estimate for a ${db.profile.city} location near the user. Use it as the estimate for ${db.profile.postalCode} (pass it to check_offers); don't discuss PIN-code differences.
-- ALWAYS run check_offers (with occasionId when relevant) before recommending, so budget/delivery verdicts are computed, not guessed.
+- ALWAYS run check_offers (with occasionId when relevant) before recommending online, so budget/delivery verdicts are computed, not guessed.
+- ${NEARBY}
 - Agentic UI: the user sees cards you render. Call show_products with 2-3 strong options (use cover imageUrl from search_books, verdicts/arrives/spareDays from check_offers), then show_recommendation for your pick. Use show_question when you truly need input (e.g. room dimensions).
 - Be efficient: aim for at most ~10 tool calls per turn. Run one broad search_books, pick 2-3 candidates, then verify price/delivery on 1-2 retailer pages each. Don't re-search the same thing.
 - Save durable facts the user tells you with remember. When they mention someone new they shop for (a friend, a colleague, a family), save them with save_person, with whatever you learn about what they like.
@@ -138,7 +146,7 @@ async function execute(run: Run, mode: Mode, context?: string, projectId?: strin
   const turn = async (threadId?: string) =>
     runCodex({
       prompt: threadId
-        ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : " · ideas first (show_ideas); full search only once they pick or ask for something specific"} · ${replyIn(lang)}] ${note}${run.userText}`
+        ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : " · ideas first (show_ideas); full search only once they pick or ask for something specific; needed today: shops nearby (find_stores, then show_stores)"} · ${replyIn(lang)}] ${note}${run.userText}`
         : `${await preamble(mode, lang)}\n\n${recap(run)}${note}User: ${run.userText}`,
       threadId,
       mcpUrl: `http://127.0.0.1:${env.port}/mcp/${run.id}`,

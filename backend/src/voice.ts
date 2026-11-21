@@ -110,6 +110,7 @@ export function narrate(label: string, lang?: Language): string | undefined {
   if (lang?.phrases) return narrateIn(lang.phrases, label);
   let m: RegExpMatchArray | null;
   if (label.startsWith("Searched book catalogues")) return "Looking through book catalogues.";
+  if (label.startsWith("Searched the map")) return "Looking for shops near you.";
   if (/^Search(ed|ing) the web/.test(label)) return "Searching the online stores.";
   if ((m = label.match(/^Searched ([a-z0-9.-]+\.[a-z]{2,}):/i))) return `Searching ${siteName(m[1])}.`;
   if ((m = label.match(/^(?:Opened|Checked) ([a-z0-9.-]+\.[a-z]{2,})$/i))) return `Checking ${siteName(m[1])} for the price and delivery date.`;

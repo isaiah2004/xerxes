@@ -16,6 +16,7 @@ import {
   addEntry, bindConversation, changeProject, dropEntry, dropProject, logSearch, PROJECT_ICONS, projectContext, projectPatch, projectSummary, touchProject,
 } from "./projects.js";
 import { emit, getRun, newCardId } from "./runs.js";
+import { directionsUrl, findStores, fresh, openText, storeById } from "./stores.js";
 import { mutate, newId, readDb, slug, uniqueId, type Db, type Money, type Project } from "./store.js";
 import { toIso, today } from "./dates.js";
 
@@ -446,6 +447,69 @@ export function buildServer(runId: string) {
       }));
       emit(runId, { type: "card", card: { id: newCardId(), type: "ideas", heading: clip(a.heading.trim(), 70), ideas, ...(a.occasionId ? { occasionId: a.occasionId } : {}) } });
       return { shown: true, note: "Now ask which one to look into, in one short sentence. Don't search until they pick one." };
+    });
+
+  // ---------- nearby shops: for when it has to be today ----------
+  tool("find_stores",
+    "Find real shops near the user (OpenStreetMap): for when they need it today or tomorrow, delivery can't make it in time, or they ask where to buy something nearby. Returns the nearest matches with distance, open now / until when, phone and street where known. Then put the best 2-4 on a map with show_stores.",
+    {
+      kinds: z
+        .array(z.string())
+        .max(3)
+        .default([])
+        .describe(
+          "OpenStreetMap shop types that would stock it, e.g. books, toys, gift, games, video_games, electronics, computer, mobile_phone, stationery, art, craft, hobby, musical_instrument, sports, outdoor, clothes, shoes, jewelry, watches, cosmetics, perfumery, florist, bakery, pastry, confectionery, chocolate, department_store, mall, photo, kitchen, houseware, pet, bicycle",
+        ),
+      names: z.array(z.string()).max(3).optional().describe("Specific shops or chains, e.g. 'Crossword', 'Croma', 'Hamleys'"),
+      near: z.string().optional().describe("An area when they're not at home, e.g. 'Indiranagar'. Default: their home"),
+      radiusKm: z.number().optional().describe("Default 3, up to 10"),
+    },
+    (a) => `Searched the map near ${a.near?.trim() || "you"}: ${clip([...a.kinds.map((k) => k.replace(/_/g, " ")), ...(a.names ?? [])].join(", "), 48)}`,
+    async (a) => {
+      const { from, radiusKm, stores } = await findStores(a);
+      if (!stores.length) return { near: from.label, radiusKm, stores: [], note: `Nothing within ${radiusKm} km. Try other kinds, a name, or a wider radius (up to 10).` };
+      return {
+        near: from.label,
+        radiusKm,
+        stores: stores.map((s) => defined({ id: s.id, name: s.name, kind: s.kind, km: s.distanceKm, street: s.address, open: openText(s.open), hours: s.open ? undefined : s.hours, phone: s.phone, website: s.website })),
+        note: "Pick 2-4 that fit (open now first, then nearest) and call show_stores with their ids in the order you recommend. You can't see their stock: say 'likely has it' and suggest calling ahead when there's a phone number.",
+      };
+    });
+
+  tool("show_stores",
+    "Put shops from find_stores on a map in the user's app (it shows in a call too), each with a short note. Your pick goes first: it's pin 1, the one you tell them to head to.",
+    {
+      heading: z.string().describe("e.g. 'Bookshops open now near you'"),
+      stores: z
+        .array(
+          z.object({
+            id: z.string().describe("From find_stores"),
+            note: z.string().optional().describe("One short line on why this shop, e.g. 'Big kids' section; likely has it'. Not the distance or hours: the card shows those"),
+          }),
+        )
+        .min(1)
+        .max(5),
+    },
+    (a) => `Put ${a.stores.length} shop${a.stores.length > 1 ? "s" : ""} on the map`,
+    async (a) => {
+      const picked = a.stores.flatMap((p) => {
+        const s = storeById(p.id);
+        return s ? [{ s: fresh(s), note: p.note?.trim() }] : [];
+      });
+      if (!picked.length) throw new Error("Those ids aren't from find_stores. Run find_stores first and pass its ids.");
+      const center = picked[0].s.from;
+      const stores = picked.map(({ s, note }) =>
+        defined({
+          id: s.id, name: s.name, kind: s.kind, lat: s.lat, lon: s.lon,
+          distanceKm: s.distanceKm,
+          address: s.address, hours: s.hours, open: s.open, phone: s.phone, website: s.website,
+          note: note ? clip(note, 120) : undefined,
+          directionsUrl: directionsUrl(s),
+        }),
+      );
+      emit(runId, { type: "card", card: { id: newCardId(), type: "stores", heading: clip(a.heading.trim(), 70), center, stores } });
+      const missing = a.stores.length - picked.length;
+      return { shown: picked.length, ...(missing ? { note: `${missing} id(s) weren't from find_stores and were left out.` } : {}), next: "Tell them to head to pin 1 (your first one): how far it is and until when it's open, in 1-2 sentences." };
     });
 
   tool("save_to_plan", "Save a chosen item to the user's plan/shortlist for an occasion.",
