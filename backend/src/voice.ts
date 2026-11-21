@@ -7,7 +7,8 @@ import { ideasFor } from "./ideas.js";
 import { languageOf, type Language } from "./languages.js";
 import { upcoming } from "./occasions.js";
 import { bindConversation, listProjects, projectOf } from "./projects.js";
-import { getRun, runsFor, type Run, type RunEvent } from "./runs.js";
+import { createRun, emit, getRun, runsFor, type Run, type RunEvent } from "./runs.js";
+import { smallTalk } from "./smalltalk.js";
 import { readDb, type Db, type Notification } from "./store.js";
 
 // Agora Conversational AI: Agora handles ASR + turn-taking + Murf Falcon TTS in the RTC channel,
@@ -277,6 +278,21 @@ export function voiceRoutes(app: Hono) {
         ? lastUser.content.map((p: any) => (typeof p === "string" ? p : p?.text ?? "")).join(" ")
         : "").trim();
     if (!text) return c.json({ error: { message: "no user message" } }, 400);
+
+    // Small talk ("can you hear me?", "hi", "thanks") is answered at once, without starting the shopping agent.
+    // It still lands in the call's history, so the screen shows it and later turns can see it.
+    const quick = session.lang.code === "en" ? smallTalk(text, (await readDb()).profile.name) : undefined;
+    if (quick) {
+      const run = createRun(id, text);
+      emit(run.id, { type: "message", text: quick });
+      emit(run.id, { type: "done" });
+      session.runIds.push(run.id);
+      log(id, `heard: "${text.slice(0, 160)}" -> small talk, answered at once: "${quick}"`);
+      const chunk = `chatcmpl-${run.id.slice(0, 8)}`;
+      return new Response([sseChunk(chunk, quick), sseChunk(chunk, null, "stop"), "data: [DONE]\n\n"].join(""), {
+        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+      });
+    }
 
     const context = session.context;
     session.context = undefined;
