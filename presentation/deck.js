@@ -76,6 +76,22 @@
     if (video.paused) video.play().catch(() => {}); else video.pause();
   }
 
+  /* ---------------------------------------------------------------- slide 2: the price counts up as the card fills in */
+  function countUp(slide) {
+    const el = slide.querySelector(".decision .amount");
+    if (!el) return;
+    const final = el.dataset.final || (el.dataset.final = el.textContent);
+    const target = Number(final.replace(/[^\d]/g, "")), start = performance.now() + 6900, dur = 1100;
+    el.textContent = "₹0";
+    const step = (now) => {
+      if (!slide.classList.contains("active")) { el.textContent = final; return; }
+      const k = Math.max(0, Math.min(1, (now - start) / dur)), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = k >= 1 ? final : `₹${Math.round(target * e).toLocaleString("en-IN")}`;
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
   /* ---------------------------------------------------------------- navigation */
   function go(i, opts = {}) {
     i = clamp(i);
@@ -96,6 +112,7 @@
     cur = i;
 
     if (to === hook) intro && intro.enter();
+    else if (!EXPORT) { to.classList.remove("play"); void to.offsetWidth; to.classList.add("play"); if (to.classList.contains("s-legwork")) countUp(to); }
     if (to === demo) enterDemo();
     if (!EXPORT && !PRESENTER && location.hash !== `#${i + 1}`) history.replaceState(null, "", `#${i + 1}`);
     renderChrome();
