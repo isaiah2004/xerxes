@@ -103,8 +103,17 @@ export type ShortlistItem = {
 };
 
 export type Db = {
-  /** language: the code of the language Xerxes talks in (languages.ts); unset = English */
-  profile: { name: string; city: string; postalCode: string; country: string; currency: string; language?: string };
+  /** language: the code of the language Xerxes talks in (languages.ts); unset = English.
+   *  voices: Xerxes' voice per language code (voices.ts); a language without one uses its own voice. */
+  profile: {
+    name: string;
+    city: string;
+    postalCode: string;
+    country: string;
+    currency: string;
+    language?: string;
+    voices?: Record<string, { id: string; locale: string; name: string }>;
+  };
   /** Long-term memory by topic: "homelab", "room", "preferences", "gaming", ... */
   memory: Record<string, string[]>;
   people: Person[];

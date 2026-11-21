@@ -81,7 +81,13 @@ export type Project = ProjectSummary & { entries: ProjectEntry[]; watches: Watch
 
 /** A language Xerxes can talk in (Profile → Language). The app's own text stays English. */
 export type Language = { code: string; name: string; native: string };
-export type Settings = { language: string; languages: Language[] };
+/** Xerxes' voice in a language (Profile → Voice): a Murf Falcon voice id and the locale it speaks that language as. */
+export type VoicePick = { id: string; locale: string; name: string };
+export type Settings = { language: string; languages: Language[]; voice: VoicePick };
+/** A voice that speaks the language. group: "Indian English", "Native Hindi", "Also speak Hindi"...; about: "Female · Young adult". */
+export type Voice = VoicePick & { gender: string; group: string; about: string };
+/** The voice picker's list. sample: what a preview says (Xerxes' hello in that language). */
+export type Voices = { language: string; voice: string; defaultVoice: string; sample: string; voices: Voice[] };
 
 export type Feed = {
   /** language: the code of the language Xerxes hears, speaks and replies in (unset = English) */
@@ -191,7 +197,9 @@ export const api = {
   /** Gift ideas for an upcoming occasion (404 = unknown occasion). */
   ideas: (occasionId: string) => j<Ideas>(`/api/occasions/${encodeURIComponent(occasionId)}/ideas`),
   markRead: (id: string) => j(`/api/notifications/${id}/read`, { method: "POST" }),
-  ttsUrl: (text: string) => `${API}/api/tts?text=${encodeURIComponent(text)}`,
+  /** Read aloud in Xerxes' voice, or in a given one (the voice picker's previews). */
+  ttsUrl: (text: string, voice?: { id: string; locale: string }) =>
+    `${API}/api/tts?text=${encodeURIComponent(text)}${voice ? `&voice=${encodeURIComponent(voice.id)}&locale=${encodeURIComponent(voice.locale)}` : ""}`,
   /** topic/context/hello: where the call started (an Ask Xerxes card, a Radar find) so Xerxes opens on it.
    *  ideas: gift ideas thought up ahead for the occasion the call opens on (the greeting offers them). */
   voiceStart: (start: VoiceStart = {}) =>
@@ -204,6 +212,9 @@ export const api = {
   /** Profile → Language. Chat switches right away; a call keeps the language it started in, so voice switches from the next call. */
   settings: () => j<Settings>("/api/settings"),
   setLanguage: (language: string) => j<Settings>("/api/settings", { method: "PATCH", body: JSON.stringify({ language }) }),
+  /** Profile → Voice: the voices that speak the language Xerxes talks in, and picking one (read-aloud now, calls from the next one). */
+  voices: (language?: string) => j<Voices>(`/api/voices${language ? `?language=${encodeURIComponent(language)}` : ""}`),
+  setVoice: (voice: string) => j<Settings>("/api/settings", { method: "PATCH", body: JSON.stringify({ voice }) }),
 };
 
 // ---------- manage it yourself: Radar watches, Calendar occasions, Fresh finds ----------

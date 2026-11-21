@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Screen } from "@/components/Screen";
 import { FormError, Sheet, SheetBody } from "@/components/Sheet";
+import { VoiceSheet } from "@/components/VoicePicker";
 import { Button, Card, Chip, IconTile, Row, SectionHeader, T, Tap } from "@/components/ui";
 import { API, api, type Feed, type Language, type Settings } from "@/lib/api";
 import { haptic } from "@/lib/haptics";
@@ -44,7 +45,9 @@ export default function Me() {
   const [picking, setPicking] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [changed, setChanged] = useState(false);
+  const [voicing, setVoicing] = useState(false);
+  /** what just changed and when it takes effect (chats now, calls from the next one) */
+  const [note, setNote] = useState<string | null>(null);
 
   // every visit: a call or a chat may have changed the language or where gifts are delivered
   useFocusEffect(
@@ -73,7 +76,8 @@ export default function Me() {
       .then((s) => {
         haptic.success();
         setSettings(s);
-        setChanged(true);
+        const l = s.languages.find((x) => x.code === s.language);
+        setNote(l ? `Chats are in ${l.name} from now on, in ${s.voice.name}'s voice. A call keeps its language, so voice switches from your next call.` : null);
         setPicking(false);
       })
       .catch((e: Error) => {
@@ -116,9 +120,23 @@ export default function Me() {
           </Row>
         </Card>
       </Tap>
-      {changed && lang ? (
+      <Tap onPress={() => setVoicing(true)} scale={0.985} style={{ marginTop: 10 }} accessibilityLabel={`Voice: ${settings?.voice.name ?? "Anisha"}. Change how Xerxes sounds`}>
+        <Card>
+          <Row gap={12}>
+            <IconTile icon={AudioLines} grad="primary" size={44} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <T v="h3">Voice</T>
+              <T v="caption" numberOfLines={2}>
+                {settings ? `${settings.voice.name} · how Xerxes sounds in ${lang?.name ?? "English"}` : "—"}
+              </T>
+            </View>
+            <ChevronRight size={18} color={color.faint} />
+          </Row>
+        </Card>
+      </Tap>
+      {note ? (
         <T v="caption" style={{ marginTop: 8, paddingHorizontal: 4 }}>
-          Chats are in {lang.name} from now on. A call keeps its language, so voice switches from your next call.
+          {note}
         </T>
       ) : null}
 
@@ -151,7 +169,7 @@ export default function Me() {
           ok={status.voice ? status.voice.agora && !!status.voice.publicUrl && status.voice.reachable !== false : undefined}
           problem={status.voice?.agora && status.voice.publicUrl && status.voice.reachable === false ? "Line down" : "Setup"}
         />
-        <Engine icon={AudioLines} grad="info" title="Voice of Xerxes" sub="Murf Falcon TTS" ok={status.voice?.murf} />
+        <Engine icon={AudioLines} grad="info" title="Voice of Xerxes" sub={`Murf Falcon TTS${settings ? ` · ${settings.voice.name}` : ""}`} ok={status.voice?.murf} />
       </View>
       <T v="caption" style={{ marginTop: 14, textAlign: "center" }}>
         Connected to {API}
@@ -190,6 +208,15 @@ export default function Me() {
           <T v="caption">Chats switch right away; voice switches from your next call. You can also just tell Xerxes: “talk to me in Tamil”.</T>
         </SheetBody>
       </Sheet>
+      <VoiceSheet
+        open={voicing}
+        onClose={() => setVoicing(false)}
+        settings={settings}
+        onSaved={(s) => {
+          setSettings(s);
+          setNote(`Read-aloud is in ${s.voice.name}'s voice now. A call keeps the voice it started with, so you'll hear ${s.voice.name} from your next call.`);
+        }}
+      />
     </Screen>
   );
 }

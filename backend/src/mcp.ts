@@ -9,7 +9,7 @@ import { readPage, webSearch } from "./integrations/web.js";
 import { evaluateOffers } from "./offers.js";
 import { upcoming } from "./occasions.js";
 import { check, HttpError } from "./http.js";
-import { findLanguage, LANGUAGES } from "./languages.js";
+import { findLanguage, LANGUAGES, languageOf } from "./languages.js";
 import { addOccasion, changeOccasion, changeWatch, dismissFind, dropOccasion, dropWatch, occasionCreate, occasionPatch, watchPatch, withNext } from "./manage.js";
 import { addPerson, changePerson, distinct, dropPerson, personPatch, sameName } from "./people.js";
 import {
@@ -19,6 +19,7 @@ import { emit, getRun, newCardId } from "./runs.js";
 import { directionsUrl, findStores, fresh, openText, storeById } from "./stores.js";
 import { mutate, newId, readDb, slug, uniqueId, type Db, type Money, type Project } from "./store.js";
 import { toIso, today } from "./dates.js";
+import { findVoice, voicesFor } from "./voices.js";
 
 // Xerxes tools, exposed to Codex CLI over MCP. The run id in the URL ties tool calls to the app's live view.
 
@@ -697,17 +698,23 @@ export function buildServer(runId: string) {
     });
 
   tool("update_profile",
-    "Change their profile: their name, where gifts are delivered (city and PIN code), or the language you talk in (English, Hindi, Tamil, Telugu, Kannada, Bengali, Marathi).",
+    "Change their profile: their name, where gifts are delivered (city and PIN code), the language you talk in (English, Hindi, Tamil, Telugu, Kannada, Bengali, Marathi), or your voice (a Murf voice by name, or just a male or a female voice).",
     {
       name: z.string().optional(),
       city: z.string().optional(),
       postalCode: z.string().optional(),
       language: z.string().optional().describe("e.g. Hindi"),
+      voice: z.string().optional().describe("your voice: a name like Samar or Priya, or 'male' / 'female'"),
     },
-    (a) => (a.language ? `Changed your language to ${clip(a.language, 20)}` : "Updated your profile"),
+    (a) => (a.language ? `Changed your language to ${clip(a.language, 20)}` : a.voice ? "Changed my voice" : "Updated your profile"),
     async (a) => {
       const lang = a.language ? findLanguage(a.language) : undefined;
       if (a.language && !lang) throw new HttpError(400, `Xerxes doesn't speak ${a.language} yet. It speaks ${LANGUAGES.map((l) => l.name).join(", ")}.`);
+      // a voice for the language Xerxes talks in once this is saved (each language keeps its own)
+      const voiceLang = lang ?? languageOf((await readDb()).profile.language);
+      const voice = a.voice ? await findVoice(voiceLang, a.voice) : undefined;
+      if (a.voice && !voice)
+        throw new HttpError(400, `No ${voiceLang.name} voice matches "${clip(a.voice, 30)}". Some that speak it: ${(await voicesFor(voiceLang)).slice(0, 12).map((v) => v.name).join(", ")}.`);
       if (a.postalCode && !/^\d{6}$/.test(a.postalCode.replace(/\s/g, ""))) throw new HttpError(400, "A PIN code is 6 digits");
       const name = a.name?.trim().slice(0, 40);
       const city = a.city?.trim().slice(0, 60);
@@ -716,19 +723,21 @@ export function buildServer(runId: string) {
         if (city) db.profile.city = city;
         if (a.postalCode) db.profile.postalCode = a.postalCode.replace(/\s/g, "");
         if (lang) db.profile.language = lang.code;
+        if (voice) db.profile.voices = { ...db.profile.voices, [voiceLang.code]: { id: voice.id, locale: voice.locale, name: voice.name } };
         return { ...db.profile };
       });
       const details = [
         name && `Name: ${name}`,
         (city || a.postalCode) && `Deliver to ${profile.city} ${profile.postalCode}`,
         lang && `Language: ${lang.native}${lang.code === "en" ? "" : ` (${lang.name})`}`,
+        voice && `Voice: ${voice.name} (${voice.about})`,
       ].filter(Boolean).join(" · ");
-      done("profile", "Updated · Profile", lang ? `Xerxes now talks in ${lang.name}` : "Your profile", details || undefined);
-      return {
-        saved: true,
-        profile,
-        ...(lang ? { note: `Chat replies switch to ${lang.name} now. A call keeps the language it started in, so voice switches from their next call: tell them to hang up and call again to hear it.` } : {}),
-      };
+      done("profile", "Updated · Profile", lang ? `Xerxes now talks in ${lang.name}` : voice ? `Xerxes now sounds like ${voice.name}` : "Your profile", details || undefined);
+      const notes = [
+        lang && `Chat replies switch to ${lang.name} now. A call keeps the language it started in, so voice switches from their next call: tell them to hang up and call again to hear it.`,
+        voice && `Read-aloud uses ${voice.name} now. A call keeps the voice it started with, so they'll hear ${voice.name} from their next call.`,
+      ].filter(Boolean);
+      return { saved: true, profile, ...(notes.length ? { note: notes.join(" ") } : {}) };
     });
 
   tool("dismiss_find", "Dismiss a fresh find (a deal from their tracking) so it leaves the feed and isn't announced again.",

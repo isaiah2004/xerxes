@@ -21,6 +21,7 @@ import { listProjects, projectRoutes, projectSummary } from "./projects.js";
 import { readDb, mutate } from "./store.js";
 import { murfStream } from "./integrations/murf.js";
 import { publicUrlAnswers, voiceRoutes } from "./voice.js";
+import { pickedVoice, voicesFor } from "./voices.js";
 import { startWatchers } from "./watchers.js";
 
 // One stray error (a stream write after a client hung up, a flaky upstream) must not take the server down
@@ -71,21 +72,63 @@ app.get("/api/feed", async (c) => {
   });
 });
 
-// ---- Settings (Profile → Language): the language Xerxes hears, speaks and replies in. App text stays English. ----
-const settings = async () => ({
-  language: languageOf((await readDb()).profile.language).code,
-  languages: LANGUAGES.map(({ code, name, native }) => ({ code, name, native })),
-});
+// ---- Settings (Profile): the language Xerxes hears, speaks and replies in (app text stays English), and its voice. ----
+const settings = async () => {
+  const db = await readDb();
+  const lang = languageOf(db.profile.language);
+  return {
+    language: lang.code,
+    languages: LANGUAGES.map(({ code, name, native }) => ({ code, name, native })),
+    /** Xerxes' voice in that language (each language keeps its own) */
+    voice: pickedVoice(db, lang),
+  };
+};
 app.get("/api/settings", async (c) => c.json(await settings()));
 app.patch("/api/settings", async (c) => {
-  const b: { language?: unknown } = await c.req.json().catch(() => ({}));
-  const lang = typeof b.language === "string" ? findLanguage(b.language) : undefined;
-  if (!lang) return c.json({ error: `Pick one of: ${LANGUAGES.map((l) => l.name).join(", ")}` }, 400);
-  await mutate((db) => {
-    db.profile.language = lang.code;
-  });
-  console.log(`[settings] language → ${lang.name} (chat now, voice from the next call)`);
+  const b: { language?: unknown; voice?: unknown } = await c.req.json().catch(() => ({}));
+  if (b.language === undefined && b.voice === undefined) return c.json({ error: "Send a language or a voice" }, 400);
+  if (b.language !== undefined) {
+    const lang = typeof b.language === "string" ? findLanguage(b.language) : undefined;
+    if (!lang) return c.json({ error: `Pick one of: ${LANGUAGES.map((l) => l.name).join(", ")}` }, 400);
+    await mutate((db) => {
+      db.profile.language = lang.code;
+    });
+    console.log(`[settings] language → ${lang.name} (chat now, voice from the next call)`);
+  }
+  if (b.voice !== undefined) {
+    // a voice for the language Xerxes talks in now; it has to be one that speaks it
+    const lang = languageOf((await readDb()).profile.language);
+    let voices;
+    try {
+      voices = await voicesFor(lang);
+    } catch (e) {
+      return fail(c, e);
+    }
+    const v = voices.find((x) => x.id === b.voice);
+    if (!v) return c.json({ error: `That voice doesn't speak ${lang.name}. Pick one from the list.` }, 400);
+    await mutate((db) => {
+      db.profile.voices = { ...db.profile.voices, [lang.code]: { id: v.id, locale: v.locale, name: v.name } };
+    });
+    console.log(`[settings] voice in ${lang.name} → ${v.name} (${v.id}, read-aloud now, calls from the next one)`);
+  }
   return c.json(await settings());
+});
+// The voices that speak the language Xerxes talks in (or ?language=), for the picker; sample: what a preview says.
+app.get("/api/voices", async (c) => {
+  const db = await readDb();
+  const lang = languageOf(c.req.query("language") ?? db.profile.language);
+  const first = db.profile.name.split(" ")[0] ?? "";
+  try {
+    return c.json({
+      language: lang.code,
+      voice: pickedVoice(db, lang).id,
+      defaultVoice: lang.voice,
+      sample: lang.phrases ? lang.phrases.hello(first) : `Hey ${first}! I'm Xerxes. What are we shopping for today?`,
+      voices: await voicesFor(lang),
+    });
+  } catch (e) {
+    return fail(c, e);
+  }
 });
 
 app.post("/api/notifications/:id/read", async (c) => {
@@ -122,12 +165,17 @@ app.get("/api/runs/:id", (c) => {
 });
 
 // ---- Murf TTS (spoken notifications / replies) ----
+// In Xerxes' voice for the language it talks in, unless ?voice=&locale= ask for another (the voice picker's previews).
 app.get("/api/tts", async (c) => {
   const text = c.req.query("text");
   if (!text) return c.json({ error: "text required" }, 400);
+  const voice = c.req.query("voice") || undefined;
   try {
-    const r = await murfStream(text, { voiceId: c.req.query("voice") ?? undefined });
-    return new Response(r.body, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=3600", "Access-Control-Allow-Origin": "*" } });
+    const db = await readDb();
+    const own = pickedVoice(db, languageOf(db.profile.language));
+    const r = await murfStream(text, voice ? { voiceId: voice, locale: c.req.query("locale") || undefined } : { voiceId: own.id, locale: own.locale });
+    // a named voice always sounds the same, so it can be cached; Xerxes' own changes when they pick another
+    return new Response(r.body, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": voice ? "public, max-age=3600" : "no-cache", "Access-Control-Allow-Origin": "*" } });
   } catch (e) {
     return c.json({ error: (e as Error).message }, 502);
   }

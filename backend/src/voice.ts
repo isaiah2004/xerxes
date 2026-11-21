@@ -9,6 +9,7 @@ import { upcoming } from "./occasions.js";
 import { bindConversation, listProjects, projectOf } from "./projects.js";
 import { createRun, emit, getRun, runsFor, type Run, type RunEvent } from "./runs.js";
 import { smallTalk } from "./smalltalk.js";
+import { pickedVoice } from "./voices.js";
 import { readDb, type Db } from "./store.js";
 
 // Agora Conversational AI: Agora handles ASR + turn-taking + Murf Falcon TTS in the RTC channel,
@@ -154,6 +155,7 @@ export function voiceRoutes(app: Hono) {
     // Every other call starts from something specific and sticks to it.
     // the caller's language (Profile → Language): Agora listens for it, Murf speaks it, and Xerxes opens in it
     const lang = languageOf(db.profile.language);
+    const voice = pickedVoice(db, lang);
     const say = lang.phrases;
     const brief = body.briefing === true && !topic && !hello && !occasion && !project && !continuing ? briefing(db, name, lang) : undefined;
     // ideas thought up ahead for this occasion: Xerxes opens by offering them, and the call screen shows them
@@ -196,8 +198,9 @@ export function voiceRoutes(app: Hono) {
         greeting,
         instructions: "You are Xerxes, a proactive voice shopping agent.",
         asrLanguage: lang.asr,
-        voiceId: lang.voice,
-        locale: lang.locale,
+        // Profile → Voice: their pick for this language, or the language's own voice
+        voiceId: voice.id,
+        locale: voice.locale,
         failureMessage: say?.snag,
       });
       sessions.set(id, { id, channel, agentId: agent.agent_id, llmKey, runIds: sessions.get(id)?.runIds ?? [], context, lang });
