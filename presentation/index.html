@@ -37,13 +37,23 @@
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
     <symbol id="i-seed" viewBox="0 0 24 24"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/></symbol>
   </defs>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+    <symbol id="i-sofa" viewBox="0 0 24 24"><path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v1.5a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5V11a2 2 0 0 0-4 0z"/><path d="M4 18v2M20 18v2"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></symbol>
+    <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  </defs>
 </svg>
 
 <div id="deck">
 <div id="world" aria-hidden="true"></div>
 
 <!-- ============================================================ 1 · INTRO -->
-<section class="slide s-hook" data-title="Meet Xerxes" data-time="0:00–0:10" data-at="0" data-dur="10">
+<section class="slide s-hook" data-title="Introducing Xerxes" data-time="0:00–0:08" data-at="0" data-dur="8">
   <div class="aurora a-green" style="left:-300px;top:20px;width:1380px;height:1380px"></div>
   <div class="aurora a-blue" style="right:-460px;top:-600px;width:1400px;height:1400px"></div>
   <div class="aurora a-orange" style="right:-260px;bottom:-700px;width:1200px;height:1200px"></div>
@@ -53,10 +63,10 @@
   </header>
 
   <div class="intro-copy">
-    <div class="kicker">Introducing</div>
+    <div class="kicker">Your personal shopping agent</div>
     <h1 class="glitch" data-text="Xerxes">Xerxes<span class="gx" aria-hidden="true" style="position:absolute;left:0;top:0;opacity:0">Xerxes</span></h1>
-    <p class="type" id="intro-type">Introducing Xerxes,<br>your personal online<br><em>shopping butler.</em></p>
-    <p class="lead">It remembers the people you shop for, notices what’s coming up, and calls you with a decision.</p>
+    <p class="type" id="intro-type">Introducing Xerxes,<br>the next generation of<br><em>personal shopping.</em></p>
+    <p class="lead">It knows your people, your calendar and your projects, does the legwork, and talks it through with you.</p>
     <div class="chips">
       <span class="chip info"><svg class="i"><use href="#i-phone"/></svg>Agora Conversational AI Engine</span>
       <span class="chip ok"><svg class="i"><use href="#i-volume"/></svg>Murf Falcon TTS</span>
@@ -72,396 +82,227 @@
   </div>
 
   <aside class="notes">
-    <p>Introducing Xerxes, your personal online shopping butler.</p>
-    <p>It remembers the people you care about, notices what’s coming up, and calls you before you’d think to ask.</p>
+    <p><em>[The intro plays on its own when the deck opens (R replays it). Speak once the tagline has typed.]</em></p>
+    <p>Introducing Xerxes, the next generation of personal shopping.</p>
   </aside>
 </section>
 
-<!-- ============================================================ 2 · LINKS vs DECISION -->
-<section class="slide s-legwork" data-title="Not a list of links. A decision." data-time="0:10–0:24" data-at="10" data-dur="14">
-  <div class="aurora a-orange" style="left:-420px;top:420px;width:1300px;height:1300px"></div>
-  <div class="aurora a-green" style="right:-380px;top:-360px;width:1300px;height:1300px"></div>
+<!-- ============================================================ 2 · THE PROBLEM -->
+<section class="slide s-problem" data-title="The problem: a chat slapped onto a store" data-time="0:08–0:22" data-at="8" data-dur="14">
+  <div class="aurora a-orange" style="left:-420px;top:380px;width:1300px;height:1300px"></div>
+  <div class="aurora a-blue" style="right:-380px;top:-360px;width:1300px;height:1300px"></div>
   <header class="topbar">
     <div class="brand"><span class="mark"><svg class="i logo"><use href="#i-logo"/></svg></span>Xerxes</div>
     <div class="event">The problem</div>
   </header>
-
-  <div class="title"><h1 class="h1">Not a list of links.<br><span class="accent">A decision.</span></h1></div>
-
-  <div class="tabs-label kicker" style="color:var(--muted)">The legwork, today</div>
-  <div class="tabs" aria-hidden="true">
-    <div class="tab" style="left:0;top:0;transform:rotate(-3deg);opacity:.95"><span class="fav" style="background:#101828">a</span>amazon.in · animal books hardcover <span class="q">₹ ?</span></div>
-    <div class="tab" style="left:392px;top:40px;transform:rotate(3deg);opacity:.8"><span class="fav" style="background:#87A9EE">f</span>flipkart.com · DK animal book <span class="x">sold out</span></div>
-    <div class="tab" style="left:30px;top:96px;transform:rotate(2deg);opacity:.88"><span class="fav" style="background:#119C70">G</span>best animal books for a 14-year-old</div>
-    <div class="tab" style="left:404px;top:150px;transform:rotate(-3deg);opacity:.72"><span class="fav" style="background:#E08B4F">b</span>bookswagon.com · ships in 4–6 days <span class="q">?</span></div>
-    <div class="tab" style="left:8px;top:200px;transform:rotate(-2deg);opacity:.82"><span class="fav" style="background:#C24C4C"><svg class="i" style="width:20px;height:20px"><use href="#i-cal"/></svg></span>will it arrive before Wed 2 Dec? <span class="q">?</span></div>
-    <div class="tab" style="left:372px;top:256px;transform:rotate(4deg);opacity:.62"><span class="fav" style="background:#C24C4C">r</span>reddit · is the DK Animal Book worth it?</div>
-    <div class="tab" style="left:54px;top:306px;transform:rotate(3deg);opacity:.7"><span class="fav" style="background:#101828">c</span>crossword.in · hardcover or paperback?</div>
-    <div class="tab" style="left:468px;top:360px;transform:rotate(-2deg);opacity:.55"><span class="fav" style="background:#119C70">₹</span>₹749 + shipping = ? <span class="q">?</span></div>
-    <div class="tab" style="left:0;top:412px;transform:rotate(-3deg);opacity:.52"><span class="fav" style="background:#101828">a</span>amazon.in · deliver to Bengaluru by…</div>
-    <div class="tab" style="left:430px;top:458px;transform:rotate(2deg);opacity:.42"><span class="fav" style="background:#E08B4F">s</span>sapnaonline.com <span class="x">out of stock</span></div>
+  <div class="title">
+    <h2 class="h2">Most shopping AIs are a chat<br><span class="warnc">slapped onto a store.</span></h2>
+    <p class="lead">RAG over one catalogue. Tied to the platform. No idea who you are.</p>
   </div>
 
-  <div class="go"><svg class="i"><use href="#i-arrow"/></svg></div>
-
-  <div class="card decision">
-    <div class="head"><span class="chip dark"><svg class="i"><use href="#i-spark"/></svg>Best pick</span><span class="label">Xerxes recommends</span></div>
-    <div class="top">
-      <div>
-        <div class="name">Our World in Pictures: The Animal Book</div>
-        <div class="sub">Hardcover · DK · sold by Amazon India</div>
-      </div>
-      <img class="cover" src="assets/covers/animal-book.jpg" alt="Cover of The Animal Book">
+  <!-- the generic storefront with its bolted-on bot -->
+  <div class="store">
+    <div class="bar"><i></i><i></i><i></i><span class="url"><svg class="i"><use href="#i-lock"/></svg>anystore.example/search?q=gift</span></div>
+    <div class="shead"><span class="logo"><svg class="i"><use href="#i-cart"/></svg>AnyStore</span><span class="sbox">gift</span><span class="cartb">Cart · 0</span></div>
+    <div class="grid">
+      <div class="p"><div class="img"></div><b>Gift card</b><span>₹500</span></div>
+      <div class="p"><div class="img"></div><b>Mug set</b><span>₹349</span></div>
+      <div class="p"><div class="img"></div><b>Scented candle</b><span>₹299</span></div>
+      <div class="p"><div class="img"></div><b>Phone stand</b><span>₹199</span></div>
+      <div class="p"><div class="img"></div><b>Keychain</b><span>₹149</span></div>
+      <div class="p"><div class="img"></div><b>Gift box</b><span>₹999</span></div>
     </div>
-    <hr>
-    <div class="price">
-      <div>
-        <div class="amount">₹749</div>
-        <div class="amount-sub">incl. free delivery · ₹1,251 left for a card and wrapping</div>
-      </div>
-      <div class="ring-meter">
-        <svg viewBox="0 0 150 150"><circle cx="75" cy="75" r="62" fill="none" stroke="#F1EEF5" stroke-width="16"/><circle cx="75" cy="75" r="62" fill="none" stroke="#119C70" stroke-width="16" stroke-linecap="round" stroke-dasharray="144 390"/></svg>
-        <div class="v">37%<small>of ₹2,000</small></div>
-      </div>
-    </div>
-    <div class="timeline">
-      <div><div class="seg" style="background:var(--g-primary)"></div><div class="day">Today</div><div class="d">21</div><div class="what">Order</div></div>
-      <div><div class="seg" style="background:var(--g-primary)"></div><div class="day">Sun</div><div class="d">22</div><div class="what">Ships</div></div>
-      <div><div class="seg" style="background:var(--g-primary)"></div><div class="day">Mon</div><div class="d">23</div><div class="what">Arrives</div></div>
-      <div><div class="seg" style="background:var(--g-info)"></div><div class="day">Mon</div><div class="d">30</div><div class="what">Buffer</div></div>
-      <div><div class="seg" style="background:var(--g-navy)"></div><div class="day">Wed</div><div class="d">2</div><div class="what">Birthday</div></div>
-    </div>
-    <div class="checks">
-      <span class="chip ok"><svg class="i"><use href="#i-check"/></svg>Hardcover</span>
-      <span class="chip ok"><svg class="i"><use href="#i-check"/></svg>In budget</span>
-      <span class="chip ok"><svg class="i"><use href="#i-check"/></svg>7 days to spare</span>
-      <span class="chip">Seller: Amazon India</span>
+    <div class="bot">
+      <div class="bh"><span class="av"><svg class="i"><use href="#i-msg"/></svg></span>Store Assistant<small>AI · searches this store</small></div>
+      <div class="bm you">Gift for my cousin's 14th birthday?</div>
+      <div class="bm it">Here are our bestsellers in <b>Gifts</b>: Gift card ₹500, Mug set ₹349.</div>
+      <div class="bm it">Add one to your cart?</div>
     </div>
   </div>
-  <div class="src">A live search on 21 Nov 2026. The delivery date is Amazon’s own estimate.</div>
+  <div class="tag t1"><svg class="i"><use href="#i-x"/></svg>Only this store's catalogue</div>
+  <div class="tag t2"><svg class="i"><use href="#i-x"/></svg>Doesn't know who it's for</div>
+  <div class="tag t3"><svg class="i"><use href="#i-x"/></svg>Forgets you when the tab closes</div>
+
+  <!-- you, and the context it never sees -->
+  <div class="mine">
+    <div class="yh"><span class="av">You</span>What it would need to know</div>
+    <div class="ctx c1"><svg class="i"><use href="#i-cake"/></svg>Cousin sister turns 14 · Wed 2 Dec</div>
+    <div class="ctx c2"><svg class="i"><use href="#i-users"/></svg>Loves animal facts and cool visuals</div>
+    <div class="ctx c3"><svg class="i"><use href="#i-wallet"/></svg>Budget ₹2,000</div>
+    <div class="ctx c4"><svg class="i"><use href="#i-truck"/></svg>Must arrive by Mon 30 Nov</div>
+    <div class="ctx c5"><svg class="i"><use href="#i-sofa"/></svg>Living room project · has a sofa</div>
+  </div>
+  <svg class="cut" viewBox="0 0 1920 1080" aria-hidden="true"><g fill="none" stroke="#C24C4C" stroke-width="3" stroke-dasharray="8 9" stroke-linecap="round">
+    <path d="M1234 510 C1180 510 1180 510 1146 510"/><path d="M1234 670 C1180 670 1180 670 1146 670"/><path d="M1234 830 C1180 830 1180 830 1146 830"/>
+  </g></svg>
+  <div class="block b1"><svg class="i"><use href="#i-x"/></svg></div>
+  <div class="block b2"><svg class="i"><use href="#i-x"/></svg></div>
+  <div class="block b3"><svg class="i"><use href="#i-x"/></svg></div>
 
   <aside class="notes">
-    <p>Gifting isn’t hard because of choice. It’s the legwork. Ten tabs, three retailers, and the question no site answers: will it arrive in time, within budget?</p>
-    <p>Xerxes does the legwork and comes back with a decision.</p>
+    <p>Most shopping AIs today are a simple chat slapped onto a platform, with RAG over its catalogue.</p>
+    <p>They’re tied to that one store, and they know nothing about you: not who you’re buying for, not when it has to arrive, not what you already own.</p>
   </aside>
 </section>
 
-<!-- ============================================================ 3 · DEMO -->
-<section class="slide s-demo" data-title="Watch it do the legwork" data-time="0:24–1:04" data-at="24" data-dur="40">
+<!-- ============================================================ 3 · XERXES IS DIFFERENT (5-step tour) -->
+<section class="slide s-diff" data-title="Xerxes is different" data-time="0:22–0:58" data-at="22" data-dur="36">
+  <div class="aurora a-green" style="left:-500px;top:-400px;width:1400px;height:1400px"></div>
+  <div class="aurora a-blue" style="right:-400px;bottom:-600px;width:1400px;height:1400px"></div>
+  <header class="topbar">
+    <div class="brand"><span class="mark"><svg class="i logo"><use href="#i-logo"/></svg></span>Xerxes</div>
+    <div class="event">Xerxes is different</div>
+  </header>
+  <div class="title"><h2 class="h2">Xerxes is <span class="accent">different.</span></h2></div>
+
+  <div class="five">
+    <!-- 3.1 -->
+    <div class="unit u1">
+      <div class="uh"><span class="n">1</span><h3>It reaches out first</h3></div>
+      <div class="vis">
+        <div class="phone android" style="--w:214px"><div class="screen"><img src="assets/shots/today.jpg" alt="Today: Xerxes noticed, cousin sister turns 14"></div></div>
+        <div class="bubble x fl" style="top:250px"><div class="who"><svg class="i"><use href="#i-volume"/></svg>Xerxes</div>“Heads up: your cousin sister turns 14 in 11 days. Want me to find something?”</div>
+      </div>
+      <div class="uc"><span class="chip ok">Reads your calendar + projects</span><span class="chip ok">Runs in the background, unprompted</span></div>
+    </div>
+    <!-- 3.2 -->
+    <div class="unit u2">
+      <div class="uh"><span class="n">2</span><h3>It does the legwork</h3></div>
+      <div class="vis">
+        <div class="mcard">
+          <div class="mt"><img src="assets/covers/animal-book.jpg" alt=""><div><span class="pick"><svg class="i"><use href="#i-spark"/></svg>Best pick</span><h4>DK Knowledge Encyclopedia Animal!</h4></div></div>
+          <div class="mb"><div><b>₹703</b><span>incl. delivery</span></div><div class="r"><em><svg class="i"><use href="#i-check"/></svg>Mon 23</em><span>7 days to spare</span></div></div>
+        </div>
+        <div class="mrow"><span class="ok"><svg class="i"><use href="#i-check"/></svg>Compared 3 options</span></div>
+        <div class="mcard shop">
+          <div class="sh"><span class="ic"><svg class="i"><use href="#i-pin"/></svg></span><div><b>Bookshop near you</b><span>1.2 km · open now</span></div></div>
+          <div class="map"><i style="left:30%;top:40%"></i><i style="left:62%;top:58%"></i><i class="me" style="left:46%;top:70%"></i></div>
+        </div>
+      </div>
+      <div class="uc"><span class="chip ok">Prices</span><span class="chip ok">Delivery vs deadline</span><span class="chip ok">Local stores</span><span class="chip line">Reviews <span class="soon">Soon</span></span></div>
+    </div>
+    <!-- 3.3 -->
+    <div class="unit u3">
+      <div class="uh"><span class="n">3</span><h3>It knows the project</h3></div>
+      <div class="vis">
+        <div class="mcard proj">
+          <div class="ph"><span class="ic"><svg class="i"><use href="#i-sofa"/></svg></span><div><b>Living room</b><span>₹27,700 of ₹60,000 spent</span></div></div>
+          <div class="pl">You have</div>
+          <div class="pi have"><svg class="i"><use href="#i-check"/></svg>Grey three-seater sofa</div>
+          <div class="pi have"><svg class="i"><use href="#i-check"/></svg>Jute rug, 5 × 7 ft</div>
+          <div class="pl">Still missing</div>
+          <div class="pi miss"><svg class="i"><use href="#i-arrow"/></svg>Tall bookshelf, ~1,000 books</div>
+          <div class="pi miss"><svg class="i"><use href="#i-arrow"/></svg>Reading chair + floor lamp</div>
+        </div>
+        <div class="bubble x fl" style="top:372px"><div class="who"><svg class="i"><use href="#i-volume"/></svg>Xerxes</div>“You’ve got the sofa and rug, so let’s start with the bookshelf.”</div>
+      </div>
+      <div class="uc"><span class="chip ok">Remembers what you own</span><span class="chip ok">Budget left per project</span></div>
+    </div>
+    <!-- 3.4 -->
+    <div class="unit u4">
+      <div class="uh"><span class="n">4</span><h3>Calendar, budget, people</h3></div>
+      <div class="vis">
+        <div class="phone" style="--w:214px"><div class="screen"><img src="assets/shots/calendar.jpg" alt="Calendar: occasions with budgets and arrive-by dates"></div></div>
+        <div class="bubble x fl" style="top:230px"><div class="who" style="color:var(--info-ink)"><svg class="i"><use href="#i-users"/></svg>Cousin sister</div>“Really nerdy about animals.”</div>
+        <div class="bubble x fl" style="top:350px"><div class="who"><svg class="i"><use href="#i-gift"/></svg>Ideas, ready</div>Animal encyclopedia · wildlife atlas · ₹2,000 budget</div>
+      </div>
+      <div class="uc"><span class="chip ok">Gift reminders</span><span class="chip ok">Ideas from each person’s profile</span></div>
+    </div>
+    <!-- 3.5 -->
+    <div class="unit u5">
+      <div class="uh"><span class="n">5</span><h3>Voice-native, generative UI</h3></div>
+      <div class="vis">
+        <div class="phone vphone" style="--w:214px"><div class="screen"><img src="assets/shots/chat-result.jpg" alt="Option cards drawn while Xerxes talks" style="object-position:50% 27%"></div></div>
+        <div class="lc-b you fl2" style="top:120px"><div class="who">You</div>“Find her an animal encyclopedia.”</div>
+        <div class="lc-b x fl2" style="top:232px"><div class="who"><i class="wv"><b></b><b></b><b></b><b></b></i>Xerxes</div>“On it. Checking Amazon for the delivery date.”</div>
+      </div>
+      <div class="uc"><span class="chip ok">Anything in chat works by voice</span><span class="chip ok">Cards appear as it talks</span></div>
+    </div>
+  </div>
+  <div class="skip">Click to see all five</div>
+
+  <aside class="notes">
+    <p>Xerxes is different.</p>
+    <p><em>[1 · reaches out]</em> It reaches out first. It sees your calendar and your projects, and keeps running in the background, so it brings up the birthday before you do.</p>
+    <p><em>[2 · legwork]</em> It does the legwork: compares prices, checks delivery against your deadline, and finds a shop nearby when it has to be today.</p>
+    <p><em>[3 · project]</em> It keeps project context. Furnishing your living room? It knows you already have the sofa and the rug, so it suggests what’s missing.</p>
+    <p><em>[4 · calendar]</em> It knows your calendar and budget, and the people you buy for, so the gift ideas actually fit them.</p>
+    <p><em>[5 · voice]</em> And it’s voice-native, with generative UI: anything you can do in chat, you can do on a call.</p>
+    <p><em>[The tour advances on its own, about 7 s a step. A click skips to the overview; the next click moves on. Reviews are “Soon”: Xerxes can search for reviews, but there’s no review summary yet.]</em></p>
+  </aside>
+</section>
+
+<!-- ============================================================ 4 · PRODUCT DEMO -->
+<section class="slide s-demo has-video" data-title="Product demo" data-time="0:58–1:38" data-at="58" data-dur="40">
   <div class="aurora a-green" style="left:-500px;top:300px;width:1500px;height:1500px"></div>
   <div class="aurora a-blue" style="right:-500px;top:-500px;width:1300px;height:1300px"></div>
   <header class="topbar">
     <div class="brand"><span class="mark"><svg class="i logo"><use href="#i-logo"/></svg></span>Xerxes</div>
-    <div class="event">The demo</div>
+    <div class="event">Product demo · a real call</div>
   </header>
 
-  <!-- Storyboard: the PDF version, and the stage fallback when there's no clip -->
-  <div class="board">
-    <div class="title"><h2 class="h2">Watch it do the legwork.</h2></div>
-    <div class="badges">
-      <span class="chip info"><svg class="i"><use href="#i-phone"/></svg>Real app screens</span>
-      <span class="chip ok"><svg class="i"><use href="#i-search"/></svg>Live searches</span>
-    </div>
-    <div class="cols">
-      <div class="col">
-        <div class="stepline"><span class="n">1</span>Initiate</div>
-        <div class="phone android"><div class="screen"><img src="assets/shots/today.jpg" alt="Today screen: Xerxes noticed, cousin sister turns 14"></div></div>
-        <div class="bubbles">
-          <div class="bubble x"><div class="who"><svg class="i"><use href="#i-volume"/></svg>Xerxes</div>“Hey Isaiah! Heads up, cousin sister’s birthday is in 11 days. Want me to find something?”</div>
-        </div>
-        <div class="tools"><span class="tool">get_context</span></div>
-      </div>
-      <div class="col">
-        <div class="stepline"><span class="n">2</span>Discover</div>
-        <div class="phone"><div class="screen"><img src="assets/shots/chat-working.jpg" alt="Xerxes is working: live tool steps"></div></div>
-        <div class="bubbles">
-          <div class="bubble you"><div class="who"><svg class="i"><use href="#i-mic"/></svg>You</div>“Find her a hardcover animal book.”</div>
-          <div class="bubble x"><div class="who"><svg class="i"><use href="#i-volume"/></svg>Xerxes<span class="t">+1.6 s</span></div>“On it, give me a moment.”</div>
-          <div class="bubble x"><div class="who"><svg class="i"><use href="#i-volume"/></svg>Xerxes</div>“Checking Amazon for the price and delivery date.”</div>
-        </div>
-        <div class="tools"><span class="tool">search_books</span><span class="tool">web search</span><span class="tool">read_page</span></div>
-      </div>
-      <div class="col">
-        <div class="stepline"><span class="n">3</span>Recommend · Execute</div>
-        <div class="phone"><div class="screen"><img src="assets/shots/chat-result.jpg" alt="Option cards with price, arrival and spare days" style="object-position:50% 44%"></div></div>
-        <div class="bubbles">
-          <div class="bubble x"><div class="who"><svg class="i"><use href="#i-volume"/></svg>Xerxes</div>“I’d get DK’s Our World in Pictures: The Animal Book… ₹749 with free delivery on November 23, a week ahead of your target.”</div>
-          <div class="bubble you"><div class="who"><svg class="i"><use href="#i-mic"/></svg>You</div>“Save it to my plan.”</div>
-        </div>
-        <div class="tools"><span class="tool">check_offers</span><span class="tool">show_products</span><span class="tool">save_to_plan</span></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="skip">Click to see all three screens</div>
-
-  <!-- Stage version: the recorded call plays in the phone, the rail lights up in step -->
   <div class="live">
-    <div class="phone android"><div class="screen"><video id="demo-video" preload="auto" playsinline src="assets/video/demo.mp4"></video></div></div>
-    <div class="title"><h2 class="h2">Watch it do the legwork.</h2></div>
+    <div class="phone android"><div class="screen"><video id="demo-video" preload="auto" playsinline poster="assets/shots/chat-result.jpg" src="assets/video/demo.mp4"></video></div></div>
+    <div class="title"><h2 class="h2">One real call.</h2><p class="lead">Agora runs the call, Codex does the work, Murf does the talking.</p></div>
     <div class="rail">
-      <div class="r" data-at="0"><span class="n">1</span><div><h3>Initiate</h3><p>Xerxes opens with the birthday it noticed. You answer by voice: “Let’s get her an encyclopedia.”</p><div class="tools"><span class="tool">get_context</span></div></div></div>
-      <div class="r" data-at="10"><span class="n">2</span><div><h3>Discover</h3><p>Answers at once, then keeps talking while it searches book catalogues and Amazon’s own product pages.</p><div class="tools"><span class="tool">search_books</span><span class="tool">read_page</span></div></div></div>
-      <div class="r" data-at="20"><span class="n">3</span><div><h3>Check</h3><p>Price, budget and delivery date for each of three options.</p><div class="tools"><span class="tool">check_offers</span></div></div></div>
-      <div class="r" data-at="23"><span class="n">4</span><div><h3>Compare</h3><p>The options land on screen as cards, each with its arrival date and days to spare.</p><div class="tools"><span class="tool">show_products</span></div></div></div>
-      <div class="r" data-at="29"><span class="n">5</span><div><h3>Decide</h3><p>DK Knowledge Encyclopedia Animal!, ₹703 delivered, arriving Mon 23 with 7 days to spare. Buy hands off to Amazon.in.</p><div class="tools"><span class="tool">show_recommendation</span></div></div></div>
+      <div class="r" data-at="0"><span class="n">1</span><div><h3>Reaches out</h3><p>Opens with the birthday it noticed. You answer: “Let’s get her an encyclopedia.”</p></div></div>
+      <div class="r" data-at="10"><span class="n">2</span><div><h3>Talks while it searches</h3><p>Book catalogues and Amazon’s own product pages, narrated as it goes.</p></div></div>
+      <div class="r" data-at="20"><span class="n">3</span><div><h3>Checks</h3><p>Price, budget and delivery date for each option.</p></div></div>
+      <div class="r" data-at="23"><span class="n">4</span><div><h3>Shows</h3><p>Cards land on screen mid-call, each with its arrival date.</p></div></div>
+      <div class="r" data-at="29"><span class="n">5</span><div><h3>Decides</h3><p>DK Knowledge Encyclopedia Animal!, ₹703, arriving Mon 23, 7 days to spare.</p></div></div>
     </div>
   </div>
 
   <aside class="notes">
-    <p><em>[The clip plays with its own audio, about 38 s; it ends on “Hope she loves it.” Stay quiet while Xerxes or you are talking in it.]</em></p>
-    <p>Here’s the real call.</p>
-    <p><em>Over the ticking steps only:</em> Every line you see is a real tool call: live catalogues, Amazon’s own product pages.</p>
-    <p><em>[No clip loaded? The storyboard tours the three screens by itself, then zooms out. Click once to skip to the overview.]</em></p>
+    <p>Here’s a real call.</p>
+    <p><em>[The clip starts by itself once the slide settles, about 38 s with its own audio, and ends on “Hope she loves it.” Stay quiet while it plays. V pauses or resumes. Click to move on when it ends.]</em></p>
   </aside>
 </section>
 
-<!-- ============================================================ 4 · ARCHITECTURE -->
-<section class="slide s-arch" data-title="How it works" data-time="1:04–1:22" data-at="64" data-dur="18">
-  <div class="aurora a-blue" style="left:-500px;top:-500px;width:1300px;height:1300px"></div>
-  <div class="aurora a-green" style="right:-500px;bottom:-600px;width:1400px;height:1400px"></div>
-  <header class="topbar">
-    <div class="brand"><span class="mark"><svg class="i logo"><use href="#i-logo"/></svg></span>Xerxes</div>
-    <div class="event">How it works</div>
-  </header>
-  <div class="title">
-    <h2 class="h2">Agora runs the call. Codex does the work.<br><span class="accent">Murf does the talking.</span></h2>
-  </div>
-
-  <div class="arch">
-    <div class="lane voice"><span class="lbl">Voice · Agora + Murf</span></div>
-    <div class="lane agent"><span class="lbl">Agent · Codex + MCP</span></div>
-
-    <svg class="wires" viewBox="0 0 1728 740" aria-hidden="true">
-      <defs>
-        <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#344054"/></marker>
-        <marker id="ahg" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#119C70"/></marker>
-      </defs>
-      <g fill="none" stroke-width="3" stroke-linecap="round">
-        <!-- ① you → agora, and the voice back -->
-        <path d="M338 116 H452" stroke="#119C70" marker-end="url(#ahg)"/>
-        <path d="M452 168 H344" stroke="#119C70" marker-end="url(#ahg)"/>
-        <!-- ⑥ agora → murf (reply text), murf → agora (voice) -->
-        <path d="M1124 116 H1236" stroke="#119C70" marker-end="url(#ahg)"/>
-        <path d="M1240 168 H1130" stroke="#119C70" marker-end="url(#ahg)"/>
-        <!-- ② agora → our endpoint (custom LLM), ⑤ the streamed answer back up -->
-        <path d="M560 236 V400" stroke="#344054" marker-end="url(#ah)"/>
-        <path d="M500 406 V242" stroke="#344054" marker-end="url(#ah)"/>
-        <!-- ③ backend → codex, ④ codex → tools -->
-        <path d="M598 558 H628" stroke="#344054" marker-end="url(#ah)"/>
-        <path d="M1018 558 H1048" stroke="#344054" marker-end="url(#ah)"/>
-      </g>
-    </svg>
-
-    <div class="box" style="left:36px;top:52px;width:300px;height:182px">
-      <div class="bt"><span class="ic" style="background:var(--g-navy)"><svg class="i"><use href="#i-phone"/></svg></span>You</div>
-      <div class="bd">The Xerxes app on Android or web, in an Agora RTC call.</div>
-    </div>
-    <div class="box hero-agora" style="left:460px;top:52px;width:662px;height:182px">
-      <div class="bt"><span class="ic" style="background:var(--g-primary)"><svg class="i"><use href="#i-mic"/></svg></span>Agora Conversational AI Engine</div>
-      <div class="row"><span class="chip ok">RTC audio</span><span class="chip ok">Speech-to-text</span><span class="chip ok">Turn-taking</span><span class="chip ok">Interruptions</span></div>
-      <div class="bd" style="margin-top:10px">Joins the call as an agent. Its LLM is <b>our endpoint</b>.</div>
-    </div>
-    <div class="box hero-murf" style="left:1244px;top:52px;width:448px;height:182px">
-      <div class="bt"><span class="ic" style="background:var(--g-primary)"><svg class="i"><use href="#i-volume"/></svg></span>Murf Falcon TTS</div>
-      <div class="bd">Speaks every reply into the call, streamed. Also reads deals aloud.</div>
-    </div>
-
-    <div class="wlabel" style="left:352px;top:82px"><span class="n">1</span>speak</div>
-    <div class="wlabel" style="left:362px;top:184px">hear it</div>
-    <div class="wlabel" style="left:1146px;top:82px"><span class="n">6</span>text</div>
-    <div class="wlabel" style="left:1150px;top:184px">voice</div>
-
-    <div class="wlabel" style="left:282px;top:296px"><span class="n">5</span>narration + answer</div>
-    <div class="bridge"><span class="n">2</span>Custom LLM<span class="sep">·</span><code>POST /v1/sessions/:id/chat/completions</code><span class="sep">·</span>OpenAI-style SSE</div>
-
-    <div class="box" style="left:36px;top:408px;width:562px;height:300px">
-      <div class="bt"><span class="ic" style="background:var(--g-navy)"><svg class="i"><use href="#i-server"/></svg></span>Xerxes backend</div>
-      <div class="bd">Node + Hono. Turns each voice turn into a Codex run, narrates its real steps as they happen, fills any silence, and streams the steps and cards to the app.</div>
-      <div class="row"><span class="chip">“On it” at 1.5 s</span><span class="chip">Narrated tool steps</span><span class="chip">Cards in the app</span></div>
-    </div>
-    <div class="box" style="left:636px;top:408px;width:382px;height:300px">
-      <div class="bt"><span class="ic" style="background:var(--g-navy)"><svg class="i"><use href="#i-cpu"/></svg></span>Codex CLI</div>
-      <div class="bd">One thread per conversation, one turn per message. Read-only sandbox: it acts only through Xerxes tools and live web search.</div>
-      <div class="row"><span class="chip info">or any MCP agent</span></div>
-    </div>
-    <div class="box" style="left:1056px;top:408px;width:636px;height:300px">
-      <div class="bt"><span class="ic" style="background:var(--g-primary)"><svg class="i"><use href="#i-wrench"/></svg></span>Xerxes tools · MCP</div>
-      <div class="tools-grid">
-        <span class="tool">get_context</span><span class="tool">remember</span><span class="tool">search_books</span><span class="tool">web_search</span><span class="tool">read_page</span>
-        <span class="tool">find_game_deals</span><span class="tool">search_used_hardware</span><span class="tool">check_offers</span>
-        <span class="tool">show_products</span><span class="tool">show_recommendation</span><span class="tool">show_question</span>
-        <span class="tool">save_to_plan</span><span class="tool">create_watch</span>
-      </div>
-      <div class="src">Live: Google Books · Open Library · Amazon.in · CheapShark</div>
-    </div>
-    <div class="wlabel" style="left:603px;top:516px"><span class="n" style="margin:0">3</span></div>
-    <div class="wlabel" style="left:1023px;top:516px"><span class="n" style="margin:0">4</span></div>
-  </div>
-
-  <aside class="notes">
-    <p>Under the hood, Agora’s Conversational AI Engine runs the call: audio, speech-to-text and turn-taking.</p>
-    <p>Its LLM is our own OpenAI-compatible endpoint, which drives a Codex agent that can only use Xerxes’ tools over MCP and live web search: real catalogues, retailer pages and a budget-and-delivery checker.</p>
-    <p>Every reply comes back in a Murf Falcon voice.</p>
-  </aside>
-</section>
-
-<!-- ============================================================ 4b · BRING YOUR OWN EVERYTHING -->
-<section class="slide s-byo" data-title="Bring your own everything" data-time="1:22–1:34" data-at="82" data-dur="12">
+<!-- ============================================================ 5 · BRING YOUR OWN -->
+<section class="slide s-byo" data-title="Bring your own key, agent and storage" data-time="1:38–1:52" data-at="98" data-dur="14">
   <div class="aurora a-green" style="left:-500px;top:-560px;width:1300px;height:1300px"></div>
   <div class="aurora a-blue" style="right:-560px;bottom:-640px;width:1400px;height:1400px"></div>
   <header class="topbar">
     <div class="brand"><span class="mark"><svg class="i logo"><use href="#i-logo"/></svg></span>Xerxes</div>
-    <div class="event">Maximum privacy</div>
+    <div class="event">Yours, end to end</div>
   </header>
   <div class="title">
-    <h2 class="h2">Bring your own key. And your own<br><span class="accent">compute, intelligence and storage.</span></h2>
+    <h2 class="h2">Bring your own key,<br><span class="accent">agent and storage.</span></h2>
   </div>
 
   <div class="byo-grid">
     <div class="box byo-card c1">
-      <div class="bt"><span class="ic" style="background:var(--g-primary)"><svg class="i"><use href="#i-cpu"/></svg></span>Intelligence</div>
-      <div class="bd">Codex CLI on <b>your own login</b>. <code>CODEX_MODEL</code> picks the model. The 13 tools are a standard MCP server, so Claude Code, Cursor or any MCP agent can plug in.</div>
-      <div class="term"><div class="tl"><span class="p">$</span> codex exec --json -m $CODEX_MODEL \</div><div class="tl">&nbsp;&nbsp;-c mcp_servers.xerxes.url=127.0.0.1:8787/mcp/:runId</div><div class="tl ok">✓ 13 tools · get_context, find_game_deals …</div></div>
-    </div>
-    <div class="box byo-card c2">
-      <div class="bt"><span class="ic" style="background:var(--g-navy)"><svg class="i"><use href="#i-server"/></svg></span>Compute</div>
-      <div class="bd">The backend runs <b>on your machine</b>. The MCP endpoint answers loopback only. Just the voice call needs a tunnel, so Agora can reach it.</div>
-      <div class="row"><span class="chip ok">localhost</span><span class="chip line">tunnel for voice only</span></div>
-    </div>
-    <div class="box byo-card c3">
-      <div class="bt"><span class="ic" style="background:var(--g-warning)"><svg class="i"><use href="#i-wrench"/></svg></span>Keys</div>
-      <div class="bd">Your own Agora and Murf keys, plus optional Tavily, in <b>your</b> <code>.env</code>. No Xerxes account, no middleman.</div>
+      <div class="bt"><span class="ic" style="background:var(--g-warning)"><svg class="i"><use href="#i-key"/></svg></span>Your keys</div>
+      <div class="bd">Your own Agora and Murf keys, in <b>your</b> <code>.env</code>. No Xerxes account, no middleman.</div>
       <div class="row"><span class="chip ok">Agora</span><span class="chip ok">Murf</span><span class="chip line">Tavily · optional</span></div>
     </div>
-    <div class="box byo-card c4">
-      <div class="bt"><span class="ic" style="background:var(--g-info)"><svg class="i"><use href="#i-bookmark"/></svg></span>Data</div>
-      <div class="bd">Today: one local file, <code>.data/xerxes.json</code>. Your plans, watches and memory never sit on our server.</div>
-      <div class="row"><span class="chip ok">Local file · live</span><span class="chip line">SQLite <span class="next">Next</span></span><span class="chip line">Google Drive backup <span class="next">Next</span></span></div>
+    <div class="box byo-card c2">
+      <div class="bt"><span class="ic" style="background:var(--g-primary)"><svg class="i"><use href="#i-cpu"/></svg></span>Your agent</div>
+      <div class="bd">Codex CLI on <b>your own login</b>, any model. Its 32 tools are a standard MCP server.</div>
+      <div class="term"><div class="tl"><span class="p">$</span> codex exec --json -m $CODEX_MODEL</div><div class="tl ok">✓ MCP · 32 xerxes tools</div></div>
+      <div class="row"><span class="chip ok">Codex CLI</span><span class="chip line">Any MCP agent <span class="soon">Next</span></span></div>
+    </div>
+    <div class="box byo-card c3">
+      <div class="bt"><span class="ic" style="background:var(--g-info)"><svg class="i"><use href="#i-cloud"/></svg></span>Your storage</div>
+      <div class="bd">Runs on <b>your machine</b>. Plans, people and memory live in one local file, never on our server.</div>
+      <div class="row"><span class="chip ok">Local file · live</span><span class="chip line">Google Drive backup <span class="soon">Next</span></span></div>
     </div>
   </div>
 
   <div class="byo-leaves">
     <span class="lbl">What leaves your machine</span>
-    <span class="chip line">voice audio → Agora</span><span class="chip line">reply text → Murf</span><span class="chip line">prompts → your model provider</span><span class="chip line">searches → retailers</span>
+    <span class="chip line">voice → Agora</span><span class="chip line">reply text → Murf</span><span class="chip line">prompts → your model provider</span><span class="chip line">searches → retailers</span>
   </div>
 
   <aside class="notes">
-    <p>And it’s yours end to end. Bring your own key, but also your own compute and intelligence.</p>
-    <p>The agent is Codex CLI on your own login, any model you like, and the tools are a standard MCP server, so Claude Code, Cursor or any MCP agent can drive Xerxes.</p>
-    <p>It runs on your machine, your data stays in a local file, and SQLite with Google Drive backup is next. Only the voice, the reply text and the searches ever leave.</p>
+    <p>And it’s yours. Bring your own keys, your own agent, Codex CLI on your login with any model, and your own storage: everything lives in a local file on your machine.</p>
+    <p><em>[Next, if asked: other MCP agents as the brain, and Google Drive backup. Today the 32 tools are an MCP server, but only Codex drives them; data is a local JSON file.]</em></p>
   </aside>
 </section>
 
-<!-- ============================================================ 5 · LATENCY -->
-<section class="slide s-latency" data-title="The line never goes quiet" data-time="1:34–1:46" data-at="94" data-dur="12">
-  <div class="aurora a-green" style="left:-400px;top:-500px;width:1300px;height:1300px"></div>
-  <div class="aurora a-blue" style="right:-500px;bottom:-500px;width:1300px;height:1300px"></div>
-  <header class="topbar">
-    <div class="brand"><span class="mark"><svg class="i logo"><use href="#i-logo"/></svg></span>Xerxes</div>
-    <div class="event">Voice that keeps up</div>
-  </header>
-  <div class="title">
-    <h2 class="h2">The line never goes quiet.</h2>
-    <p class="lead">Real agent work takes time, so Xerxes talks you through it.</p>
-  </div>
-
-  <div class="lc-chat">
-    <div class="lc-b you" style="--d:.3s"><div class="who">You</div>“Find my cousin sister a hardcover animal encyclopedia book.”</div>
-    <div class="lc-b x" style="--d:1.6s"><div class="who"><i class="wv"><b></b><b></b><b></b><b></b></i>Xerxes</div>“On it, give me a moment.”</div>
-    <div class="lc-b x" style="--d:3.4s"><div class="who"><i class="wv"><b></b><b></b><b></b><b></b></i>Xerxes</div>“Looking through book catalogues.”</div>
-    <div class="lc-b x" style="--d:5.2s"><div class="who"><i class="wv"><b></b><b></b><b></b><b></b></i>Xerxes</div>“Checking Amazon for the price and delivery date.”</div>
-    <div class="lc-b x" style="--d:7s"><div class="who"><i class="wv"><b></b><b></b><b></b><b></b></i>Xerxes</div>“Making sure it fits your budget and arrives in time.”</div>
-    <div class="lc-b x ans" style="--d:9s"><div class="who"><i class="wv"><b></b><b></b><b></b><b></b></i>Xerxes</div>“I’d get the <em>DK Knowledge Encyclopedia Animal!</em> ₹703, arriving Monday.”</div>
-  </div>
-
-  <div class="lc-nums">
-    <div class="lc-n" style="--d:1.6s"><div class="v">1.6<small>s</small></div><div class="l">to first words</div></div>
-    <div class="lc-n" style="--d:10.6s"><div class="v">6.5<small>s</small></div><div class="l">quick question,<br>fully answered</div></div>
-    <div class="lc-src">Measured, from the voice log</div>
-  </div>
-
-  <div class="lc-ui">
-    <div class="lc-sec" style="--d:9.4s">Illustrated nature books for her birthday</div>
-    <div class="lc-card" style="--d:9.6s">
-      <div class="top"><span class="lc-th"><svg viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></span><div><span class="pick"><svg class="i"><use href="#i-spark"/></svg>Best pick</span><h4>DK Knowledge Encyclopedia Animal!</h4><p>Hardcover</p></div></div>
-      <div class="bot"><div><b>₹703</b><span>incl. free delivery</span></div><div class="r"><em><svg class="i"><use href="#i-check"/></svg>Mon 23</em><span>7 days to spare</span></div></div>
-      <div class="desc">Animal facts and detailed illustrations for a wildlife fan.</div>
-    </div>
-    <div class="lc-card" style="--d:10s">
-      <div class="top"><span class="lc-th"><svg viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></span><div><h4>The Secret World of Plants</h4><p>Hardcover</p></div></div>
-      <div class="bot"><div><b>₹773</b><span>incl. free delivery</span></div><div class="r"><em><svg class="i"><use href="#i-check"/></svg>Sat 28</em><span>2 days to spare</span></div></div>
-    </div>
-    <div class="lc-buy" style="--d:10.5s">Buy on Amazon India · ₹703</div>
-  </div>
-
-  <div class="lc-tl">
-    <div class="lc-track">
-      <div class="seg tool" style="left:14%;width:70%"></div>
-      <div class="lc-say" style="left:14%"></div><div class="lc-say" style="left:30%"></div><div class="lc-say" style="left:46%"></div><div class="lc-say" style="left:62%"></div><div class="lc-say ans" style="left:80%"></div>
-      <div class="lc-head"></div>
-    </div>
-    <div class="lc-cap"><span class="k tool"></span>tools running, where a voice bot goes silent <span class="k say"></span>Xerxes speaking <span class="lc-ill">Xerxes’ lines from <code>backend/src/voice.ts</code> · cards as found in the demo · timing illustrative</span></div>
-  </div>
-
-  <aside class="notes">
-    <p>Agent work takes time, but Xerxes never goes quiet. First words in 1.6 seconds, and a quick question is fully answered in about six and a half.</p>
-    <p>On a long search, every gap where a normal bot would sit silent, Xerxes narrates its real steps, then lands the answer.</p>
-  </aside>
-</section>
-
-<!-- ============================================================ 6 · ALWAYS ON -->
-<section class="slide s-always" data-title="It keeps watching" data-time="1:46–1:54" data-at="106" data-dur="8">
-  <div class="aurora a-blue" style="left:-500px;top:-400px;width:1400px;height:1400px"></div>
-  <div class="aurora a-green" style="right:-400px;bottom:-600px;width:1400px;height:1400px"></div>
-  <header class="topbar">
-    <div class="brand"><span class="mark"><svg class="i logo"><use href="#i-logo"/></svg></span>Xerxes</div>
-    <div class="event">Always on</div>
-  </header>
-  <div class="title">
-    <h2 class="h2">It keeps watching.</h2>
-    <p class="lead">Radar re-checks your game and hardware watches. Calendar and People are its memory.</p>
-  </div>
-
-  <div class="trio">
-    <div class="unit" style="left:0">
-      <div class="phone"><div class="screen"><img src="assets/shots/radar.jpg" alt="Radar: tracked prices and fresh finds" style="object-position:50% 100%"></div></div>
-      <div class="cap">
-        <span class="ic" style="background:var(--g-primary)"><svg class="i"><use href="#i-radar"/></svg></span>
-        <h3>Radar</h3>
-        <p>Re-checks the games and hardware you watch. Only pings when it’s worth it.</p>
-        <div class="bubble x"><div class="who"><svg class="i"><use href="#i-volume"/></svg>Read aloud</div>“Outer Wilds · Fanatical. $9.74 (was $24.99) — 61% off, under your $12 target.”</div>
-      </div>
-    </div>
-    <div class="unit" style="left:584px">
-      <div class="phone"><div class="screen"><img src="assets/shots/calendar.jpg" alt="Calendar: occasions with budgets and arrive-by dates"></div></div>
-      <div class="cap">
-        <span class="ic" style="background:var(--g-navy)"><svg class="i"><use href="#i-cal"/></svg></span>
-        <h3>Calendar</h3>
-        <p>Its own occasions calendar. Every one has a budget and an arrive-by date.</p>
-        <div class="bubble x"><div class="who" style="color:var(--warn)"><svg class="i"><use href="#i-truck"/></svg>Next deadline</div>Cousin sister’s gift should arrive by <b>Mon, 30 Nov</b>.</div>
-      </div>
-    </div>
-    <div class="unit" style="left:1168px">
-      <div class="phone android"><div class="screen"><img src="assets/shots/people.jpg" alt="People: what Xerxes remembers"></div></div>
-      <div class="cap">
-        <span class="ic" style="background:var(--g-info)"><svg class="i" style="color:#101828"><use href="#i-users"/></svg></span>
-        <h3>People</h3>
-        <p>What it remembers about everyone you shop for.</p>
-        <div class="bubble x"><div class="who" style="color:var(--info-ink)"><svg class="i"><use href="#i-users"/></svg>Cousin sister</div>“Really nerdy about animals — loves facts and cool visuals.”</div>
-      </div>
-    </div>
-  </div>
-  <div class="skip">Click to see all three</div>
-
-  <aside class="notes">
-    <p>And it keeps watching. Radar tracks prices and reads deals aloud, like a game at 61% off, under my target.</p>
-    <p>Calendar and People are its memory.</p>
-  </aside>
-</section>
-
-<!-- ============================================================ 7 · CLOSE -->
-<section class="slide s-close" data-title="Xerxes" data-time="1:54–2:00" data-at="114" data-dur="6">
+<!-- ============================================================ 6 · THANK YOU -->
+<section class="slide s-close" data-title="Thank you" data-time="1:52–2:00" data-at="112" data-dur="8">
   <div class="aurora a-green" style="left:-400px;top:-300px;width:1500px;height:1500px"></div>
   <div class="aurora a-blue" style="right:-500px;bottom:-700px;width:1500px;height:1500px"></div>
   <header class="topbar">
@@ -469,81 +310,31 @@
     <div class="event">Build with Agora · Bengaluru 2026</div>
   </header>
 
-  <div class="wordmark">Xerxes</div>
-  <div class="tag">Remembers. Notices.<br><span class="accent">Does the legwork.</span></div>
+  <div class="wordmark">Thank you.</div>
+  <div class="tag">Xerxes, the next generation of<br><span class="accent">personal shopping.</span></div>
+  <a class="repo" href="https://github.com/isaiah2004/xerxes"><svg class="i"><use href="#i-github"/></svg>github.com/isaiah2004/xerxes</a>
 
   <div class="built">
     <div class="kicker">Built with</div>
     <div class="row">
       <span class="chip ok"><svg class="i"><use href="#i-mic"/></svg>Agora Conversational AI Engine</span>
       <span class="chip ok"><svg class="i"><use href="#i-volume"/></svg>Murf Falcon TTS</span>
-      <span class="chip dark"><svg class="i"><use href="#i-cpu"/></svg>Codex CLI + MCP tools</span>
-      <span class="chip line"><svg class="i"><use href="#i-phone"/></svg>Expo SDK 58 · React Native</span>
-      <span class="chip line"><svg class="i"><use href="#i-server"/></svg>Node + Hono</span>
+      <span class="chip dark"><svg class="i"><use href="#i-cpu"/></svg>Codex CLI + MCP</span>
+      <span class="chip line"><svg class="i"><use href="#i-phone"/></svg>Expo · React Native</span>
     </div>
   </div>
 
   <div class="card navy grain qr-card">
     <div class="qr"><img src="assets/qr-repo.svg" alt="QR code for github.com/isaiah2004/xerxes"></div>
-    <a class="url" href="https://github.com/isaiah2004/xerxes"><svg class="i"><use href="#i-github"/></svg>github.com/isaiah2004/xerxes</a>
-    <div class="hint">Code, README and the architecture.</div>
-  </div>
-
-  <div class="honest">
-    <span class="chip ok"><svg class="i"><use href="#i-check"/></svg>Live: the voice call, searches, prices and delivery estimates</span>
+    <div class="hint">Code and README</div>
   </div>
 
   <aside class="notes">
-    <p>Xerxes: it remembers, it notices, and it does the legwork.</p>
-    <p><em>[Pause. “Thank you.”]</em></p>
+    <p>That’s Xerxes. The code’s on GitHub. Thank you.</p>
   </aside>
 </section>
 
-<!-- ============================================================ A1 · UNDER THE HOOD (appendix) -->
-<section class="slide s-hood" data-title="Appendix: under the hood" data-time="appendix" data-at="120" data-dur="0">
-  <div class="aurora a-blue" style="right:-500px;top:-500px;width:1300px;height:1300px"></div>
-  <header class="topbar">
-    <div class="brand"><span class="mark"><svg class="i logo"><use href="#i-logo"/></svg></span>Xerxes</div>
-    <div class="event">Appendix · Under the hood</div>
-  </header>
-  <div class="title"><h2 class="h2">Thirteen tools, one voice path.</h2></div>
-
-  <div class="groups">
-    <div class="grp"><div class="gl">Memory</div><ul>
-      <li><code>get_context</code><span>Profile, memory, people, and upcoming occasions with budgets and arrive-by dates.</span></li>
-      <li><code>remember</code><span>Saves a durable fact about you or someone you shop for.</span></li>
-    </ul></div>
-    <div class="grp"><div class="gl">Discover</div><ul>
-      <li><code>search_books</code><span>Google Books + Open Library: covers, ISBNs, verified hardcover or paperback.</span></li>
-      <li><code>web_search</code><span>Retailer search with a Tavily key; otherwise Codex’s own live web search.</span></li>
-      <li><code>read_page</code><span>Opens a product page to confirm price, stock and the delivery estimate.</span></li>
-      <li><code>find_game_deals</code><span>CheapShark: current deals across Steam, GOG, Epic, Humble and more.</span></li>
-      <li><code>search_used_hardware</code><span>Second-hand listings from r/homelabsales and r/hardwareswap.</span></li>
-    </ul></div>
-    <div class="grp"><div class="gl">Decide</div><ul>
-      <li><code>check_offers</code><span>Deterministic: total, expected arrival, spare days, verdict and rank.</span></li>
-    </ul></div>
-    <div class="grp"><div class="gl">Show</div><ul>
-      <li><code>show_*</code><span><code>show_products</code>, <code>show_recommendation</code> and <code>show_question</code> render cards in the app.</span></li>
-    </ul></div>
-    <div class="grp"><div class="gl">Act</div><ul>
-      <li><code>save_to_plan</code><span>Saves the chosen item to your plan for the occasion.</span></li>
-      <li><code>create_watch</code><span>Starts a deal watch; watchers re-check it and post to Today.</span></li>
-    </ul></div>
-  </div>
-
-  <div class="side">
-    <div class="fact"><h4><svg class="i"><use href="#i-mic"/></svg>Voice path</h4><p>An Agora ConvoAI agent joins the RTC channel (Agora ASR, turn-taking). Its LLM is “custom”, OpenAI-style: our <code>/v1/sessions/:id/chat/completions</code> over a public tunnel. TTS: Murf FALCON, streamed.</p></div>
-    <div class="fact"><h4><svg class="i"><use href="#i-clock"/></svg>Never quiet</h4><p>“On it” at 1.5 s. Each real tool step is narrated as it starts, at least 7 s apart. A filler after 16 s of quiet. The answer streams sentence by sentence; if you talk over it, the run keeps going.</p></div>
-    <div class="fact"><h4><svg class="i"><use href="#i-cpu"/></svg>Codex</h4><p><code>codex exec --json</code>. One thread per conversation, resumed every turn. Read-only sandbox, no approvals, live web search on.</p></div>
-    <div class="fact"><h4><svg class="i"><use href="#i-phone"/></svg>App</h4><p>Expo SDK 58, React Native 0.88. <code>react-native-agora</code> on Android, <code>agora-rtc-sdk-ng</code> on web. Polls each run for live steps and cards.</p></div>
-    <div class="fact"><h4><svg class="i"><use href="#i-radar"/></svg>Watchers</h4><p>Every 30 minutes: re-check game deals and used hardware, nudge upcoming occasions, post to Today. <code>/api/tts</code> reads any card aloud with Murf.</p></div>
-  </div>
-
-  <aside class="notes"><p>Appendix for readers of the PDF. Not presented.</p></aside>
-</section>
-
-<!-- ============================================================ A2 · LIVE vs NEXT (appendix) -->
+<!-- ============================================================ A · LIVE vs NEXT (appendix) -->
 <section class="slide s-honest" data-title="Appendix: what's live, what's next" data-time="appendix" data-at="120" data-dur="0">
   <div class="aurora a-green" style="left:-500px;bottom:-600px;width:1300px;height:1300px"></div>
   <header class="topbar">
@@ -556,29 +347,27 @@
     <div class="cl">
       <h3><span class="ic" style="background:var(--g-primary)"><svg class="i"><use href="#i-check"/></svg></span>Live</h3>
       <ul>
-        <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>The voice call: Agora ConvoAI and Murf Falcon</li>
-        <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Every search: book catalogues, retailer pages, game stores</li>
-        <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Prices and delivery dates, as each retailer states them</li>
-        <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Covers, game deals and the step-by-step narration</li>
-        <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Radar watchers re-checking game deals and used hardware every 30 minutes</li>
+        <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Voice calls on Agora ConvoAI with Murf Falcon, cards drawn mid-call</li>
+        <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Live searches, prices and delivery dates as each retailer states them</li>
+        <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Shops nearby from OpenStreetMap, on a map</li>
+        <li><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>Background jobs: occasion nudges, gift ideas, game and hardware watches</li>
       </ul>
     </div>
     <div class="cl">
       <h3><span class="ic" style="background:var(--g-info)"><svg class="i" style="color:#101828"><use href="#i-users"/></svg></span>Remembers</h3>
       <ul>
-        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>Your profile and preferences</li>
-        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>The people you shop for, and what Xerxes learns about them</li>
-        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>Occasions, budgets and arrive-by dates, added and edited in the app</li>
-        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>Deal watches you start by voice</li>
+        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>People you shop for and what it learns about them</li>
+        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>Its own calendar: occasions, budgets, arrive-by dates</li>
+        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>Projects: what you have, bought and plan, and budget left</li>
       </ul>
     </div>
     <div class="cl">
       <h3><span class="ic" style="background:var(--g-warning)"><svg class="i"><use href="#i-arrow"/></svg></span>Next</h3>
       <ul>
-        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Checkout in the app; today Buy opens the retailer</li>
-        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>A hosted backend, so voice needs no tunnel</li>
-        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Durable storage (SQLite) and Google Drive backup</li>
-        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Price watches for any product, not just games and hardware</li>
+        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Review summaries per product</li>
+        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Google Drive backup (today: a local file)</li>
+        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Other MCP agents as the brain, not only Codex</li>
+        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Price watches for any product; checkout in the app</li>
       </ul>
     </div>
   </div>
@@ -591,13 +380,13 @@ cd backend &amp;&amp; npm install &amp;&amp; npm run dev        <span class="c">
 cloudflared tunnel --url http://localhost:8787  <span class="c"># then set PUBLIC_URL</span></pre>
   </div>
 
-  <aside class="notes"><p>Appendix for Q&amp;A. If asked: the people and occasions in the demo are sample entries we loaded so the app has something to remember; everything Xerxes looks up is live. Delivery dates are the retailer’s estimate, or a typical window flagged “estimated”. Used-hardware search needs Reddit API access.</p></aside>
+  <aside class="notes"><p>Appendix for Q&amp;A, not presented. If asked: the people, occasions and the living-room project are sample entries so the app has something to remember; every search, price and delivery estimate is live. Reviews, Drive backup and other agents are next.</p></aside>
 </section>
 
 </div>
 
 
-<div class="hud"><span id="hud-pos">1 / 9</span><kbd>←</kbd><kbd>→</kbd><kbd>F</kbd> full screen <kbd>N</kbd> notes <kbd>P</kbd> presenter</div>
+<div class="hud"><span id="hud-pos">1 / 7</span><kbd>←</kbd><kbd>→</kbd><kbd>F</kbd> full screen <kbd>N</kbd> notes <kbd>P</kbd> presenter</div>
 <div id="notes-overlay"><div class="meta"><span id="notes-title"></span><span id="notes-time"></span><span class="clock" id="notes-clock">0:00</span></div><div id="notes-body"></div></div>
 <div id="presenter"></div>
 

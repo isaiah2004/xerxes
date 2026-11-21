@@ -2,13 +2,13 @@
    No dependencies; works from file://.
    Keys: → / Space / PageDown next · ← / PageUp back · Home / End · 1–9 jump · F full screen · N notes
          P presenter window · T restart the clock · R replay the intro · V play/pause the demo clip
-   URL:  #3 opens slide 3 · ?export = static final states for PDF/PNG export · ?presenter = speaker view */
+   URL:  #3 opens slide 3 · ?export = static final states for PDF/PNG export · ?presenter = speaker view
+   Slides: 1 intro · 2 problem · 3 "Xerxes is different" (5-step tour) · 4 demo clip · 5 bring your own · 6 thank you · 7 appendix */
 (() => {
   "use strict";
   const qs = new URLSearchParams(location.search);
   const EXPORT = qs.has("export");
   const PRESENTER = qs.has("presenter");
-  const NOVIDEO = qs.has("novideo"); // ?novideo forces slide 3's storyboard tour (testing the no-clip fallback)
 
   const root = document.documentElement;
   const body = document.body;
@@ -52,7 +52,7 @@
     deckEl.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`;
   }
 
-  /* ---------------------------------------------------------------- slide 3: the recorded call */
+  /* ---------------------------------------------------------------- slide 4: the recorded call */
   function updateRail() {
     const t = video ? video.currentTime : 0;
     rails.forEach((r) => r.classList.toggle("on", t >= Number(r.dataset.at || 0)));
@@ -60,7 +60,7 @@
 
   function enterDemo() {
     // a tab opened before demo.mp4 existed (or a failed read) has given up on the file: ask again on entering slide 3
-    if (!hasVideo && video && !NOVIDEO && !EXPORT && (video.error || video.networkState === 3)) video.load();
+    if (!hasVideo && video && !EXPORT && (video.error || video.networkState === 3)) video.load();
     if (!hasVideo || EXPORT) return;
     video.pause();
     video.currentTime = 0;
@@ -79,13 +79,7 @@
     if (video.paused) video.play().catch(() => {}); else video.pause();
   }
 
-  /* ---------------------------------------------------------------- slide 3 without a clip: tour the three screens, then the overview */
-  const board = demo && demo.querySelector(".board .cols");
-  const cols = board ? [...board.querySelectorAll(".col")] : [];
-  const TOUR = [0, 3.8, 7.6, 11.4]; // seconds: screen 1, 2, 3, back to the overview
-  let tourTimers = [];
-  const touring = () => !!demo && demo.classList.contains("touring");
-
+  /* ---------------------------------------------------------------- tours: zoom into one child at a time, then the overview */
   // Zoom a tour container so one child fills the frame: measured from layout offsets (immune to running transforms),
   // centred, and clamped so the focused content stays clear of the top edge and the countdown at the bottom.
   function localBox(el, container) {
@@ -110,7 +104,7 @@
     container.style.transform = `translate(${960 - (container.offsetLeft + cx)}px, ${(ZTOP + ZBOTTOM) / 2 - (container.offsetTop + cy)}px) scale(${s.toFixed(3)})`;
   }
 
-  // Countdown: one segment per screen; the current one fills over the time left before the tour moves on.
+  // Countdown: one segment per step; the current one fills over the time left before the tour moves on.
   function makeTicker(slide, n) {
     if (!slide) return null;
     const el = document.createElement("div");
@@ -128,108 +122,37 @@
       reset() { segs.forEach((g) => { g.className = ""; g.firstChild.style.animation = "none"; }); },
     };
   }
-  const demoTicker = makeTicker(demo, 3);
-  const stepSecs = (T, k) => (k < T.length - 2 ? T[k + 1] + 0.3 : T[T.length - 1]) - (T[k] + 0.3);
 
-  function focusCol(k) {
-    cols.forEach((c, i) => c.classList.toggle("on", i === k));
-    zoomTo(board, cols[k]);
-    demoTicker && demoTicker.step(k, stepSecs(TOUR, k));
-  }
-  function resetTour() {
-    tourTimers.forEach(clearTimeout); tourTimers = [];
-    if (!demo) return;
-    demo.classList.remove("touring", "overview");
-    cols.forEach((c) => c.classList.remove("on"));
-    if (board) board.style.transform = "";
-    demoTicker && demoTicker.reset();
-  }
-  function endTour() {
-    resetTour();
-    if (!demo) return;
-    void demo.offsetWidth; demo.classList.add("overview");
-  }
-  function startTour() {
-    if (!board || hasVideo || EXPORT) return;
-    resetTour();
-    demo.classList.add("touring");
-    [0, 1, 2].forEach((k) => tourTimers.push(setTimeout(() => focusCol(k), TOUR[k] * 1000 + 300)));
-    tourTimers.push(setTimeout(endTour, TOUR[3] * 1000));
-  }
-
-  /* ---------------------------------------------------------------- slide 6: tour Radar, Calendar, People, then the overview */
-  const always = document.querySelector(".slide.s-always");
-  const trio = always && always.querySelector(".trio");
-  const units = trio ? [...trio.querySelectorAll(".unit")] : [];
-  const ATOUR = [0, 2.7, 5.4, 8.1]; // seconds: Radar, Calendar, People, back to the overview (10s slot)
-  let aTimers = [];
-  const aTouring = () => !!always && always.classList.contains("touring");
-  const alwaysTicker = units.length ? makeTicker(always, units.length) : null;
+  /* ---------------------------------------------------------------- slide 3: "Xerxes is different", five steps, then the overview */
+  const diff = document.querySelector(".slide.s-diff");
+  const five = diff && diff.querySelector(".five");
+  const units = five ? [...five.querySelectorAll(".unit")] : [];
+  const D0 = 1.5, DSTEP = 6.8;                 // seconds: the title alone, then each step; overview after the last (about 35.5 s)
+  let dTimers = [];
+  const diffTicker = units.length ? makeTicker(diff, units.length) : null;
   function focusUnit(k) {
     units.forEach((u, i) => u.classList.toggle("on", i === k));
-    zoomTo(trio, units[k]);
-    alwaysTicker && alwaysTicker.step(k, stepSecs(ATOUR, k));
+    zoomTo(five, units[k]);
+    diffTicker && diffTicker.step(k, DSTEP);
   }
-  function resetAlways() {
-    aTimers.forEach(clearTimeout); aTimers = [];
-    if (!always) return;
-    always.classList.remove("touring", "overview");
+  function resetDiff() {
+    dTimers.forEach(clearTimeout); dTimers = [];
+    if (!diff) return;
+    diff.classList.remove("touring", "overview");
     units.forEach((u) => u.classList.remove("on"));
-    if (trio) trio.style.transform = "";
-    alwaysTicker && alwaysTicker.reset();
+    if (five) five.style.transform = "";
+    diffTicker && diffTicker.reset();
   }
-  function endAlways() {
-    resetAlways();
-    if (!always) return;
-    void always.offsetWidth; always.classList.add("overview");
+  function endDiff() {
+    resetDiff();
+    if (!diff) return;
+    void diff.offsetWidth; diff.classList.add("overview");
   }
-  function startAlways() {
+  function startDiff() {
     if (!units.length || EXPORT) return;
-    resetAlways();
-    always.classList.add("touring");
-    units.forEach((_, k) => aTimers.push(setTimeout(() => focusUnit(k), ATOUR[k] * 1000 + 300)));
-    aTimers.push(setTimeout(endAlways, ATOUR[3] * 1000));
-  }
-
-  /* ---------------------------------------------------------------- slide 4: the call flows through the diagram in numbered order */
-  function archSeq(slide) {
-    const a = slide.querySelector(".arch");
-    if (!a || a.dataset.seq) return;
-    a.dataset.seq = "1";
-    const box = [...a.querySelectorAll(".box")], p = [...a.querySelectorAll(".wires > g > path")], wl = [...a.querySelectorAll(".wlabel")];
-    const at = (el, d) => { if (el) { el.classList.add("seq"); el.style.setProperty("--d", `${d}s`); } };
-    // 1) every box blurs + fades in together, tiny stagger
-    a.querySelectorAll(".lane").forEach((el) => at(el, 0));
-    box.forEach((b, k) => at(b, k * 0.04));
-    // 2) wires draw in, in call order, slight stagger; their labels come with them
-    // order: ① you→agora, ② agora→backend, ③ backend→codex, ④ codex→tools, ⑤ answer up, ⑥ agora→murf, voice back, hear it
-    const order = [[p[0], wl[0]], [p[4], a.querySelector(".bridge")], [p[6], wl[5]], [p[7], wl[6]], [p[5], wl[4]], [p[2], wl[2]], [p[3], wl[3]], [p[1], wl[1]]];
-    const g = p[0] && p[0].parentNode, N = order.length;
-    order.forEach(([path, lab], k) => {
-      at(path, 0.4 + k * 0.065); at(lab, 0.45 + k * 0.065);
-      // 3) a glowing pulse rides each wire in turn, forever (overlay copy, no marker)
-      if (!path || !g) return;
-      const f = path.cloneNode(false);
-      f.removeAttribute("marker-end"); f.setAttribute("pathLength", "100"); f.setAttribute("class", "flow");
-      f.style.setProperty("--fd", `${1.5 + k * (3.2 / N)}s`);
-      g.appendChild(f);
-    });
-  }
-
-  /* ---------------------------------------------------------------- slide 2: the price counts up as the card fills in */
-  function countUp(slide) {
-    const el = slide.querySelector(".decision .amount");
-    if (!el) return;
-    const final = el.dataset.final || (el.dataset.final = el.textContent);
-    const target = Number(final.replace(/[^\d]/g, "")), start = performance.now() + 6900, dur = 1100;
-    el.textContent = "₹0";
-    const step = (now) => {
-      if (!slide.classList.contains("active")) { el.textContent = final; return; }
-      const k = Math.max(0, Math.min(1, (now - start) / dur)), e = 1 - Math.pow(1 - k, 3);
-      el.textContent = k >= 1 ? final : `₹${Math.round(target * e).toLocaleString("en-IN")}`;
-      if (k < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
+    resetDiff();
+    units.forEach((_, k) => dTimers.push(setTimeout(() => { diff.classList.add("touring"); focusUnit(k); }, (D0 + k * DSTEP) * 1000)));
+    dTimers.push(setTimeout(endDiff, (D0 + units.length * DSTEP) * 1000));
   }
 
   /* ---------------------------------------------------------------- camera transitions + shared-element morphs */
@@ -244,10 +167,9 @@
   const worldX = (i) => `translate(${-i * 60}px, ${(i % 2 ? -1 : 1) * 14}px)`;
 
   // forward-only pairs [from slide class, to slide class, source, target]; the brand mark also rides across every step
-  // (2→3 has no morph: a plain camera move reads better than squeezing the card into the phone)
   const MORPHS = [
-    ["s-hook", "s-legwork", ".orb", ".topbar .brand .mark"],
-    ["s-arch", "s-byo", (sl) => sl.querySelectorAll(".arch .box")[4], ".byo-card.c1"],
+    ["s-hook", "s-problem", ".orb", ".topbar .brand .mark"],
+    ["s-diff", "s-demo", ".u5 .vphone", ".live .phone"],            // the voice step's phone grows into the demo phone
   ];
   const pick = (sl, q) => (typeof q === "function" ? q(sl) : sl.querySelector(q));
 
@@ -342,8 +264,8 @@
     const to = slides[i];
     const moving = CAM && !opts.instant && !!from && from !== to;
     if (from === hook && to !== hook) intro && intro.leave();
-    if (from === demo && to !== demo) { leaveDemo(); resetTour(); }
-    if (from === always && to !== always) resetAlways();
+    if (from === demo && to !== demo) leaveDemo();
+    if (from === diff && to !== diff) resetDiff();
     to.querySelectorAll(".landed").forEach((el) => el.classList.remove("landed"));
     if (moving) to.classList.remove("play");
 
@@ -362,9 +284,9 @@
     const enter = () => {
       if (slides[cur] !== to) return;
       if (to === hook) intro && intro.enter();
-      else if (!EXPORT) { to.classList.remove("play"); void to.offsetWidth; to.classList.add("play"); if (to.classList.contains("s-legwork")) countUp(to); if (to.classList.contains("s-arch")) archSeq(to); }
-      if (to === demo) { enterDemo(); startTour(); }
-      if (to === always) startAlways();
+      else if (!EXPORT) { to.classList.remove("play"); void to.offsetWidth; to.classList.add("play"); }
+      if (to === demo) enterDemo();
+      if (to === diff) startDiff();
     };
     if (moving) transition(from, to, dir, jump, enter); else enter();
     if (!EXPORT && !PRESENTER && location.hash !== `#${i + 1}`) history.replaceState(null, "", `#${i + 1}`);
@@ -374,8 +296,7 @@
 
   function next() {
     if (!t0) startClock();
-    if (slides[cur] === demo && touring()) { endTour(); return; } // first click skips the tour to the overview
-    if (slides[cur] === always && aTouring()) { endAlways(); return; }
+    if (slides[cur] === diff && dTimers.length) { endDiff(); return; } // first click skips the tour to the overview
     go(cur + 1);
   }
   function prev() { go(cur - 1); }
@@ -467,7 +388,7 @@
     const m = meta(cur);
     const nx = cur + 1 < N ? meta(cur + 1) : null;
     let tip = "";
-    if (slides[cur] === demo && !hasVideo) tip = "<p class=\"tip\">No demo.mp4 yet: the storyboard is on screen.</p>";
+    if (slides[cur] === demo && !hasVideo) tip = "<p class=\"tip\">demo.mp4 has not loaded: the phone shows a still.</p>";
     P.innerHTML = `
       <div>
         <div class="now">Slide ${cur + 1} of ${N} · ${m.time}</div>
@@ -524,8 +445,8 @@
 
   /* ---------------------------------------------------------------- boot */
   if (EXPORT) {
-    // static, final states only; no hash, no chrome. ?export&video shows slide 3's clip layout (for the PPTX).
-    const withVideo = qs.has("video") && demo && video;
+    // static, final states only; no hash, no chrome. The demo slide shows a frame of the clip's answer (?export&video: its first frame, for the PPTX).
+    const withVideo = demo && video;
     window.deck = {
       count: N,
       demoIndex: slides.indexOf(demo),
@@ -535,10 +456,9 @@
     };
     let firstFrame = Promise.resolve();
     if (withVideo) {
-      demo.classList.add("has-video");
       firstFrame = new Promise((ok) => {
         const done = () => ok();
-        video.addEventListener("loadeddata", () => { video.currentTime = 0.5; video.addEventListener("seeked", done, { once: true }); }, { once: true });
+        video.addEventListener("loadeddata", () => { video.currentTime = qs.has("video") ? 0.5 : 31; video.addEventListener("seeked", done, { once: true }); }, { once: true });
         video.addEventListener("error", done, { once: true });
         setTimeout(done, 5000);
       });
@@ -560,11 +480,8 @@
     return;
   }
 
-  if (NOVIDEO && video) { video.removeAttribute("src"); video.load(); }
-  if (!NOVIDEO) watchMedia(video, () => {
+  watchMedia(video, () => {
     hasVideo = true;
-    demo.classList.add("has-video");
-    resetTour(); // a storyboard tour started before the clip loaded would swallow the next click
     if (slides[cur] === demo) enterDemo();
     sync();
   });
