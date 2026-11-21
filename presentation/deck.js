@@ -183,15 +183,121 @@
     requestAnimationFrame(step);
   }
 
+  /* ---------------------------------------------------------------- camera transitions + shared-element morphs */
+  const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const CAM = !EXPORT && !PRESENTER && !REDUCED;
+  const world = document.getElementById("world");
+  const EASE = "cubic-bezier(.65,0,.35,1)";
+  const D = 850, DJ = 420, SETTLE = 0.55;   // ms for a step, ms for a jump, fraction of the move before the new slide's own animations start
+  let morphLayer = null;
+  if (CAM) { root.classList.add("cam"); morphLayer = document.createElement("div"); morphLayer.id = "morph"; deckEl.appendChild(morphLayer); }
+  let fx = null;                             // the in-flight transition
+  const worldX = (i) => `translate(${-i * 60}px, ${(i % 2 ? -1 : 1) * 14}px)`;
+
+  // forward-only pairs [from slide class, to slide class, source, target]; the brand mark also rides across every step
+  const demoPhone = (sl) => (sl.classList.contains("has-video") ? sl.querySelector(".live .phone") : sl.querySelectorAll(".board .col .phone")[2]);
+  const MORPHS = [
+    ["s-hook", "s-legwork", ".orb", ".topbar .brand .mark"],
+    ["s-legwork", "s-demo", ".decision", demoPhone],
+    ["s-arch", "s-byo", (sl) => sl.querySelectorAll(".arch .box")[4], ".byo-card.c1"],
+  ];
+  const pick = (sl, q) => (typeof q === "function" ? q(sl) : sl.querySelector(q));
+
+  function deckBox(el) {
+    const d = deckEl.getBoundingClientRect(), k = d.width / 1920 || 1, r = el.getBoundingClientRect();
+    return { x: (r.left - d.left) / k, y: (r.top - d.top) / k, w: r.width / k, h: r.height / k };
+  }
+  function ghost(el, slide) {
+    const wrap = document.createElement("div");
+    wrap.className = "ghost-wrap " + [...slide.classList].filter((c) => /^s-/.test(c) || c === "has-video").join(" ");
+    const c = el.cloneNode(true);
+    c.removeAttribute("id"); c.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
+    c.classList.remove("seq", "landed");
+    const w = el.offsetWidth || 1, h = el.offsetHeight || 1, wv = getComputedStyle(el).getPropertyValue("--w");
+    Object.assign(c.style, { position: "absolute", left: "0", top: "0", right: "auto", bottom: "auto", margin: "0", width: `${w}px`, height: `${h}px`,
+      translate: "none", scale: "none", rotate: "none", visibility: "visible", opacity: "1" });
+    if (wv) c.style.setProperty("--w", wv);
+    wrap.appendChild(c); morphLayer.appendChild(wrap);
+    return { wrap, c, w, h };
+  }
+  const place = (g, b) => `translate(${b.x}px, ${b.y}px) scale(${b.w / g.w}, ${b.h / g.h})`;
+
+  function settle() {                         // jump whatever is in flight to its end state, instantly
+    if (!fx) return;
+    const f = fx; fx = null;
+    clearTimeout(f.timer);
+    f.anims.forEach((a) => a.cancel());
+    f.ghosts.forEach((g) => g.wrap.remove());
+    f.hidden.forEach(([el, v]) => (el.style.visibility = v));
+    [f.from, f.to].forEach((sl) => { sl.classList.remove("leaving", "moving"); sl.style.zIndex = ""; });
+    const e = f.enter; f.enter = null; e && e();
+  }
+
+  function transition(from, to, dir, jump, enter) {
+    const fi = slides.indexOf(from), ti = slides.indexOf(to);
+    const f = { anims: [], ghosts: [], hidden: [], from, to, timer: 0, enter };
+    // morph pairs, measured with both slides at rest (the new slide hasn't started its own animations yet)
+    const pairs = [];
+    if (!jump) {
+      const bA = from.querySelector(".topbar .brand"), bB = to.querySelector(".topbar .brand");
+      if (bA && bB) pairs.push([bA, bB, false]);
+      if (dir > 0) for (const [a, b, qa, qb] of MORPHS) {
+        if (!from.classList.contains(a) || !to.classList.contains(b)) continue;
+        const ea = pick(from, qa), eb = pick(to, qb);
+        if (ea && eb && ea.offsetWidth && eb.offsetWidth) pairs.push([ea, eb, true]);
+      }
+    }
+    const measured = pairs.map(([a, b, land]) => ({ a, b, land, ra: deckBox(a), rb: deckBox(b) }));
+
+    from.classList.add("leaving", "moving"); to.classList.add("moving");
+    from.style.zIndex = "1"; to.style.zIndex = "2";
+    const dur = jump ? DJ : D, opt = { duration: dur, easing: EASE };
+    if (jump) {
+      f.anims.push(from.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(1.06)" }], opt));
+      f.anims.push(to.animate([{ opacity: 0, transform: "scale(.94)" }, { opacity: 1, transform: "none" }], opt));
+    } else {
+      f.anims.push(from.animate([
+        { opacity: 1, transform: "none", filter: "blur(0px)" },
+        { opacity: 0, transform: `translateX(${-dir * 22}%) scale(.9)`, filter: "blur(8px)" }], opt));
+      f.anims.push(to.animate([
+        { opacity: 0, transform: `translateX(${dir * 26}%) scale(1.08)`, filter: "blur(8px)" },
+        { opacity: 1, offset: 0.6 },
+        { opacity: 1, transform: "none", filter: "blur(0px)" }], opt));
+    }
+    if (world) {
+      const was = getComputedStyle(world).transform;
+      world.style.transform = worldX(ti);
+      f.anims.push(world.animate([{ transform: was === "none" ? worldX(fi) : was }, { transform: worldX(ti) }], opt));
+    }
+    for (const m of measured) {
+      const ga = ghost(m.a, from), gb = ghost(m.b, to);
+      f.ghosts.push(ga, gb);
+      f.hidden.push([m.a, m.a.style.visibility], [m.b, m.b.style.visibility]);
+      m.a.style.visibility = "hidden"; m.b.style.visibility = "hidden";
+      if (m.land) m.b.classList.add("landed");
+      const path = (g) => [{ transform: place(g, m.ra) }, { transform: place(g, m.rb) }];
+      f.anims.push(ga.c.animate(path(ga), opt), gb.c.animate(path(gb), opt));
+      f.anims.push(ga.c.animate([{ opacity: 1 }, { opacity: 1, offset: 0.3 }, { opacity: 0, offset: 0.7 }, { opacity: 0 }], opt));
+      f.anims.push(gb.c.animate([{ opacity: 0 }, { opacity: 0, offset: 0.25 }, { opacity: 1, offset: 0.65 }, { opacity: 1 }], opt));
+    }
+    f.timer = setTimeout(() => { const e = f.enter; f.enter = null; e && e(); }, dur * SETTLE);
+    f.anims[0].finished.then(() => { if (fx === f) settle(); }, () => {});
+    fx = f;
+  }
+
   /* ---------------------------------------------------------------- navigation */
   function go(i, opts = {}) {
     i = clamp(i);
+    settle();
     if (i === cur && !opts.force) return;
     const from = slides[cur];
     const to = slides[i];
+    const moving = CAM && !opts.instant && !!from && from !== to;
     if (from === hook && to !== hook) intro && intro.leave();
     if (from === demo && to !== demo) { leaveDemo(); resetTour(); }
     if (from === always && to !== always) resetAlways();
+    to.querySelectorAll(".landed").forEach((el) => el.classList.remove("landed"));
+    if (moving) to.classList.remove("play");
 
     if (opts.instant || EXPORT) {
       slides.forEach((s) => (s.style.transition = "none"));
@@ -201,12 +307,18 @@
     } else {
       slides.forEach((s, k) => s.classList.toggle("active", k === i));
     }
+    const dir = i > cur ? 1 : -1, jump = Math.abs(i - cur) > 1;
     cur = i;
+    if (world && !moving) world.style.transform = worldX(i);
 
-    if (to === hook) intro && intro.enter();
-    else if (!EXPORT) { to.classList.remove("play"); void to.offsetWidth; to.classList.add("play"); if (to.classList.contains("s-legwork")) countUp(to); if (to.classList.contains("s-arch")) archSeq(to); }
-    if (to === demo) { enterDemo(); startTour(); }
-    if (to === always) startAlways();
+    const enter = () => {
+      if (slides[cur] !== to) return;
+      if (to === hook) intro && intro.enter();
+      else if (!EXPORT) { to.classList.remove("play"); void to.offsetWidth; to.classList.add("play"); if (to.classList.contains("s-legwork")) countUp(to); if (to.classList.contains("s-arch")) archSeq(to); }
+      if (to === demo) { enterDemo(); startTour(); }
+      if (to === always) startAlways();
+    };
+    if (moving) transition(from, to, dir, jump, enter); else enter();
     if (!EXPORT && !PRESENTER && location.hash !== `#${i + 1}`) history.replaceState(null, "", `#${i + 1}`);
     renderChrome();
     sync();

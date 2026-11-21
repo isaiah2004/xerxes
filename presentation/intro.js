@@ -161,9 +161,9 @@
     for (const p of pulses) { p.t += dt * 0.55; if (p.t >= 1) { p.t = 0; p.e = (p.e * 7 + 13) % edges.length; } }
     const P = draw(now);
     const el = (now - t0) / 1000;
-    // tagline typing between 1.0 s and ~2.9 s
-    const shown = Math.floor(Math.max(0, el - 1.5) / 0.055);
-    chars.forEach((c, i) => { c.classList.toggle("on", i < shown); c.classList.toggle("caret", i === Math.min(shown, chars.length) - 1 && el < 4.2); });
+    // tagline typing from 1.5 s, ~2 s for the 55 characters
+    const shown = Math.floor(Math.max(0, el - 1.5) / 0.036);
+    chars.forEach((c, i) => { c.classList.toggle("on", i < shown); c.classList.toggle("caret", i === Math.min(shown, chars.length) - 1 && el < 4.4); });
     // agent loop from 1.6 s, 2.8 s per step
     const k = el < 1.6 ? -1 : Math.floor((el - 1.6) / 2.8) % STEPS.length;
     if (k !== step && k >= 0) showStep(k, P, now);

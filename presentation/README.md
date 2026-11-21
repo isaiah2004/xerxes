@@ -34,6 +34,8 @@ Open `index.html` in Chrome and press **F**.
 | R | Replay the intro animation |
 | V | Play or pause the demo clip |
 
+Slides move like one continuous camera shot: the old slide drifts out and blurs while the next one slides in from the direction you're travelling (about 0.85 s), over a faint background that pans with you, and the brand mark stays put. Three things fly across going forward: the intro orb lands as the slide 2 logo, the decision card becomes the demo phone, and the Codex box becomes the Intelligence card. Each slide's own animation starts as the camera settles. Pressing again mid-move finishes it at once, so rapid presses are safe; number keys, Home and End use a quicker zoom cut. `?export` and reduced-motion get no transitions.
+
 The clock starts on the first forward press. It turns orange when a slide runs past its slot. Adding `#3` to the URL opens slide 3.
 
 ## Media slots
