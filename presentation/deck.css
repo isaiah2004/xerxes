@@ -461,6 +461,10 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 .s-diff .fl .who { font-size: 13px; }
 .s-diff .fl2 { position: absolute; left: 96px; right: -8px; font-size: 19px; padding: 10px 15px 12px; }
 .s-diff .fl2 .who { font-size: 12px; }
+.s-diff .ins { position: absolute; left: 96px; right: -8px; top: 346px; display: flex; flex-direction: column; gap: 6px; }
+.s-diff .ins .in { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; padding: 6px 11px; border-radius: 12px; background: #fff; border: 2px solid #E7E5EE; box-shadow: 0 10px 22px -16px rgba(16,24,40,.45); font: 600 16px/1.1 "Inter"; color: var(--ink2); }
+.s-diff .ins .in .i { width: 17px; height: 17px; color: var(--ok); flex: none; }
+.s-diff .ins .in .soon { margin-left: 2px; font-size: 11px; padding: 3px 6px; vertical-align: 0; }
 .s-diff .uc { position: absolute; left: 0; right: 0; top: 596px; display: flex; flex-wrap: wrap; gap: 8px; }
 .s-diff .uc .chip { font-size: 16px; padding: 7px 12px; white-space: normal; }
 /* mock app cards (no screenshot of these screens yet: drawn in the app's style) */
@@ -505,6 +509,9 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 .s-diff.touring .unit.on .uc .chip { animation: pop .4s cubic-bezier(.2,1.6,.4,1) both; }
 .s-diff.touring .unit.on .uc .chip:nth-child(1) { animation-delay: 2.6s; } .s-diff.touring .unit.on .uc .chip:nth-child(2) { animation-delay: 3s; }
 .s-diff.touring .unit.on .uc .chip:nth-child(3) { animation-delay: 3.4s; } .s-diff.touring .unit.on .uc .chip:nth-child(4) { animation-delay: 3.8s; }
+.s-diff.touring .unit.on .fl2 ~ .fl2 ~ .fl2 { animation-delay: 3.4s; }
+.s-diff.touring .unit.on .ins .in { animation: pop .4s cubic-bezier(.2,1.6,.4,1) both; }
+.s-diff.touring .unit.on .ins .in:nth-child(1) { animation-delay: 4.4s; } .s-diff.touring .unit.on .ins .in:nth-child(2) { animation-delay: 5s; } .s-diff.touring .unit.on .ins .in:nth-child(3) { animation-delay: 5.6s; }
 .s-diff.touring .unit.on .lc-b.x .wv b { animation: lcWave .28s ease-in-out 2.3s 12 alternate; }
 .s-diff .skip { position: absolute; right: 96px; bottom: 34px; font: 600 18px/1 "Inter"; color: var(--muted); opacity: 0; transition: opacity .4s; pointer-events: none; }
 .s-diff.touring .skip { opacity: 1; }

@@ -6,7 +6,7 @@ About two minutes. The same lines are in each slide's speaker notes (press **N**
 |---|------|-------|
 | 1 | 0:00–0:08 | Introducing Xerxes |
 | 2 | 0:08–0:22 | The problem: a chat slapped onto a store |
-| 3 | 0:22–0:58 | Xerxes is different (5-step tour) |
+| 3 | 0:22–0:58 | Xerxes is different (5-step tour, voice first) |
 | 4 | 0:58–1:38 | Product demo (the clip, about 38 s) |
 | 5 | 1:38–1:52 | Bring your own key, agent and storage |
 | 6 | 1:52–2:00 | Thank you |
@@ -18,7 +18,7 @@ About two minutes. The same lines are in each slide's speaker notes (press **N**
 
 *Cue: the deck opens on slide 1. Press F for full screen. Your first click on slide 1 isn't needed: the intro plays when the deck loads (R replays it). Wait for the tagline to finish typing (about 3.5 s).*
 
-> Introducing Xerxes, the next generation of personal shopping.
+> Introducing Xerxes, your personal shopping butler.
 
 *Click.*
 
@@ -33,30 +33,30 @@ About two minutes. The same lines are in each slide's speaker notes (press **N**
 
 ### 3 · Xerxes is different (0:22–0:58)
 
-*Cue: the title shows for 1.5 s, then the camera zooms into each step by itself, about 7 s each; the countdown bar at the bottom right shows how long is left. Start each line as its step zooms in. If you fall behind, click once: it jumps to the overview of all five. The next click moves on.*
+*Cue: the title shows for 1.5 s, then the camera zooms into each step by itself: step 1 holds about 8.5 s, steps 2–5 about 6.5 s each. The countdown bar at the bottom right shows how long is left. Start each line as its step zooms in. If you fall behind, click once: it jumps to the overview of all five. The next click moves on.*
 
 > Xerxes is different.
 
-*Step 1 · It reaches out first*
-> It reaches out first. It sees your calendar and your projects, and keeps running in the background, so it brings up the birthday before you do.
+*Step 1 · Voice-native, generative UI (0:24, ~8.5 s). The two call bubbles land, then "You · cuts in", then the three input chips.*
+> First, it's truly voice-native, with generative UI: anything you can do over chat, you can do over voice, and the cards draw themselves as it talks. It's a real conversation: cut in, change your mind, or paste a product link and it reads the page.
 
-*Step 2 · It does the legwork*
-> It does the legwork: compares prices, checks delivery against your deadline, and finds a shop nearby when it has to be today.
+*Step 2 · It reaches out first (0:32)*
+> It initiates. It has your projects and your calendar, and keeps running on its own, so it brings up the birthday before you ask.
 
-*Step 3 · It knows the project*
-> It keeps project context. Furnishing your living room? It knows you already have the sofa and the rug, so it suggests what's missing.
+*Step 3 · It does the legwork (0:39)*
+> It does the legwork: compares prices, checks delivery against your deadline, looks at reviews, and suggests a shop nearby when it has to be today.
 
-*Step 4 · Calendar, budget, people*
-> It knows your calendar and budget, and the people you buy for, so the gift ideas actually fit them.
+*Step 4 · It knows the project (0:45)*
+> It knows the project. Furnishing your living room? You already have the sofa and the rug, so it recommends what's missing.
 
-*Step 5 · Voice-native, generative UI*
-> And it's voice-native, with generative UI: anything you can do in chat, you can do on a call.
+*Step 5 · Calendar, budget, people (0:52)*
+> And it knows your calendar and budget, and reminds you to buy gifts, with ideas from each person's profile.
 
-*The tour ends on the overview at about 0:57. Click.*
+*The tour ends on the overview at about 0:58. Click.*
 
 ### 4 · Product demo (0:58–1:38)
 
-*Cue: the voice step's phone grows into the demo phone. The clip starts by itself once the camera settles; the five steps on the right light up as it goes.*
+*Cue: step 1's voice phone (top left of the overview) grows into the demo phone. The clip starts by itself once the camera settles; the five steps on the right light up as it goes.*
 
 > Here's a real call.
 
@@ -70,7 +70,7 @@ About two minutes. The same lines are in each slide's speaker notes (press **N**
 
 ### 6 · Thank you (1:52–2:00)
 
-> That's Xerxes. The code's on GitHub. Thank you.
+> That's Xerxes, your personal shopping butler. The code's on GitHub. Thank you.
 
 *Stop here. Slide 7 is for questions only.*
 
@@ -78,6 +78,9 @@ About two minutes. The same lines are in each slide's speaker notes (press **N**
 
 ## If asked (Q&A)
 
+- **Sending a photo** is marked "Soon": the app has no image upload yet (text-only composer). Don't demo it.
+- **Links**: paste a product URL in chat or say it, and Codex opens that page with its live web tool to read price and details. There is no dedicated link-preview card.
+- **Conversation**: Agora ConvoAI keeps the last 20 turns and lets you talk over Xerxes; chat keeps the Codex thread, so follow-ups carry context.
 - **Reviews** are marked "Soon": Xerxes can search the web for reviews, but there's no review summary on its cards yet.
 - **Other agents** are "Next": the 32 Xerxes tools are a standard MCP server, but today only Codex CLI drives them.
 - **Google Drive backup** is "Next": today the data is one local file (`.data/xerxes.json`).

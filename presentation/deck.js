@@ -127,13 +127,14 @@
   const diff = document.querySelector(".slide.s-diff");
   const five = diff && diff.querySelector(".five");
   const units = five ? [...five.querySelectorAll(".unit")] : [];
-  const D0 = 1.5, DSTEP = 6.8;                 // seconds: the title alone, then each step; overview after the last (about 35.5 s)
+  const D0 = 1.5, DSTEPS = [8.5, 6.5, 6.5, 6.5, 6.5]; // seconds: the title alone, then each step (voice holds longer: its input chips land last); overview after the last (36 s)
+  const dAt = (k) => D0 + DSTEPS.slice(0, k).reduce((a, b) => a + b, 0);
   let dTimers = [];
   const diffTicker = units.length ? makeTicker(diff, units.length) : null;
   function focusUnit(k) {
     units.forEach((u, i) => u.classList.toggle("on", i === k));
     zoomTo(five, units[k]);
-    diffTicker && diffTicker.step(k, DSTEP);
+    diffTicker && diffTicker.step(k, DSTEPS[k] || DSTEPS[DSTEPS.length - 1]);
   }
   function resetDiff() {
     dTimers.forEach(clearTimeout); dTimers = [];
@@ -151,8 +152,8 @@
   function startDiff() {
     if (!units.length || EXPORT) return;
     resetDiff();
-    units.forEach((_, k) => dTimers.push(setTimeout(() => { diff.classList.add("touring"); focusUnit(k); }, (D0 + k * DSTEP) * 1000)));
-    dTimers.push(setTimeout(endDiff, (D0 + units.length * DSTEP) * 1000));
+    units.forEach((_, k) => dTimers.push(setTimeout(() => { diff.classList.add("touring"); focusUnit(k); }, dAt(k) * 1000)));
+    dTimers.push(setTimeout(endDiff, dAt(units.length) * 1000));
   }
 
   /* ---------------------------------------------------------------- camera transitions + shared-element morphs */
@@ -169,7 +170,7 @@
   // forward-only pairs [from slide class, to slide class, source, target]; the brand mark also rides across every step
   const MORPHS = [
     ["s-hook", "s-problem", ".orb", ".topbar .brand .mark"],
-    ["s-diff", "s-demo", ".u5 .vphone", ".live .phone"],            // the voice step's phone grows into the demo phone
+    ["s-diff", "s-demo", ".u1 .vphone", ".live .phone"],            // from the overview, step 1's voice phone (same call screen) grows into the demo phone
   ];
   const pick = (sl, q) => (typeof q === "function" ? q(sl) : sl.querySelector(q));
 

@@ -10,7 +10,7 @@ This is the two-minute pitch for **Build with Agora, Bengaluru 2026**. The deck 
 |---|------|-------|
 | 1 | 0:00–0:08 | Introducing Xerxes (animated intro) |
 | 2 | 0:08–0:22 | The problem: a chat slapped onto a store |
-| 3 | 0:22–0:58 | Xerxes is different: a 5-step zoom tour |
+| 3 | 0:22–0:58 | Xerxes is different: a 5-step zoom tour (voice first) |
 | 4 | 0:58–1:38 | Product demo: the recorded call |
 | 5 | 1:38–1:52 | Bring your own key, agent and storage |
 | 6 | 1:52–2:00 | Thank you, with the repo link and QR |
@@ -32,9 +32,9 @@ Open `index.html` in Chrome and press **F**.
 | R | Replay the intro animation |
 | V | Play or pause the demo clip |
 
-Slides move like one continuous camera shot: the old slide drifts out and blurs while the next one slides in from the direction you're travelling (about 0.85 s), over a faint background that pans with you, and the brand mark stays put. Two things fly across going forward: the intro orb lands as the slide 2 logo, and the voice step's phone on slide 3 grows into the demo phone on slide 4. Each slide's own animation starts as the camera settles. Pressing again mid-move finishes it at once, so rapid presses are safe; number keys, Home and End use a quicker zoom cut. `?export` and reduced-motion get no transitions.
+Slides move like one continuous camera shot: the old slide drifts out and blurs while the next one slides in from the direction you're travelling (about 0.85 s), over a faint background that pans with you, and the brand mark stays put. Two things fly across going forward: the intro orb lands as the slide 2 logo, and the voice step's phone (step 1 on slide 3, seen in the overview) grows into the demo phone on slide 4. Each slide's own animation starts as the camera settles. Pressing again mid-move finishes it at once, so rapid presses are safe; number keys, Home and End use a quicker zoom cut. `?export` and reduced-motion get no transitions.
 
-Slide 3 tours itself: 1.5 s on the title, then about 6.8 s zoomed into each of the five steps, with a countdown bar at the bottom right, then the overview. One click skips to the overview; the next click moves on. Slide 4 plays the clip once the camera settles and pauses it when you leave.
+Slide 3 tours itself, in this order: 1 voice-native with generative UI (plus conversational flow, links and photos), 2 reaches out first, 3 does the legwork, 4 knows the project, 5 calendar, budget and people. It runs 1.5 s on the title, then 8.5 s zoomed into step 1 (voice: its three input chips land last) and 6.5 s into each of the other four, with a countdown bar at the bottom right, then the overview. One click skips to the overview; the next click moves on. Slide 4 plays the clip once the camera settles and pauses it when you leave.
 
 The clock starts on the first forward press. It turns orange when a slide runs past its slot. Adding `#3` to the URL opens slide 3.
 
@@ -60,6 +60,6 @@ python presentation/tools/build_pptx.py   # dist/xerxes-pitch.pptx
 
 ## Notes for Q&A
 
-- Anything not built yet carries a small "Soon" or "Next" tag on its slide: reviews (slide 3), other MCP agents and Google Drive backup (slide 5). SPEECH.md lists what to say if asked.
+- Anything not built yet carries a small "Soon" or "Next" tag on its slide: reviews and sending a photo (slide 3), other MCP agents and Google Drive backup (slide 5). SPEECH.md lists what to say if asked.
 - The people, occasions and the living-room project are sample entries; searches, prices, delivery estimates and the voice call are live.
 - The tool count (32) is the number of `tool(...)` registrations in `backend/src/mcp.ts`.
