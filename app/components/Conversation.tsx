@@ -1,13 +1,16 @@
 import { useEffect, useRef } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { haptic } from "@/lib/haptics";
+import { openLink, splitLinks } from "@/lib/links";
 import { stepsOf, useRun } from "@/lib/useRun";
-import { color } from "@/lib/theme";
+import { color, palette } from "@/lib/theme";
+import { LinkCard, PHOTOS_WIDTH, PhotoGrid } from "./Attachments";
 import { AgentCard, StepsCard } from "./cards";
 import { SpeakButton } from "./Speak";
 import { Row, T } from "./ui";
 
-export type Turn = { key: string; text: string; runId?: string; error?: string };
+/** images: the photos sent with the message (display URLs). */
+export type Turn = { key: string; text: string; images?: string[]; runId?: string; error?: string };
 
 export const clean = (s: string) =>
   s
@@ -40,22 +43,42 @@ export function AgentBubble({ text, speak = true }: { text: string; speak?: bool
   );
 }
 
-export function UserBubble({ text }: { text: string }) {
+/**
+ * What you sent: photos above the text, links shortened (one at the start or end goes, one mid-sentence becomes its
+ * site) and shown as preview cards under the bubble. A message that was only a link is just its card.
+ */
+export function UserBubble({ text, images }: { text: string; images?: string[] }) {
+  const { parts, links } = splitLinks(clean(text));
+  const photos = (images ?? []).filter(Boolean).slice(0, 4);
+  const said = parts.length > 0;
   return (
-    <View
-      style={{
-        alignSelf: "flex-end",
-        maxWidth: "86%",
-        backgroundColor: color.ink,
-        borderRadius: 20,
-        borderBottomRightRadius: 6,
-        paddingHorizontal: 14,
-        paddingVertical: 11,
-      }}
-    >
-      <T v="body" style={{ color: "#fff" }}>
-        {clean(text)}
-      </T>
+    <View style={{ alignSelf: "flex-end", alignItems: "flex-end", maxWidth: "86%", gap: 6 }}>
+      {said || photos.length ? (
+        <View
+          style={[
+            { backgroundColor: color.ink, borderRadius: 20, borderBottomRightRadius: 6 },
+            photos.length ? { padding: 4, width: PHOTOS_WIDTH + 8 } : { paddingHorizontal: 14, paddingVertical: 11 },
+          ]}
+        >
+          {photos.length ? <PhotoGrid uris={photos} tail={!said} /> : null}
+          {said ? (
+            <T v="body" style={[{ color: "#fff" }, photos.length ? { paddingHorizontal: 10, paddingTop: 8, paddingBottom: 7 } : null]}>
+              {parts.map((p, i) =>
+                p.url ? (
+                  <Text key={i} onPress={() => void openLink(p.url)} style={{ color: palette.blue, textDecorationLine: "underline" }}>
+                    {p.text}
+                  </Text>
+                ) : (
+                  <Text key={i}>{p.text}</Text>
+                ),
+              )}
+            </T>
+          ) : null}
+        </View>
+      ) : null}
+      {links.slice(0, 3).map((url) => (
+        <LinkCard key={url} url={url} />
+      ))}
     </View>
   );
 }
@@ -76,7 +99,7 @@ export function TurnView({ turn, onAction, speak = true }: { turn: Turn; onActio
   const error = events.find((e) => e.type === "error");
   return (
     <View style={{ gap: 12 }}>
-      <UserBubble text={turn.text} />
+      <UserBubble text={turn.text} images={turn.images} />
       {turn.error ? <AgentBubble text={`Couldn't reach Xerxes: ${turn.error}`} speak={false} /> : null}
       {turn.runId ? <StepsCard steps={steps} running={status === "running"} /> : null}
       {events.map((e) => (e.type === "card" ? <AgentCard key={e.card.id} card={e.card} onAction={onAction} /> : null))}

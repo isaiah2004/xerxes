@@ -454,8 +454,8 @@ export function AgentCard({ card, onAction }: { card: CardT; onAction?: (t: stri
 }
 
 // ---------------------------------------------------------------- live steps
-/** Xerxes' "working on it" mark: a dashed rounded square turning. */
-export function Spinner({ size = 18 }: { size?: number }) {
+/** Xerxes' "working on it" mark: a dashed rounded square turning. tint: its colour (white over a photo). */
+export function Spinner({ size = 18, tint = color.faint }: { size?: number; tint?: string }) {
   const [spin] = useState(() => new Animated.Value(0));
   useEffect(() => {
     const a = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 1100, easing: Easing.linear, useNativeDriver: Platform.OS !== "web" }));
@@ -470,7 +470,7 @@ export function Spinner({ size = 18 }: { size?: number }) {
         borderRadius: size / 3,
         borderWidth: 2,
         borderStyle: "dashed",
-        borderColor: color.faint,
+        borderColor: tint,
         transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }],
       }}
     />

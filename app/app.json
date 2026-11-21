@@ -48,7 +48,15 @@
           "recordAudioAndroid": true
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Xerxes opens your photos only when you pick one to show it a product.",
+          "cameraPermission": "Xerxes uses the camera only when you take a photo of a product to show it.",
+          "microphonePermission": "Xerxes listens to you only while a voice call is open."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

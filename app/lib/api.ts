@@ -165,13 +165,28 @@ export type Ideas =
   | { status: "ready"; text: string; card: Extract<Card, { type: "ideas" }>; at: string; stale?: boolean }
   | { status: "pending" };
 
+/** A photo the agent can see: id goes with the message, path is where it's served (under API). */
+export type Upload = { id: string; path: string };
+/** What a link is about, read by the backend. Always comes back; without a title it's just the site ("amazon.in"). */
+export type Unfurl = { url: string; site: string; title?: string; image?: string; price?: string };
+
 // ---------- endpoints ----------
 export const api = {
   feed: () => j<Feed>("/api/feed"),
   newConversation: () => j<{ id: string }>("/api/conversations", { method: "POST" }),
-  /** projectId: a chat opened from a project builds on it (and lands in its searches). */
-  send: (conversationId: string, text: string, projectId?: string) =>
-    j<{ runId: string }>(`/api/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text, projectId }) }),
+  /** projectId: a chat opened from a project builds on it (and lands in its searches).
+   *  images: upload ids (at most 4) the agent looks at with the message; text may be "" then. */
+  send: (conversationId: string, text: string, projectId?: string, images?: string[]) =>
+    j<{ runId: string }>(`/api/conversations/${conversationId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ text, projectId, images: images?.length ? images : undefined }),
+    }),
+  /** A photo as a data URL ("data:image/jpeg;base64,…"): jpeg/png/webp/gif up to 10 MB. A bad one fails with a readable error. */
+  upload: (data: string) => j<Upload>("/api/uploads", { method: "POST", body: JSON.stringify({ data }) }),
+  /** Where an uploaded photo is served from. */
+  uploadUrl: (path: string) => `${API}${path}`,
+  /** Title, picture and price of a pasted link. Use unfurl() from lib/unfurl, which asks once per link. */
+  unfurl: (url: string) => j<Unfurl>(`/api/unfurl?url=${encodeURIComponent(url)}`),
   run: (runId: string, after: number) => j<{ status: "running" | "done" | "error"; events: RunEvent[] }>(`/api/runs/${runId}?after=${after}`),
   /** Gift ideas for an upcoming occasion (404 = unknown occasion). */
   ideas: (occasionId: string) => j<Ideas>(`/api/occasions/${encodeURIComponent(occasionId)}/ideas`),

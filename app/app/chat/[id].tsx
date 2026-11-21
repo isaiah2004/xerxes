@@ -1,14 +1,19 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowUp, ChevronLeft, Mic, Sparkles } from "lucide-react-native";
+import { ArrowUp, Camera, ChevronLeft, ImagePlus, Images, Link2, Mic, Sparkles } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View, type ScrollViewInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AttachButton, AttachNotice, LinkChip, PhotoStrip } from "@/components/Attachments";
 import { IdeasCard, Spinner } from "@/components/cards";
 import { AgentBubble, TurnView, type Turn } from "@/components/Conversation";
+import { Sheet, SheetAction, SheetActions, SheetBody } from "@/components/Sheet";
 import { Card, GradientSurface, Row, T, Tap } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 import { api, manage, type Card as CardT, type Ideas, type Person, type Project, type Upcoming } from "@/lib/api";
 import { dayDate, money, pronounsFor } from "@/lib/format";
+import { linksIn } from "@/lib/links";
+import { cameraAvailable, photosAvailable, type PhotoSource } from "@/lib/photos";
+import { MAX_PHOTOS, usePhotos, type Photo } from "@/lib/usePhotos";
 import { color, font, ledge, radius } from "@/lib/theme";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -70,6 +75,24 @@ function ThinkingOfIdeas() {
   );
 }
 
+/** Under the general chat's hello: links and photos work too. Hints, not buttons. */
+function Hints() {
+  const hints = [
+    { icon: Link2, text: "Paste a link: is this a good deal?" },
+    ...(photosAvailable ? [{ icon: ImagePlus, text: "Add a photo: find this cheaper" }] : []),
+  ];
+  return (
+    <View style={{ gap: 6, paddingHorizontal: 6 }}>
+      {hints.map(({ icon: Icon, text }) => (
+        <Row key={text} gap={8}>
+          <Icon size={14} color={color.muted} strokeWidth={2.2} />
+          <T v="sub">{text}</T>
+        </Row>
+      ))}
+    </View>
+  );
+}
+
 export default function Chat() {
   const params = useLocalSearchParams<{ id: string; occasionId?: string; projectId?: string; prompt?: string; title?: string }>();
   const insets = useSafeAreaInsets();
@@ -82,6 +105,10 @@ export default function Chat() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState(params.prompt ?? "");
   const [sending, setSending] = useState(false);
+  // photos for the next message (each uploads as it's picked) and, on a phone, the camera-or-library sheet
+  const pics = usePhotos();
+  const [attaching, setAttaching] = useState(false);
+  const typedLink = useMemo(() => linksIn(input)[0], [input]);
   const scroll = useRef<ScrollViewInstance>(null);
   const chatting = turns.length > 0;
 
@@ -170,23 +197,43 @@ export default function Chat() {
     return `\n\n[context: this is for "${noteSafe(occasion?.label ?? params.title ?? "")}" — occasionId ${noteSafe(id)}${noteSafe(shown)}]`;
   };
 
-  const send = async (raw: string) => {
+  /** attached: the message box's photos (only the message box sends them; a tapped idea or suggestion is just text). */
+  const send = async (raw: string, attached: Photo[] = []) => {
     const text = raw.trim();
-    if (!text || !conversationId || sending) return;
+    const photos = attached.filter((p) => p.status === "done" && p.id && p.url);
+    if ((!text && !photos.length) || !conversationId || sending) return;
     haptic.press();
     setInput("");
+    if (attached.length) pics.clear();
     setSending(true);
     const key = `${Date.now()}`;
-    setTurns((t) => [...t, { key, text }]);
+    setTurns((t) => [...t, { key, text, images: photos.length ? photos.map((p) => p.url!) : undefined }]);
     const withCtx = turns.length === 0 ? `${text}${firstNote()}` : text;
     try {
-      const { runId } = await api.send(conversationId, withCtx, params.projectId);
+      const { runId } = await api.send(conversationId, withCtx, params.projectId, photos.map((p) => p.id!));
       setTurns((t) => t.map((x) => (x.key === key ? { ...x, runId } : x)));
     } catch (e) {
       setTurns((t) => t.map((x) => (x.key === key ? { ...x, error: (e as Error).message } : x)));
     } finally {
       setSending(false);
     }
+  };
+
+  // Text or an uploaded photo is enough. Not while a photo is still uploading, or one failed: it would go missing.
+  const canSend = !!conversationId && !sending && !pics.uploading && !pics.failed && (!!input.trim() || pics.ready.length > 0);
+  const submit = () => {
+    if (canSend) void send(input, pics.photos);
+  };
+
+  // The web goes straight to the file picker (it has to open from the tap itself); a phone asks camera or library.
+  const attach = () => {
+    if (cameraAvailable) setAttaching(true);
+    else void pics.add("library");
+  };
+  const choose = (source: PhotoSource) => {
+    setAttaching(false);
+    // let the sheet slide away first: iOS won't show the camera or library over a sheet that's still closing
+    setTimeout(() => void pics.add(source), 400);
   };
 
   const title = params.title ?? project?.name ?? occasion?.label ?? "Xerxes";
@@ -238,7 +285,12 @@ export default function Chat() {
           {chatting ? null : ideas.phase === "pending" ? <ThinkingOfIdeas /> : suggestionCards}
         </View>
       );
-    return chatting ? null : <AgentBubble text="Tell me who it’s for or what you’re after. I’ll throw out a few ideas first, then find the best one once you pick." />;
+    return chatting ? null : (
+      <View style={{ gap: 12 }}>
+        <AgentBubble text="Tell me who it’s for or what you’re after. I’ll throw out a few ideas first, then find the best one once you pick." />
+        <Hints />
+      </View>
+    );
   };
 
   return (
@@ -289,7 +341,11 @@ export default function Chat() {
       {/* composer */}
       <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: Math.max(insets.bottom, 12), borderTopWidth: 1, borderTopColor: color.line, backgroundColor: color.paper }}>
         <Row gap={10} style={{ width: "100%", maxWidth: 520, alignSelf: "center", alignItems: "flex-end" }}>
+          {photosAvailable ? <AttachButton onPress={attach} disabled={pics.full} /> : null}
           <View style={{ flex: 1, backgroundColor: "#fff", borderWidth: 1, borderColor: color.line, borderRadius: radius.xl, paddingHorizontal: 14, paddingVertical: Platform.OS === "web" ? 12 : 8, minHeight: 48, justifyContent: "center" }}>
+            {pics.notice ? <AttachNotice text={pics.notice} onDismiss={pics.dismissNotice} /> : null}
+            {pics.photos.length ? <PhotoStrip photos={pics.photos} onRemove={pics.remove} onRetry={pics.retry} /> : null}
+            {typedLink ? <LinkChip url={typedLink} /> : null}
             <TextInput
               value={input}
               onChangeText={setInput}
@@ -300,14 +356,21 @@ export default function Chat() {
                 const ne = e.nativeEvent as unknown as { key: string; shiftKey?: boolean };
                 if (Platform.OS === "web" && ne.key === "Enter" && !ne.shiftKey) {
                   (e as unknown as { preventDefault: () => void }).preventDefault();
-                  send(input);
+                  submit();
                 }
               }}
               style={{ fontFamily: font.body, fontSize: 15, color: color.ink, maxHeight: 120, outlineStyle: "none" } as object}
             />
           </View>
-          {input.trim() ? (
-            <Pressable onPress={() => send(input)} disabled={sending || !conversationId}>
+          {input.trim() || pics.photos.length ? (
+            <Pressable
+              onPress={submit}
+              disabled={!canSend}
+              accessibilityRole="button"
+              accessibilityLabel={pics.uploading ? "Send (waiting for the photo to upload)" : "Send"}
+              accessibilityState={{ disabled: !canSend }}
+              style={{ opacity: canSend || sending ? 1 : 0.45 }}
+            >
               <View style={{ paddingBottom: 4 }}>
                 <View style={{ position: "absolute", top: 4, left: 0, right: 0, bottom: 0, borderRadius: 16, backgroundColor: ledge.primary }} />
                 <GradientSurface name="primary" style={{ width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center" }}>
@@ -333,6 +396,23 @@ export default function Chat() {
           )}
         </Row>
       </View>
+
+      {/* on a phone: take the photo now, or pick from the library */}
+      {cameraAvailable ? (
+        <Sheet open={attaching} onClose={() => setAttaching(false)} title="Show Xerxes a photo" subtitle="A product, its box or its label. I’ll find it, or something like it.">
+          <SheetBody gap={12}>
+            <SheetActions>
+              <SheetAction icon={Camera} label="Take photo" onPress={() => choose("camera")} />
+              <SheetAction
+                icon={Images}
+                label="Choose from library"
+                sub={MAX_PHOTOS - pics.photos.length > 1 ? `Up to ${MAX_PHOTOS - pics.photos.length}` : undefined}
+                onPress={() => choose("library")}
+              />
+            </SheetActions>
+          </SheetBody>
+        </Sheet>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
