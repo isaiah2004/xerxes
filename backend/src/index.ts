@@ -7,7 +7,10 @@ import { randomUUID } from "node:crypto";
 import { startTurn } from "./agent.js";
 import { codexLoggedIn } from "./codex.js";
 import { env, mask } from "./env.js";
+import { fail } from "./http.js";
 import { ideasRoutes, startIdeas } from "./ideas.js";
+import { linkRoutes } from "./links.js";
+import { uploadFiles, uploadRoutes } from "./uploads.js";
 import { findLanguage, LANGUAGES, languageOf } from "./languages.js";
 import { handleMcp } from "./mcp.js";
 import { upcoming } from "./occasions.js";
@@ -94,11 +97,20 @@ app.post("/api/notifications/:id/read", async (c) => {
 // ---- Agent conversation ----
 app.post("/api/conversations", (c) => c.json({ id: randomUUID() }));
 
-// projectId: the chat was opened from a project, so it builds on (and is logged in) that project
+// projectId: the chat was opened from a project, so it builds on (and is logged in) that project.
+// images: ids from /api/uploads (photos the model gets to see); with photos, the text can be empty.
 app.post("/api/conversations/:id/messages", async (c) => {
-  const { text, projectId } = await c.req.json<{ text: string; projectId?: string }>();
-  if (!text?.trim()) return c.json({ error: "text required" }, 400);
-  const run = await startTurn(c.req.param("id"), text.trim(), "text", undefined, typeof projectId === "string" ? projectId : undefined);
+  const { text, projectId, images } = await c.req.json<{ text?: string; projectId?: string; images?: unknown }>();
+  let files: string[];
+  try {
+    files = await uploadFiles(images);
+  } catch (e) {
+    return fail(c, e);
+  }
+  const said = typeof text === "string" ? text.trim() : "";
+  if (!said && !files.length) return c.json({ error: "text required" }, 400);
+  const label = said || (files.length === 1 ? "(a photo)" : `(${files.length} photos)`);
+  const run = await startTurn(c.req.param("id"), label, "text", undefined, typeof projectId === "string" ? projectId : undefined, undefined, files);
   return c.json({ runId: run.id });
 });
 
@@ -125,6 +137,8 @@ manageRoutes(app); // tracked items / Calendar add-edit-delete, dismiss finds
 projectRoutes(app);
 peopleRoutes(app); // the People tab: add, edit, remove
 ideasRoutes(app); // gift ideas thought up ahead, for chats and calls that open on an occasion
+uploadRoutes(app); // photos sent in a chat
+linkRoutes(app); // link previews for pasted product links
 voiceRoutes(app);
 
 serve({ fetch: app.fetch, port: env.port, hostname: "0.0.0.0" }, (info) => {

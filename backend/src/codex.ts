@@ -76,6 +76,8 @@ export async function runCodex(opts: {
   /** Codex's built-in web searches, so the app can show them as live steps next to the MCP tools. */
   onSearch?: (s: { id: string; label: string; done: boolean }) => void;
   signal?: AbortSignal;
+  /** Photos the user sent with this message (files under the data dir, named by the server). */
+  images?: string[];
 }): Promise<CodexTurn> {
   if (!(await codexLoggedIn())) throw new CodexAuthError();
   const cfg = [
@@ -89,7 +91,10 @@ export async function runCodex(opts: {
   ].flatMap((c) => ["-c", c]);
   const common = ["--json", "--skip-git-repo-check", "--ignore-user-config", "--ignore-rules", ...cfg];
   if (process.env.CODEX_MODEL) common.push("-m", process.env.CODEX_MODEL);
-  const args = opts.threadId ? ["exec", "resume", ...common, opts.threadId, "-"] : ["exec", ...common, "-"];
+  // one --image=<file> each (the flag takes several values, so the = keeps it from eating the next argument);
+  // the paths are server-made (uuid names), quoted only for cmd.exe when the data dir has a space in it
+  const images = (opts.images ?? []).map((f) => `--image=${process.platform === "win32" && /\s/.test(f) ? `"${f}"` : f}`);
+  const args = opts.threadId ? ["exec", "resume", ...common, ...images, opts.threadId, "-"] : ["exec", ...common, ...images, "-"];
 
   return new Promise((resolve, reject) => {
     const child = spawn(bin(), args, {

@@ -32,6 +32,15 @@ const TWO_SPEEDS =
   "('find the best one', 'go with the keyboard', 'look for X under Y'). Then do the legwork below and come back with a decision. " +
   "When unsure, show ideas and offer the search ('Want me to find the best one?').";
 
+/** A pasted product link or a photo of something: start from exactly that. */
+const LINKS_AND_PHOTOS =
+  "Links and photos: when they share a link, read_page it first; it's the exact product they mean (name, price, seller, delivery). " +
+  "If the page won't load, work from the name in the link and search for it. Then do what they ask: a better price elsewhere (search the same model), " +
+  "whether it fits the budget and arrives in time (check_offers), whether it's worth it, or track its price (create_watch). " +
+  "If they only paste a link, say what it is and what it costs in one line and ask what they'd like: cheaper elsewhere, arrive in time, or track it. " +
+  "When they send a photo, look closely and say in a few words what it is (brand and model if you can read them), then do what they ask: find it to buy, " +
+  "find similar ones in budget, or compare. If they send only a photo, say what you see and ask whether to find it or similar ones.";
+
 /** Running the app by voice: every screen's add / edit / remove, as tools. */
 const APP_CONTROL =
   "You can run the whole app for the user, by voice or chat, with these tools: " +
@@ -69,6 +78,7 @@ How you work:
 - Delivery: retailer pages show their estimate for a ${db.profile.city} location near the user. Use it as the estimate for ${db.profile.postalCode} (pass it to check_offers); don't discuss PIN-code differences.
 - ALWAYS run check_offers (with occasionId when relevant) before recommending online, so budget/delivery verdicts are computed, not guessed.
 - ${NEARBY}
+- ${LINKS_AND_PHOTOS}
 - Agentic UI: the user sees cards you render. Call show_products with 2-3 strong options (use cover imageUrl from search_books, verdicts/arrives/spareDays from check_offers), then show_recommendation for your pick. Use show_question when you truly need input (e.g. room dimensions).
 - Be efficient: aim for at most ~10 tool calls per turn. Run one broad search_books, pick 2-3 candidates, then verify price/delivery on 1-2 retailer pages each. Don't re-search the same thing.
 - Save durable facts the user tells you with remember. When they mention someone new they shop for (a friend, a colleague, a family), save them with save_person, with whatever you learn about what they like.
@@ -86,9 +96,18 @@ Context (JSON): ${JSON.stringify(ctx)}`;
  * context: app-side facts the user didn't say (e.g. which card started a voice call); goes in the prompt, not the transcript.
  * projectId: the chat was opened from a project. The conversation stays tied to it for every later turn.
  */
-export async function startTurn(conversationId: string, userText: string, mode: Mode = "text", context?: string, projectId?: string, lang?: string): Promise<Run> {
+export async function startTurn(
+  conversationId: string,
+  userText: string,
+  mode: Mode = "text",
+  context?: string,
+  projectId?: string,
+  lang?: string,
+  /** photos sent with this message (files from uploads.ts): the model sees them */
+  images?: string[],
+): Promise<Run> {
   const run = createRun(conversationId, userText);
-  void execute(run, mode, context, projectId, lang);
+  void execute(run, mode, context, projectId, lang, images);
   return run;
 }
 
@@ -134,23 +153,27 @@ function recap(run: Run): string {
   return lines.length ? `Earlier in this conversation:\n${lines.join("\n")}\n\n` : "";
 }
 
-async function execute(run: Run, mode: Mode, context?: string, projectId?: string, langCode?: string) {
+async function execute(run: Run, mode: Mode, context?: string, projectId?: string, langCode?: string, images: string[] = []) {
   const inProject = await projectTurn(run, projectId).catch((e: Error) => {
     console.warn(`[agent] project context skipped: ${e.message}`);
     return undefined;
   });
   // a call keeps the language it started in; a chat follows the setting, turn by turn
   const lang = languageOf(langCode ?? (await readDb()).profile.language);
-  const about = [context, inProject?.note].filter(Boolean).join(" ");
+  const photos = images.length
+    ? `They attached ${images.length === 1 ? "a photo" : `${images.length} photos`} to this message: look at ${images.length === 1 ? "it" : "them"} closely.`
+    : undefined;
+  const about = [context, inProject?.note, photos].filter(Boolean).join(" ");
   const note = about ? `(Context, not said by the user: ${about})\n` : "";
   const turn = async (threadId?: string) =>
     runCodex({
       prompt: threadId
-        ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : " · ideas first (show_ideas); full search only once they pick or ask for something specific; needed today: shops nearby (find_stores, then show_stores)"} · ${replyIn(lang)}] ${note}${run.userText}`
+        ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : " · ideas first (show_ideas); full search only once they pick or ask for something specific; needed today: shops nearby (find_stores, then show_stores); a link: read_page it first; a photo: say what you see"} · ${replyIn(lang)}] ${note}${run.userText}`
         : `${await preamble(mode, lang)}\n\n${recap(run)}${note}User: ${run.userText}`,
       threadId,
       mcpUrl: `http://127.0.0.1:${env.port}/mcp/${run.id}`,
       onSearch: (s) => emit(run.id, { type: "step", stepId: `web-${s.id}`, label: s.label, state: s.done ? "done" : "running" }),
+      images,
     });
   try {
     const db = await readDb();
