@@ -2,8 +2,8 @@ import { router } from "expo-router";
 import { ChevronRight, MoreHorizontal } from "lucide-react-native";
 import { View } from "react-native";
 import type { Upcoming } from "@/lib/api";
-import { dayNum, money, monthShort, weekdayShort } from "@/lib/format";
-import { color, font } from "@/lib/theme";
+import { dayDate, dayNum, money, monthShort, weekdayShort } from "@/lib/format";
+import { color, font, radius } from "@/lib/theme";
 import { IconButton } from "./Sheet";
 import { Card, Chip, Row, T, Tap, type Tone } from "./ui";
 
@@ -49,24 +49,57 @@ export function DateBlock({ iso, tone = "neutral", top = "month", size = 48 }: {
   );
 }
 
-/** Horizontal "coming up" card on Today. */
+const leafTones = {
+  neutral: { band: color.navy, body: color.chip, day: color.ink, week: color.muted },
+  warn: { band: color.warn, body: color.warnBg, day: color.warn, week: color.warn },
+  bad: { band: color.bad, body: color.badBg, day: color.bad, week: color.bad },
+} as const;
+
+/** Calendar page (62×70): coloured band with the month, a big day number, the weekday underneath. */
+export function DateLeaf({ iso, tone = "neutral" }: { iso: string; tone?: keyof typeof leafTones }) {
+  const t = leafTones[tone];
+  return (
+    <View style={{ width: 62, height: 70, borderRadius: radius.md, overflow: "hidden", backgroundColor: t.body }}>
+      <View style={{ height: 20, backgroundColor: t.band, alignItems: "center", justifyContent: "center" }}>
+        <T v="eyebrow" style={{ fontFamily: font.bold, fontSize: 10, lineHeight: 12, letterSpacing: 1.3, color: "#FFFFFF" }}>
+          {monthShort(iso)}
+        </T>
+      </View>
+      {/* a touch of bottom padding lifts the number + weekday to the optical centre of the page */}
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 2 }}>
+        <T v="num" style={{ fontSize: 27, lineHeight: 30, letterSpacing: -0.6, color: t.day }}>
+          {dayNum(iso)}
+        </T>
+        <T v="eyebrow" style={{ fontSize: 9.5, lineHeight: 11, letterSpacing: 0.9, color: t.week }}>
+          {weekdayShort(iso)}
+        </T>
+      </View>
+    </View>
+  );
+}
+
+const inDays = (n: number) => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
+
+/** Horizontal "coming up" card on Today: date leaf on the left; countdown, title and subtitle stacked beside it. */
 export function OccasionCard({ o }: { o: Upcoming }) {
   const tone = urgencyOf(o);
   return (
-    <Tap onPress={() => openOccasion(o)} style={{ width: 176 }} accessibilityLabel={`${o.label}, in ${o.daysLeft} days`}>
-      <Card pad={14} style={{ gap: 12, flexGrow: 1, justifyContent: "space-between" }}>
-        <Row style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-          <DateBlock iso={o.nextDate} tone={tone} />
-          <Chip label={daysLabel(o.daysLeft)} tone={tone} />
+    <Tap onPress={() => openOccasion(o)} style={{ width: 244 }} accessibilityLabel={`${o.label}, ${dayDate(o.nextDate)}, ${inDays(o.daysLeft)}`}>
+      {/* the row stretches every card to the tallest one, so centre the content rather than pinning it to the edges */}
+      <Card pad={14} style={{ flexGrow: 1, justifyContent: "center" }}>
+        <Row gap={12}>
+          <DateLeaf iso={o.nextDate} tone={tone} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Chip label={daysLabel(o.daysLeft)} tone={tone} />
+            {/* one line keeps every card as tight as the date leaf (the row stretches cards to the tallest); long titles shrink */}
+            <T v="h3" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ marginTop: 7 }}>
+              {o.label}
+            </T>
+            <T v="sub" numberOfLines={1} style={{ marginTop: 2 }}>
+              {occasionSub(o)}
+            </T>
+          </View>
         </Row>
-        <View style={{ gap: 3 }}>
-          <T v="h3" style={{ fontSize: 16.5, lineHeight: 21 }} numberOfLines={2}>
-            {o.label}
-          </T>
-          <T v="sub" style={{ fontSize: 13.5, lineHeight: 18 }} numberOfLines={1}>
-            {occasionSub(o)}
-          </T>
-        </View>
       </Card>
     </Tap>
   );

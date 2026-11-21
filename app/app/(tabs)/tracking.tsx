@@ -2,12 +2,13 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { FolderMinus, Pause, Pencil, Play, Plus, Sparkles, Trash2, X } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
+import { FindArt } from "@/components/FindArt";
 import { iconOf, ProjectCard, ProjectForm } from "@/components/projects";
 import { Screen } from "@/components/Screen";
 import { ConfirmPanel, IconButton, Sheet, SheetAction, SheetActions, SheetBody } from "@/components/Sheet";
 import { SpeakButton } from "@/components/Speak";
 import { findVoice, TalkButton } from "@/components/TalkButton";
-import { Button, Card, IconTile, Row, SectionHeader, Segmented, T, Tap } from "@/components/ui";
+import { Button, Card, Row, SectionHeader, Segmented, T, Tap } from "@/components/ui";
 import { kindOf, pretty, PriceForm, WatchCard, WatchForm } from "@/components/watches";
 import { api, manage, type Feed, type Watch } from "@/lib/api";
 import { money } from "@/lib/format";
@@ -159,7 +160,7 @@ export default function Tracking() {
           <Tap key={n.id} onPress={() => openLink(n.url)} accessibilityLabel={n.title}>
             <Card>
               <Row gap={12} style={{ alignItems: "flex-start" }}>
-                <IconTile icon={k.icon} grad={k.grad} size={44} />
+                <FindArt uri={n.imageUrl} icon={k.icon} grad={k.grad} />
                 <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                   <T v="bodyStrong" numberOfLines={2}>
                     {n.title}

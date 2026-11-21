@@ -3,12 +3,13 @@ import { BookOpen, Cake, Cpu, Gamepad2, Gift, Library, Mic, PartyPopper, Truck, 
 import { useCallback, useState } from "react";
 import { ScrollView, useWindowDimensions, View } from "react-native";
 import { OccasionCard } from "@/components/dates";
+import { FindArt } from "@/components/FindArt";
 import { Screen } from "@/components/Screen";
 import { SpeakButton } from "@/components/Speak";
 import { findVoice, TalkButton } from "@/components/TalkButton";
 import { Button, Card, GradientSurface, IconTile, Ring, Row, SectionHeader, T, Tap } from "@/components/ui";
 import { api, type Feed, type Notification, type Upcoming } from "@/lib/api";
-import { dayDate, greeting, longToday, money, pronounsFor, shortDate } from "@/lib/format";
+import { dayDate, greeting, money, pronounsFor, shortDate } from "@/lib/format";
 import { openLink } from "@/lib/links";
 import { color, radius, type GradientName } from "@/lib/theme";
 
@@ -102,7 +103,7 @@ function DealRow({ n }: { n: Notification }) {
     <Tap onPress={() => openLink(n.url)} accessibilityLabel={n.title}>
       <Card>
         <Row gap={12}>
-          <IconTile icon={s.icon} grad={s.grad} size={46} />
+          <FindArt uri={n.imageUrl} icon={s.icon} grad={s.grad} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <T v="bodyStrong" numberOfLines={1}>
               {n.title}
@@ -207,14 +208,17 @@ export default function Today() {
         setRefreshing(false);
       }}
     >
-      <Row style={{ justifyContent: "space-between", paddingHorizontal: 4 }}>
-        <View>
-          <T v="sub">{longToday()}</T>
-          <T v="display">{greeting(feed?.profile.name ?? "there")}</T>
+      <Row gap={12} style={{ alignItems: "flex-start" }}>
+        {/* the 18px on top is where the date line was, so the greeting stays put; a long name shrinks, then truncates */}
+        <View style={{ flex: 1, minWidth: 0, paddingLeft: 4, paddingTop: 18 }}>
+          <T v="display" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+            {greeting(feed?.profile.name ?? "there")}
+          </T>
         </View>
-        <Tap onPress={() => router.push("/me")} accessibilityLabel="Your profile">
-          <GradientSurface name="primary" style={{ width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" }}>
-            <T v="h3" style={{ color: "#fff" }}>
+        {/* centred on the greeting line (31 tall), flush with the cards' right edge */}
+        <Tap onPress={() => router.push("/me")} accessibilityLabel="Your profile" style={{ marginTop: 18 + (31 - 50) / 2 }}>
+          <GradientSurface name="primary" style={{ width: 50, height: 50, borderRadius: 16, alignItems: "center", justifyContent: "center" }}>
+            <T v="h3" style={{ color: "#fff", fontSize: 21, lineHeight: 25 }}>
               {(feed?.profile.name ?? "X").charAt(0)}
             </T>
           </GradientSurface>
