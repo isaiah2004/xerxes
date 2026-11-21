@@ -191,8 +191,8 @@ export default function Tracking() {
   return (
     <>
       <Screen onRefresh={load}>
-        <View style={{ paddingHorizontal: 4 }}>
-          <T v="sub">Always on</T>
+        {/* the 18px on top is where the "Always on" line was, so the title sits where Today's greeting does */}
+        <View style={{ paddingHorizontal: 4, paddingTop: 18 }}>
           <T v="display">Tracking</T>
           <T v="body" style={{ marginTop: 6, color: color.muted }}>
             {tab === "projects"

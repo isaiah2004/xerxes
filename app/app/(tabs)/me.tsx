@@ -85,8 +85,8 @@ export default function Me() {
 
   return (
     <Screen>
-      <View style={{ paddingHorizontal: 4 }}>
-        <T v="sub">Profile</T>
+      {/* the 18px on top is where the "Profile" line was, so the name sits where Today's greeting does */}
+      <View style={{ paddingHorizontal: 4, paddingTop: 18 }}>
         <T v="display">{p?.name ?? "You"}</T>
       </View>
       <Card style={{ marginTop: 18 }}>

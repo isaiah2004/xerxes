@@ -149,11 +149,12 @@ export default function People() {
       <Screen onRefresh={load}>
         <View style={{ paddingHorizontal: 4 }}>
           <Row gap={12} style={{ alignItems: "flex-start" }}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <T v="sub">Family & friends</T>
+            {/* the 18px on top is where the "Family & friends" line was, so the title sits where Today's greeting does */}
+            <View style={{ flex: 1, minWidth: 0, paddingTop: 18 }}>
               <T v="display">People</T>
             </View>
-            <Button kind="grad" compact icon={UserPlus} label="Add" style={{ marginTop: 4 }} onPress={() => show({ kind: "add" })} />
+            {/* centred on the title line (31 tall); the negative bottom margin stops it pushing the text below further down */}
+            <Button kind="grad" compact icon={UserPlus} label="Add" style={{ marginTop: 18 + (31 - 44) / 2, marginBottom: (31 - 44) / 2 }} onPress={() => show({ kind: "add" })} />
           </Row>
           <T v="body" style={{ marginTop: 6, color: color.muted }}>
             What I remember about the people you shop for, so every gift starts from them.

@@ -219,11 +219,12 @@ export default function CalendarScreen() {
       <Screen onRefresh={load}>
         <View style={{ paddingHorizontal: 4 }}>
           <Row gap={12} style={{ alignItems: "flex-start" }}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <T v="sub">Plan ahead</T>
+            {/* the 18px on top is where the "Plan ahead" line was, so the title sits where Today's greeting does */}
+            <View style={{ flex: 1, minWidth: 0, paddingTop: 18 }}>
               <T v="display">Calendar</T>
             </View>
-            <Button kind="grad" compact icon={Plus} label="Add" style={{ marginTop: 4 }} onPress={() => openSheet("edit", null, addDate)} />
+            {/* centred on the title line (31 tall); the negative bottom margin stops it pushing the text below further down */}
+            <Button kind="grad" compact icon={Plus} label="Add" style={{ marginTop: 18 + (31 - 44) / 2, marginBottom: (31 - 44) / 2 }} onPress={() => openSheet("edit", null, addDate)} />
           </Row>
           <T v="body" style={{ marginTop: 6, color: color.muted }}>
             Every birthday and festival you shop for, with budgets and arrive-by dates.
