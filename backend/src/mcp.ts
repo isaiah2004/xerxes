@@ -8,6 +8,7 @@ import { searchHardware } from "./integrations/hardware.js";
 import { readPage, webSearch } from "./integrations/web.js";
 import { evaluateOffers } from "./offers.js";
 import { upcoming } from "./occasions.js";
+import { addPerson, distinct, sameName } from "./people.js";
 import { addEntry, bindConversation, logSearch, PROJECT_ICONS, projectContext, projectSummary, touchProject } from "./projects.js";
 import { emit, getRun, newCardId } from "./runs.js";
 import { mutate, newId, readDb, slug, uniqueId, type Db, type Project } from "./store.js";
@@ -126,6 +127,29 @@ export function buildServer(runId: string) {
         }
         (db.memory[topic] ??= []).includes(fact) || db.memory[topic].push(fact);
         return { saved: true, topic };
+      }));
+
+  tool("save_person",
+    "Add someone the user shops for, or add to what you know about them: name, how they're related, interests, notes. Use it when they mention someone new ('my friend Priya loves pottery'). A person with that name is updated, never duplicated.",
+    {
+      name: z.string().describe("What the user calls them, e.g. 'Priya', 'Mom', 'the Sharmas'"),
+      relation: z.string().optional().describe("e.g. friend, cousin sister, colleague"),
+      interests: z.array(z.string()).optional(),
+      notes: z.array(z.string()).optional(),
+    },
+    (a) => `Saved ${clip(a.name)} to your people`,
+    async (a) =>
+      mutate((db) => {
+        const add = (list: string[], xs: string[] = []) => distinct([...list, ...xs.map((x) => x.trim()).filter(Boolean)]).slice(0, 12);
+        const have = sameName(db, a.name);
+        if (have) {
+          if (a.relation && !have.relation) have.relation = a.relation.trim().slice(0, 40);
+          have.interests = add(have.interests, a.interests);
+          have.notes = add(have.notes, a.notes);
+          return { saved: true, personId: have.id, updated: true };
+        }
+        const p = addPerson(db, { name: a.name.trim().slice(0, 60), relation: a.relation?.trim().slice(0, 40), interests: add([], a.interests), notes: add([], a.notes) });
+        return { saved: true, personId: p.id };
       }));
 
   // ---------- projects: buckets of context for a chain of purchases ----------

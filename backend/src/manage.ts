@@ -3,6 +3,7 @@ import { z } from "zod";
 import { addDays, parseIso, toIso, today } from "./dates.js";
 import { currency, fail, HttpError, parse } from "./http.js";
 import { nextOccurrence } from "./occasions.js";
+import { addPerson, sameName } from "./people.js";
 import { touchProject } from "./projects.js";
 import { mutate, newId, slug, uniqueId, type Db, type Occasion, type Person, type Watch } from "./store.js";
 
@@ -97,17 +98,7 @@ const occasionPatch = z
 
 /** Reuses a known person with that name, otherwise remembers a new one (no birth year: we only know the day). */
 function personFor(db: Db, np: { name: string; relation: string }): Person {
-  const have = db.people.find((p) => p.name.trim().toLowerCase() === np.name.toLowerCase());
-  if (have) return have;
-  const p: Person = {
-    id: uniqueId(slug(np.name) || "person", (id) => db.people.some((x) => x.id === id)),
-    name: np.name,
-    relation: np.relation || "friend",
-    interests: [],
-    notes: [],
-  };
-  db.people.push(p);
-  return p;
+  return sameName(db, np.name) ?? addPerson(db, { name: np.name, relation: np.relation || "friend" });
 }
 
 /**

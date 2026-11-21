@@ -184,6 +184,8 @@ export type OccasionInput = {
   bufferDays?: number;
 };
 export type SavedOccasion = OccasionFields & { id: string; kind: OccasionKind; label: string; budget: Money; nextDate: string | null };
+export type PersonInput = { name: string; relation?: string; interests?: string[]; notes?: string[] };
+export type PersonPatch = Partial<PersonInput>;
 export type WatchInput = { kind: WatchKind; query: string; maxPrice?: Money; notes?: string; projectId?: string };
 export type WatchPatch = { active?: boolean; query?: string; maxPrice?: Money | null; notes?: string | null; projectId?: string | null };
 export type ProjectInput = { name: string; icon: ProjectIcon; goal?: string; budget?: Money };
@@ -197,6 +199,10 @@ const at = (id: string) => encodeURIComponent(id);
 
 export const manage = {
   people: () => j<Person[]>("/api/people"),
+  addPerson: (p: PersonInput) => j<Person>("/api/people", init("POST", p)),
+  updatePerson: (id: string, patch: PersonPatch) => j<Person>(`/api/people/${at(id)}`, init("PATCH", patch)),
+  /** removedOccasions: birthdays/anniversaries that were only theirs, gone with them */
+  deletePerson: (id: string) => j<{ ok: true; id: string; removedOccasions: string[] }>(`/api/people/${at(id)}`, init("DELETE")),
   addWatch: (w: WatchInput) => j<Watch>("/api/watches", init("POST", w)),
   updateWatch: (id: string, patch: WatchPatch) => j<Watch>(`/api/watches/${at(id)}`, init("PATCH", patch)),
   deleteWatch: (id: string) => j<{ ok: true }>(`/api/watches/${at(id)}`, init("DELETE")),

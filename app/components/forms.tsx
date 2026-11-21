@@ -31,6 +31,7 @@ export function Input({
   onSubmitEditing,
   accessibilityLabel,
   multiline,
+  keepFocus,
 }: {
   value: string;
   onChangeText: (v: string) => void;
@@ -44,6 +45,8 @@ export function Input({
   accessibilityLabel?: string;
   /** wraps onto more lines as you type (a sentence, a note) */
   multiline?: boolean;
+  /** Enter submits but keeps the keyboard up, for typing several in a row (names, interests) */
+  keepFocus?: boolean;
 }) {
   const [focus, setFocus] = useState(false);
   return (
@@ -61,7 +64,10 @@ export function Input({
         onFocus={() => setFocus(true)}
         onBlur={() => setFocus(false)}
         onSubmitEditing={onSubmitEditing}
-        returnKeyType={onSubmitEditing ? "done" : undefined}
+        submitBehavior={keepFocus ? "submit" : undefined}
+        // react-native-web only knows the older prop
+        blurOnSubmit={keepFocus && Platform.OS === "web" ? false : undefined}
+        returnKeyType={onSubmitEditing ? (keepFocus ? "next" : "done") : undefined}
         accessibilityLabel={accessibilityLabel ?? placeholder}
         style={[
           styles.inputText,

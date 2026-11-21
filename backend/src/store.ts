@@ -122,6 +122,8 @@ export type Db = {
   seededOccasions?: string[];
   /** Same for seed projects. */
   seededProjects?: string[];
+  /** Same for seed people: someone the user removes stays removed. */
+  seededPeople?: string[];
   /** dedupeKeys of finds the user dismissed, so the watcher doesn't announce the same deal again. */
   dismissedFinds?: string[];
 };
@@ -308,12 +310,15 @@ export async function readDb(): Promise<Db> {
 function mergeSeed(db: Db): boolean {
   const s = seed();
   let changed = false;
+  // people: offered once too (a removed one stays gone); older files get the seed birth years filled in
+  db.seededPeople ??= [];
   for (const p of s.people) {
     const have = db.people.find((x) => x.id === p.id);
-    if (!have) {
-      db.people.push(p);
+    if (!db.seededPeople.includes(p.id)) {
+      if (!have) db.people.push(p);
+      db.seededPeople.push(p.id);
       changed = true;
-    } else if (!have.birthDate && p.birthDate) {
+    } else if (have && !have.birthDate && p.birthDate) {
       have.birthDate = p.birthDate;
       changed = true;
     }

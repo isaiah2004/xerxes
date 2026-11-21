@@ -11,6 +11,7 @@ import { handleMcp } from "./mcp.js";
 import { upcoming } from "./occasions.js";
 import { getRun } from "./runs.js";
 import { manageRoutes } from "./manage.js";
+import { peopleRoutes } from "./people.js";
 import { listProjects, projectRoutes, projectSummary } from "./projects.js";
 import { readDb, mutate } from "./store.js";
 import { murfStream } from "./integrations/murf.js";
@@ -65,8 +66,6 @@ app.get("/api/feed", async (c) => {
   });
 });
 
-app.get("/api/people", async (c) => c.json((await readDb()).people));
-
 app.post("/api/notifications/:id/read", async (c) => {
   const id = c.req.param("id");
   await mutate((db) => db.notifications.forEach((n) => n.id === id && (n.read = true)));
@@ -105,6 +104,7 @@ app.get("/api/tts", async (c) => {
 
 manageRoutes(app); // tracked items / Calendar add-edit-delete, dismiss finds
 projectRoutes(app);
+peopleRoutes(app); // the People tab: add, edit, remove
 voiceRoutes(app);
 
 serve({ fetch: app.fetch, port: env.port, hostname: "0.0.0.0" }, (info) => {

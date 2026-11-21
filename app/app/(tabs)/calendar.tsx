@@ -1,14 +1,14 @@
-import { Cake, CalendarDays, Check, Gift, Heart, Pencil, Plus, Sparkles, Trash2, UserPlus, type LucideIcon } from "lucide-react-native";
+import { Gift, Pencil, Plus, Trash2 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { DatePicker, MonthArrow, monthCells, shiftYm, WeekdayHeader, WeekRows, ymKey, ymOf, type Ym } from "@/components/DatePicker";
+import { MonthArrow, monthCells, shiftYm, WeekdayHeader, WeekRows, ymKey, ymOf, type Ym } from "@/components/DatePicker";
 import { daysLabel, OccasionRow, openOccasion, urgencyOf } from "@/components/dates";
-import { ChoiceChip, Field, Input, Toggle } from "@/components/forms";
+import { OccasionForm, type Occ } from "@/components/OccasionForm";
 import { Screen } from "@/components/Screen";
-import { ConfirmPanel, FormError, Sheet, SheetAction, SheetActions, SheetBody, SheetFooter } from "@/components/Sheet";
+import { ConfirmPanel, Sheet, SheetAction, SheetActions, SheetBody } from "@/components/Sheet";
 import { Button, Card, GradientSurface, Row, SectionHeader, T } from "@/components/ui";
-import { api, manage, type Feed, type OccasionFields, type OccasionInput, type OccasionKind, type Person, type SavedOccasion, type Upcoming } from "@/lib/api";
-import { addDaysIso, dayDate, isoOf, money, monthTitle, shortDate, todayIso } from "@/lib/format";
+import { api, manage, type Feed, type SavedOccasion, type Upcoming } from "@/lib/api";
+import { dayDate, isoOf, money, monthTitle, shortDate, todayIso } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
 import { color, font, radius } from "@/lib/theme";
 
@@ -17,9 +17,6 @@ import { color, font, radius } from "@/lib/theme";
 
 const dotColor = (o: Upcoming) => (o.kind === "festival" || o.kind === "other" ? color.info : color.primary);
 const rank = { bad: 0, warn: 1, neutral: 2 } as const;
-
-/** Feed occasions also carry their stored fields (MM-DD vs one-off date, people, reminder). */
-type Occ = Upcoming & Partial<OccasionFields>;
 
 function Summary({ occ }: { occ: Upcoming[] }) {
   const soon = occ.filter((o) => o.daysLeft <= 60);
@@ -304,225 +301,6 @@ export default function CalendarScreen() {
           />
         )}
       </Sheet>
-    </>
-  );
-}
-
-// ---------------------------------------------------------------- add / edit form
-const KINDS: { id: OccasionKind; label: string; icon: LucideIcon }[] = [
-  { id: "birthday", label: "Birthday", icon: Cake },
-  { id: "anniversary", label: "Anniversary", icon: Heart },
-  { id: "festival", label: "Festival", icon: Sparkles },
-  { id: "other", label: "Other", icon: CalendarDays },
-];
-const BUDGETS = [1000, 2000, 5000, 10000];
-const REMIND = [7, 14, 21, 30];
-/** Birthdays and anniversaries come round every year and are about someone. */
-const personal = (k: OccasionKind) => k === "birthday" || k === "anniversary";
-/** The next time MM-DD comes round (today counts). */
-const nextOf = (mmdd: string) => {
-  const t = todayIso();
-  const thisYear = `${t.slice(0, 4)}-${mmdd}`;
-  return thisYear >= t ? thisYear : `${Number(t.slice(0, 4)) + 1}-${mmdd}`;
-};
-const longDay = (iso: string) => `${dayDate(iso)} ${iso.slice(0, 4)}`;
-
-function OccasionForm({ o, date, onSaved }: { o: Occ | null; date?: string; onSaved: (s: SavedOccasion) => void }) {
-  const today = todayIso();
-  const [people, setPeople] = useState<Person[] | null>(null);
-  useEffect(() => {
-    let alive = true;
-    manage
-      .people()
-      .then((p) => alive && setPeople(p))
-      .catch(() => alive && setPeople([]));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const [kind, setKind] = useState<OccasionKind>(o?.kind ?? "birthday");
-  const [personIds, setPersonIds] = useState<string[]>(o?.personIds ?? []);
-  const [isNew, setIsNew] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newRelation, setNewRelation] = useState("");
-  const [typed, setTyped] = useState(o?.label ?? "");
-  const [touched, setTouched] = useState(!!o); // once the title is typed, stop auto-naming it
-  const [day, setDay] = useState<string | null>(o?.nextDate ?? date ?? null);
-  const [yearly, setYearly] = useState(o?.date ? !/^\d{4}-/.test(o.date) : false);
-  const [budget, setBudget] = useState(String(o?.budget.amount ?? 2000));
-  const [remind, setRemind] = useState(o?.remindDaysBefore ?? 21);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const needsPerson = personal(kind);
-  const repeats = needsPerson || yearly;
-  const names = isNew ? [newName.trim()].filter(Boolean) : (people ?? []).filter((p) => personIds.includes(p.id)).map((p) => p.name);
-  const auto = !names.length ? "" : kind === "birthday" ? `${names[0]}'s birthday` : kind === "anniversary" ? `${names.join(" & ")}'s anniversary` : "";
-  const label = touched ? typed : auto || typed;
-  const currency = o?.budget.currency ?? "INR";
-  const amount = Number(budget.replace(/[,\s₹]/g, "") || 0);
-  const remindOptions = REMIND.includes(remind) ? REMIND : [...REMIND, remind].sort((a, b) => a - b);
-
-  const changeKind = (k: OccasionKind) => {
-    setKind(k);
-    setError(null);
-    if (k === "birthday") setPersonIds((ids) => ids.slice(0, 1));
-    if (k === "anniversary") setPersonIds((ids) => ids.slice(0, 2));
-    if (!personal(k)) setIsNew(false);
-  };
-  const togglePerson = (id: string) => {
-    setIsNew(false);
-    setError(null);
-    setPersonIds((ids) =>
-      kind === "birthday" ? [id] : ids.includes(id) ? ids.filter((x) => x !== id) : kind === "anniversary" ? [...ids, id].slice(-2) : [...ids, id],
-    );
-  };
-
-  const submit = () => {
-    const name = newName.trim();
-    if (needsPerson && !(isNew ? name : personIds.length))
-      return setError(kind === "birthday" ? "Whose birthday is it? Pick someone or add their name." : "Whose anniversary is it? Pick people or add their names.");
-    if (!label.trim()) return setError("Give it a title, like “Housewarming”.");
-    if (!day) return setError("Pick the date on the calendar.");
-    if (!Number.isFinite(amount) || amount < 0) return setError("The budget should be a number, like 2000.");
-    const body: OccasionInput = {
-      kind,
-      label: label.trim(),
-      date: repeats ? day.slice(5) : day,
-      personIds: needsPerson && isNew ? [] : personIds,
-      ...(needsPerson && isNew ? { newPerson: { name, relation: newRelation.trim() } } : {}),
-      budget: { amount, currency },
-      remindDaysBefore: remind,
-    };
-    setBusy(true);
-    setError(null);
-    (o ? manage.updateOccasion(o.id, body) : manage.addOccasion(body))
-      .then((s) => {
-        haptic.success();
-        onSaved(s);
-      })
-      .catch((e: Error) => {
-        haptic.error();
-        setError(e.message);
-        setBusy(false);
-      });
-  };
-
-  return (
-    <>
-      <SheetBody gap={20}>
-        <Field label="What is it">
-          <View style={{ gap: 8 }}>
-            {[KINDS.slice(0, 2), KINDS.slice(2)].map((pair, i) => (
-              <Row key={i} gap={8}>
-                {pair.map((k) => (
-                  <ChoiceChip key={k.id} tile="wide" label={k.label} icon={k.icon} selected={kind === k.id} onPress={() => changeKind(k.id)} />
-                ))}
-              </Row>
-            ))}
-          </View>
-        </Field>
-
-        {needsPerson ? (
-          <Field label={kind === "birthday" ? "Whose birthday" : "Whose anniversary"} hint={kind === "anniversary" && !isNew ? "Pick up to two people." : undefined}>
-            {people === null ? (
-              <T v="caption">Loading your people…</T>
-            ) : (
-              <Row gap={8} wrap>
-                {people.map((p) => (
-                  <ChoiceChip key={p.id} label={p.name} selected={!isNew && personIds.includes(p.id)} onPress={() => togglePerson(p.id)} />
-                ))}
-                <ChoiceChip
-                  label="Someone new"
-                  icon={UserPlus}
-                  selected={isNew}
-                  onPress={() => {
-                    setIsNew(true);
-                    setPersonIds([]);
-                    setError(null);
-                  }}
-                />
-              </Row>
-            )}
-            {isNew ? (
-              <View style={{ gap: 10, marginTop: 4 }}>
-                <Input value={newName} onChangeText={setNewName} placeholder={kind === "anniversary" ? "Names, e.g. Priya & Arjun" : "Their name"} autoFocus maxLength={60} accessibilityLabel="Name" />
-                <Input value={newRelation} onChangeText={setNewRelation} placeholder="Relation, e.g. friend, aunt, colleague" maxLength={40} accessibilityLabel="Relation" />
-              </View>
-            ) : null}
-          </Field>
-        ) : (
-          <Field label="Who it’s for">
-            {people === null ? (
-              <T v="caption">Loading your people…</T>
-            ) : (
-              <Row gap={8} wrap>
-                <ChoiceChip label="Everyone" selected={!personIds.length} onPress={() => setPersonIds([])} />
-                {people.map((p) => (
-                  <ChoiceChip key={p.id} label={p.name} selected={personIds.includes(p.id)} onPress={() => togglePerson(p.id)} />
-                ))}
-              </Row>
-            )}
-          </Field>
-        )}
-
-        <Field label="Title">
-          <Input
-            value={label}
-            onChangeText={(v) => {
-              setTyped(v);
-              setTouched(v.length > 0);
-            }}
-            placeholder={kind === "festival" ? "e.g. Onam" : kind === "other" ? "e.g. Housewarming" : "Pick someone above"}
-            maxLength={80}
-            accessibilityLabel="Title"
-          />
-        </Field>
-
-        <Field label="Date">
-          <DatePicker
-            value={day}
-            onChange={(d) => {
-              setDay(d);
-              setError(null);
-            }}
-            min={today}
-            max={addDaysIso(today, 395)}
-          />
-          {needsPerson ? null : (
-            <View style={{ marginTop: 6 }}>
-              <Toggle value={yearly} onChange={setYearly} label="Every year" sub={yearly ? "Same date each year" : "Just this once"} />
-            </View>
-          )}
-          {day ? (
-            <T v="caption" style={{ color: color.ok, fontFamily: font.strong, marginTop: 2 }}>
-              {repeats ? `Every year on ${shortDate(day)} · next: ${longDay(nextOf(day.slice(5)))}` : `Once, on ${longDay(day)}`}
-            </T>
-          ) : null}
-        </Field>
-
-        <Field label={`Gift budget (${currency === "INR" ? "₹" : currency})`}>
-          <Input value={budget} onChangeText={setBudget} prefix={currency === "INR" ? "₹" : undefined} keyboardType="number-pad" placeholder="2,000" maxLength={9} accessibilityLabel="Budget" />
-          <Row gap={8} wrap>
-            {BUDGETS.map((b) => (
-              <ChoiceChip key={b} label={money(b, currency)} selected={amount === b} onPress={() => setBudget(String(b))} />
-            ))}
-          </Row>
-        </Field>
-
-        <Field label="Remind me" hint={`I’ll nudge you ${remind} days before, so there’s time to order and get it delivered.`}>
-          <Row gap={8} wrap>
-            {remindOptions.map((d) => (
-              <ChoiceChip key={d} label={`${d} days`} selected={remind === d} onPress={() => setRemind(d)} />
-            ))}
-          </Row>
-        </Field>
-      </SheetBody>
-      <SheetFooter>
-        {error ? <FormError text={error} /> : null}
-        <Button kind="grad" icon={o ? Check : Plus} label={o ? "Save changes" : "Add to calendar"} loading={busy} onPress={submit} />
-      </SheetFooter>
     </>
   );
 }
