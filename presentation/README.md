@@ -42,7 +42,7 @@ The clock starts on the first forward press. It turns orange when a slide runs p
 
 The deck has no audio of its own; the only sound is the demo clip.
 
-- **`assets/video/demo.mp4`** is the recorded voice call, 30–45 s, portrait. When it's there, slide 3 swaps the three-screen storyboard for the clip in a phone. The clip starts as the slide opens and pauses when you leave it. The five steps beside it light up at the second marks in `data-at` on each `.rail .r` in `index.html` (now 0, 4, 18, 30 and 35), so set those to your cut.
+- **`assets/video/demo.mp4`** is the recorded voice call, 30–45 s, portrait. When it's there, slide 3 swaps the three-screen storyboard for the clip in a phone. The clip starts as the slide opens and pauses when you leave it. The five steps beside it light up at the second marks in `data-at` on each `.rail .r` in `index.html` (now 0, 10, 20, 23 and 29), so set those to your cut.
 
 ## Exporting
 

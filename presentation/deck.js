@@ -515,6 +515,7 @@
   watchMedia(video, () => {
     hasVideo = true;
     demo.classList.add("has-video");
+    resetTour(); // a storyboard tour started before the clip loaded would swallow the next click
     if (slides[cur] === demo) enterDemo();
     sync();
   });
