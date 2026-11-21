@@ -279,6 +279,15 @@ export function voiceRoutes(app: Hono) {
         : "").trim();
     if (!text) return c.json({ error: { message: "no user message" } }, 400);
 
+    // Agora can send the same turn twice: a retry, or again after a cut-in that came to nothing (a cough, a "so").
+    // The same words again, while that turn is still going or just after, reuse it: no second run (so no second
+    // bubble on the call screen), and its answer is spoken once it's ready.
+    const prev = getRun(session.runIds.at(-1) ?? "");
+    if (prev && sameWords(prev.userText, text) && (prev.status === "running" || Date.now() - prev.createdAt < 3 * 60_000)) {
+      log(id, `heard again: "${text.slice(0, 160)}" (${body.messages?.length ?? 0} messages) -> same as run ${prev.id.slice(0, 8)} (${prev.status}), not starting another`);
+      return speakTurn(session, prev, prev.status === "running" ? (session.lang.phrases?.fillers ?? FILLERS)[0] : undefined);
+    }
+
     // Small talk ("can you hear me?", "hi", "thanks") is answered at once, without starting the shopping agent.
     // It still lands in the call's history, so the screen shows it and later turns can see it.
     const quick = session.lang.code === "en" ? smallTalk(text, (await readDb()).profile.name) : undefined;
@@ -300,81 +309,95 @@ export function voiceRoutes(app: Hono) {
     const project = projectOf(await readDb(), id);
     // the whole call stays in the language it started in (Agora's ASR and Murf's voice are fixed for this agent)
     const run = await startTurn(id, text, "voice", context, undefined, session.lang.code);
-    const p = session.lang.phrases;
     session.runIds.push(run.id);
-    const chunkId = `chatcmpl-${run.id.slice(0, 8)}`;
-    const t0 = Date.now();
-    const secs = () => `${Math.round((Date.now() - t0) / 1000)}s`;
     log(id, `heard: "${text.slice(0, 160)}" -> run ${run.id.slice(0, 8)}`);
-
-    // Codex turns take 30-90s. Xerxes narrates its real tool steps (and falls back to fillers) so the call never
-    // goes quiet. Agora drops this request when the caller talks over it, so every write must survive a closed stream.
-    let open = true;
-    let ack: ReturnType<typeof setTimeout> | undefined;
-    let idle: ReturnType<typeof setInterval> | undefined;
-    let onStep: ((e: RunEvent) => void) | undefined;
-    const stopNarrating = () => {
-      clearTimeout(ack);
-      clearInterval(idle);
-      if (onStep) run.listeners.delete(onStep);
-    };
-    const stream = new ReadableStream<Uint8Array>({
-      start(ctrl) {
-        const enc = new TextEncoder();
-        const send = (s: string) => {
-          if (!open) return;
-          try {
-            ctrl.enqueue(enc.encode(s));
-          } catch {
-            open = false;
-          }
-        };
-        const said = new Set<string>();
-        let lastSpoke = Date.now();
-        let filler = 0;
-        const say = (line: string) => {
-          if (said.has(line)) return;
-          said.add(line);
-          lastSpoke = Date.now();
-          send(sseChunk(chunkId, `${line} `));
-        };
-        ack = setTimeout(() => say(p ? p.ack : first && project ? `On it, pulling up your ${lowerFirst(project.name)} notes.` : "On it, give me a moment."), 1500);
-        const fillers = p?.fillers ?? FILLERS;
-        idle = setInterval(() => {
-          if (Date.now() - lastSpoke >= 16_000 && filler < fillers.length) say(fillers[filler++]);
-        }, 2000);
-        onStep = (e) => {
-          if (e.type !== "step" || e.state !== "running" || Date.now() - lastSpoke < 7000) return;
-          const line = narrate(e.label, session.lang);
-          if (line) say(line);
-        };
-        run.listeners.add(onStep);
-
-        void waitForRun(run).then(() => {
-          stopNarrating();
-          const msg = run.events.find((e) => e.type === "message");
-          const err = run.events.find((e) => e.type === "error");
-          const reply = msg && msg.type === "message" && msg.text ? msg.text : (p?.sorry ?? "Sorry, I couldn't finish that one. Mind trying again?");
-          log(id, `run ${run.id.slice(0, 8)} ${run.status} in ${secs()}${err && err.type === "error" ? ` (${err.message.slice(0, 200)})` : ""}${open ? "" : " (caller had moved on)"}: "${reply.slice(0, 160)}"`);
-          for (const part of reply.match(/[^.!?।]+[.!?।]*\s*/g) ?? [reply]) send(sseChunk(chunkId, part));
-          send(sseChunk(chunkId, null, "stop"));
-          send("data: [DONE]\n\n");
-          if (open) {
-            open = false;
-            try {
-              ctrl.close();
-            } catch {
-              /* already closed */
-            }
-          }
-        });
-      },
-      cancel() {
-        open = false;
-        stopNarrating();
-        log(id, `Agora closed the stream after ${secs()} (caller interrupted?); run ${run.id.slice(0, 8)} keeps going`);
-      },
-    });
-    return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" } });
+    const p = session.lang.phrases;
+    return speakTurn(session, run, p ? p.ack : first && project ? `On it, pulling up your ${lowerFirst(project.name)} notes.` : "On it, give me a moment.");
   });
+}
+
+/** Same words, give or take case and punctuation: how a turn Agora sent twice is recognised. */
+const sameWords = (a: string, b: string) => {
+  const n = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return n(a) === n(b);
+};
+
+/** Streams a turn's answer to Agora as SSE: ack (said after 1.5 s if the answer isn't in yet), its tool steps as they
+ *  happen, fillers when it's been quiet for a while, then the answer. */
+function speakTurn(session: VoiceSession, run: Run, ack?: string): Response {
+  const id = session.id;
+  const p = session.lang.phrases;
+  const chunkId = `chatcmpl-${run.id.slice(0, 8)}`;
+  const t0 = Date.now();
+  const secs = (from = t0) => `${Math.round((Date.now() - from) / 1000)}s`;
+
+  // Codex turns take 30-90s. Xerxes narrates its real tool steps (and falls back to fillers) so the call never
+  // goes quiet. Agora drops this request when the caller talks over it, so every write must survive a closed stream.
+  let open = true;
+  let ackTimer: ReturnType<typeof setTimeout> | undefined;
+  let idle: ReturnType<typeof setInterval> | undefined;
+  let onStep: ((e: RunEvent) => void) | undefined;
+  const stopNarrating = () => {
+    clearTimeout(ackTimer);
+    clearInterval(idle);
+    if (onStep) run.listeners.delete(onStep);
+  };
+  const stream = new ReadableStream<Uint8Array>({
+    start(ctrl) {
+      const enc = new TextEncoder();
+      const send = (s: string) => {
+        if (!open) return;
+        try {
+          ctrl.enqueue(enc.encode(s));
+        } catch {
+          open = false;
+        }
+      };
+      const said = new Set<string>();
+      let lastSpoke = Date.now();
+      let filler = 0;
+      const say = (line: string) => {
+        if (said.has(line)) return;
+        said.add(line);
+        lastSpoke = Date.now();
+        send(sseChunk(chunkId, `${line} `));
+      };
+      if (ack) ackTimer = setTimeout(() => say(ack), 1500);
+      const fillers = p?.fillers ?? FILLERS;
+      idle = setInterval(() => {
+        if (Date.now() - lastSpoke >= 16_000 && filler < fillers.length) say(fillers[filler++]);
+      }, 2000);
+      onStep = (e) => {
+        if (e.type !== "step" || e.state !== "running" || Date.now() - lastSpoke < 7000) return;
+        const line = narrate(e.label, session.lang);
+        if (line) say(line);
+      };
+      run.listeners.add(onStep);
+
+      void waitForRun(run).then(() => {
+        stopNarrating();
+        const msg = run.events.find((e) => e.type === "message");
+        const err = run.events.find((e) => e.type === "error");
+        const reply = msg && msg.type === "message" && msg.text ? msg.text : (p?.sorry ?? "Sorry, I couldn't finish that one. Mind trying again?");
+        log(id, `run ${run.id.slice(0, 8)} ${run.status} in ${secs(run.createdAt)}${err && err.type === "error" ? ` (${err.message.slice(0, 200)})` : ""}${open ? "" : " (caller had moved on)"}: "${reply.slice(0, 160)}"`);
+        for (const part of reply.match(/[^.!?।]+[.!?।]*\s*/g) ?? [reply]) send(sseChunk(chunkId, part));
+        send(sseChunk(chunkId, null, "stop"));
+        send("data: [DONE]\n\n");
+        if (open) {
+          open = false;
+          try {
+            ctrl.close();
+          } catch {
+            /* already closed */
+          }
+        }
+      });
+    },
+    cancel() {
+      open = false;
+      stopNarrating();
+      log(id, `Agora closed the stream after ${secs()} (caller interrupted?); run ${run.id.slice(0, 8)} keeps going`);
+    },
+  });
+  return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" } });
 }
