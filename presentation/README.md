@@ -8,7 +8,7 @@ This is the two-minute pitch for **Build with Agora, Bengaluru 2026**. The deck 
 
 | # | Time | Slide |
 |---|------|-------|
-| 1 | 0:00–0:10 | Xerxes speaks first |
+| 1 | 0:00–0:10 | Meet Xerxes (animated intro) |
 | 2 | 0:10–0:24 | Not a list of links. A decision. |
 | 3 | 0:24–1:04 | Watch it do the legwork (the demo) |
 | 4 | 1:04–1:28 | How it works |
@@ -23,23 +23,22 @@ Open `index.html` in Chrome and press **F**.
 
 | Key | Action |
 |-----|--------|
-| → · Space · PageDown · Enter · click | Next. On slide 1, the first press plays the greeting. |
+| → · Space · PageDown · Enter · click | Next |
 | ← · PageUp · Backspace · click near the left edge | Back |
 | 1–9 · Home · End | Jump to a slide |
 | F | Full screen |
 | N | Speaker notes over the slide |
 | P | Presenter window: script, clock, next slide and buttons. Keep it on the laptop screen while the deck is on the projector. |
 | T | Restart the clock |
-| A | Replay the greeting |
+| R | Replay the intro animation |
 | V | Play or pause the demo clip |
 
 The clock starts on the first forward press. It turns orange when a slide runs past its slot. Adding `#3` to the URL opens slide 3.
 
 ## Media slots
 
-The deck works without either file. Each one lights up a part of it.
+The deck has no audio of its own; the only sound is the demo clip.
 
-- **`assets/audio/greeting.mp3`** is the Murf voice saying the slide 1 line. When it's there, the caption starts dimmed. The first → plays the greeting and the caption appears word by word in time with it. A second press within about a second is ignored, and pressing → mid-greeting moves on.
 - **`assets/video/demo.mp4`** is the recorded voice call, 30–45 s, portrait. When it's there, slide 3 swaps the three-screen storyboard for the clip in a phone. The clip starts as the slide opens and pauses when you leave it. The five steps beside it light up at the second marks in `data-at` on each `.rail .r` in `index.html` (now 0, 4, 18, 30 and 35), so set those to your cut.
 
 ## Exporting

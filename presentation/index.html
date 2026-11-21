@@ -40,8 +40,8 @@
 
 <div id="deck">
 
-<!-- ============================================================ 1 · HOOK -->
-<section class="slide s-hook" data-title="Xerxes speaks first" data-time="0:00–0:10" data-at="0" data-dur="10">
+<!-- ============================================================ 1 · INTRO -->
+<section class="slide s-hook" data-title="Meet Xerxes" data-time="0:00–0:10" data-at="0" data-dur="10">
   <div class="aurora a-green" style="left:-300px;top:20px;width:1380px;height:1380px"></div>
   <div class="aurora a-blue" style="right:-460px;top:-600px;width:1400px;height:1400px"></div>
   <div class="aurora a-orange" style="right:-260px;bottom:-700px;width:1200px;height:1200px"></div>
@@ -50,42 +50,28 @@
     <div class="event">Build with Agora · Bengaluru 2026</div>
   </header>
 
-  <div class="orb-wrap">
-    <div class="ring r3"></div><div class="ring r2"></div><div class="ring r1"></div>
-    <div class="orb grain"><svg class="i"><use href="#i-mic"/></svg></div>
-  </div>
-
-  <div class="copy">
-    <div class="live"><span class="dot"></span>Xerxes · live call
-      <span class="wave" aria-hidden="true"><i style="--h:10px;--d:-.1s"></i><i style="--h:18px;--d:-.5s"></i><i style="--h:28px;--d:-.3s"></i><i style="--h:16px;--d:-.7s"></i><i style="--h:32px;--d:-.2s"></i><i style="--h:22px;--d:-.6s"></i><i style="--h:12px;--d:-.4s"></i><i style="--h:26px;--d:-.8s"></i><i style="--h:34px;--d:-.15s"></i><i style="--h:20px;--d:-.55s"></i><i style="--h:14px;--d:-.35s"></i><i style="--h:24px;--d:-.75s"></i><i style="--h:30px;--d:-.25s"></i><i style="--h:16px;--d:-.65s"></i><i style="--h:10px;--d:-.45s"></i></span>
-    </div>
-    <p class="caption" id="greet-caption"><span class="qm">“</span>Hey Isaiah! Heads up, cousin sister’s birthday is in <mark>11&nbsp;days</mark>. Want me to find something?<span class="qm">”</span></p>
-
-    <div class="occasion card navy grain">
-      <div class="noticed">Xerxes noticed · Birthday</div>
-      <div class="who">Cousin sister turns 14</div>
-      <div class="days">
-        <svg viewBox="0 0 104 104"><circle cx="52" cy="52" r="44" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="8"/><circle cx="52" cy="52" r="44" fill="none" stroke="#1FB886" stroke-width="8" stroke-linecap="round" stroke-dasharray="207 277" transform="rotate(-90 52 52)"/></svg>
-        <span>11<small>DAYS</small></span>
-      </div>
-      <div class="cells">
-        <div><small><svg class="i"><use href="#i-cake"/></svg>Birthday</small><b>Wed, 2 Dec</b></div>
-        <div><small><svg class="i"><use href="#i-truck"/></svg>Arrive by</small><b>Mon, 30 Nov</b></div>
-        <div><small><svg class="i"><use href="#i-wallet"/></svg>Budget</small><b>₹2,000</b></div>
-      </div>
+  <div class="intro-copy">
+    <div class="kicker">Introducing</div>
+    <h1 class="glitch" data-text="Xerxes">Xerxes</h1>
+    <p class="type" id="intro-type">The shopping agent<br>that <em>speaks first.</em></p>
+    <p class="lead">It remembers the people you shop for, notices what’s coming up, and calls you with a decision.</p>
+    <div class="chips">
+      <span class="chip info"><svg class="i"><use href="#i-phone"/></svg>Agora Conversational AI Engine</span>
+      <span class="chip ok"><svg class="i"><use href="#i-volume"/></svg>Murf Falcon TTS</span>
     </div>
   </div>
 
-  <footer class="foot">
-    <span class="chip ok"><svg class="i"><use href="#i-volume"/></svg>Murf Falcon voice</span>
-    <span class="chip info"><svg class="i"><use href="#i-phone"/></svg>Agora Conversational AI · live call</span>
-    <span class="tagline"><b>Xerxes</b> · the shopping agent that speaks first</span>
-  </footer>
+  <div class="agent" id="intro-agent">
+    <canvas class="back"></canvas>
+    <div class="orb-wrap"><div class="ring r2"></div><div class="ring r1"></div><div class="orb grain"><svg class="i"><use href="#i-mic"/></svg></div></div>
+    <canvas class="front"></canvas>
+    <div class="labels"></div>
+    <div class="status"><span class="dot"></span><span class="txt">Agent loop · 5 steps</span><span class="segs"><i></i><i></i><i></i><i></i><i></i></span></div>
+  </div>
 
   <aside class="notes">
-    <p><em>[Press → once: the greeting plays in the Murf voice. Wait for it to finish.]</em></p>
-    <p><em>Xerxes:</em> “Hey Isaiah! Heads up, cousin sister’s birthday is in 11 days. Want me to find something?”</p>
-    <p>That’s Xerxes, my shopping agent. I didn’t ask. It noticed before I did.</p>
+    <p>This is Xerxes, a shopping agent that speaks first.</p>
+    <p>It remembers the people you care about, notices what’s coming up, and calls you before you’d think to ask.</p>
   </aside>
 </section>
 
@@ -563,12 +549,12 @@ cloudflared tunnel --url http://localhost:8787  <span class="c"># then set PUBLI
 
 </div>
 
-<audio id="greet-audio" preload="auto" src="assets/audio/greeting.mp3"></audio>
 
 <div class="hud"><span id="hud-pos">1 / 9</span><kbd>←</kbd><kbd>→</kbd><kbd>F</kbd> full screen <kbd>N</kbd> notes <kbd>P</kbd> presenter</div>
 <div id="notes-overlay"><div class="meta"><span id="notes-title"></span><span id="notes-time"></span><span class="clock" id="notes-clock">0:00</span></div><div id="notes-body"></div></div>
 <div id="presenter"></div>
 
+<script src="intro.js"></script>
 <script src="deck.js"></script>
 </body>
 </html>

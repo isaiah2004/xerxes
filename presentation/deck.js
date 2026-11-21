@@ -1,7 +1,7 @@
-/* Xerxes pitch deck runtime: scaling, navigation, the spoken greeting, the demo clip, notes and a presenter window.
+/* Xerxes pitch deck runtime: scaling, navigation, the intro animation, the demo clip, notes and a presenter window.
    No dependencies; works from file://.
    Keys: → / Space / PageDown next · ← / PageUp back · Home / End · 1–9 jump · F full screen · N notes
-         P presenter window · T restart the clock · A replay the greeting · V play/pause the demo clip
+         P presenter window · T restart the clock · R replay the intro · V play/pause the demo clip
    URL:  #3 opens slide 3 · ?export = static final states for PDF/PNG export · ?presenter = speaker view */
 (() => {
   "use strict";
@@ -16,17 +16,13 @@
   const N = slides.length;
   const hook = deckEl.querySelector(".s-hook");
   const demo = deckEl.querySelector(".s-demo");
-  const audio = document.getElementById("greet-audio");
   const video = document.getElementById("demo-video");
-  const caption = document.getElementById("greet-caption");
+  const intro = window.xerxesIntro;
   const rails = demo ? [...demo.querySelectorAll(".rail .r")] : [];
 
   let cur = -1;
   let t0 = 0;                 // presentation clock start (ms since epoch), 0 = not started
-  let hasAudio = false;       // greeting.mp3 loaded
   let hasVideo = false;       // demo.mp4 loaded
-  let greeted = false;        // greeting played (or skipped) on slide 1
-  let greetStart = 0;
   let videoTimer = 0;
   let pres = null;            // presenter window (main side)
 
@@ -53,87 +49,6 @@
     if (EXPORT || PRESENTER) { deckEl.style.transform = ""; return; }
     const s = Math.min(innerWidth / 1920, innerHeight / 1080);
     deckEl.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`;
-  }
-
-  /* ---------------------------------------------------------------- slide 1: the greeting, word by word */
-  const words = caption ? splitWords(caption) : [];
-  let marks = [];             // reveal fraction (0–1) per word, by length + punctuation pauses
-  (function weigh() {
-    const w = words.map((el) => {
-      const t = el.textContent;
-      if (/^[“”"']+$/.test(t)) return 0;
-      let v = t.replace(/[^\p{L}\p{N}₹]/gu, "").length || 1;
-      if (/[,;:]$/.test(t)) v += 3;
-      if (/[.!?…][”"]?$/.test(t)) v += 7;
-      return v;
-    });
-    const total = w.reduce((a, b) => a + b, 0) || 1;
-    let acc = 0;
-    marks = w.map((v) => { const m = acc / total; acc += v; return m; });
-  })();
-
-  function splitWords(el) {
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    const texts = [];
-    while (walker.nextNode()) texts.push(walker.currentNode);
-    for (const t of texts) {
-      const frag = document.createDocumentFragment();
-      for (const part of t.nodeValue.split(/([ \t\n\r]+)/)) {
-        if (!part) continue;
-        if (/^[ \t\n\r]+$/.test(part)) { frag.append(part); continue; }
-        const s = document.createElement("span");
-        s.className = "w";
-        s.textContent = part;
-        frag.append(s);
-      }
-      t.replaceWith(frag);
-    }
-    return [...el.querySelectorAll(".w")];
-  }
-
-  function armGreeting() {
-    // dim the caption only when there is a voice to light it up
-    if (!caption || EXPORT) return;
-    const waiting = hasAudio && !greeted;
-    caption.classList.toggle("pending", waiting);
-    if (waiting) words.forEach((w) => w.classList.remove("on"));
-  }
-
-  function playGreeting() {
-    if (!hasAudio) return false;
-    greeted = false;
-    caption.classList.add("pending");
-    words.forEach((w) => w.classList.remove("on"));
-    audio.currentTime = 0;
-    hook.classList.add("speaking");
-    greetStart = performance.now();
-    startClock();
-    audio.play().catch(() => finishGreeting());
-    requestAnimationFrame(trackGreeting);
-    return true;
-  }
-
-  function trackGreeting() {
-    if (audio.paused || audio.ended) return;
-    const d = audio.duration || 6;
-    const lead = 0.12, tail = Math.min(0.6, d * 0.08);
-    const f = (audio.currentTime - lead) / Math.max(0.5, d - lead - tail);
-    words.forEach((w, k) => { if (f >= marks[k]) w.classList.add("on"); });
-    requestAnimationFrame(trackGreeting);
-  }
-
-  function finishGreeting() {
-    greeted = true;
-    hook.classList.remove("speaking");
-    caption && caption.classList.remove("pending");
-    words.forEach((w) => w.classList.add("on"));
-    sync();
-  }
-
-  function stopGreeting() {
-    if (audio && !audio.paused) audio.pause();
-    if (hook) hook.classList.remove("speaking");
-    if (!greeted && hasAudio) finishGreeting();
   }
 
   /* ---------------------------------------------------------------- slide 3: the recorded call */
@@ -167,7 +82,7 @@
     if (i === cur && !opts.force) return;
     const from = slides[cur];
     const to = slides[i];
-    if (from === hook && to !== hook) stopGreeting();
+    if (from === hook && to !== hook) intro && intro.leave();
     if (from === demo && to !== demo) leaveDemo();
 
     if (opts.instant || EXPORT) {
@@ -180,7 +95,7 @@
     }
     cur = i;
 
-    if (to === hook) armGreeting();
+    if (to === hook) intro && intro.enter();
     if (to === demo) enterDemo();
     if (!EXPORT && !PRESENTER && location.hash !== `#${i + 1}`) history.replaceState(null, "", `#${i + 1}`);
     renderChrome();
@@ -189,11 +104,6 @@
 
   function next() {
     if (!t0) startClock();
-    if (slides[cur] === hook && hasAudio && !greeted) {
-      const playing = audio && !audio.paused;
-      if (!playing) { playGreeting(); return; }
-      if (performance.now() - greetStart < 1200) return; // ignore a double press while it starts talking
-    }
     go(cur + 1);
   }
   function prev() { go(cur - 1); }
@@ -249,7 +159,7 @@
 
   function sync() {
     if (PRESENTER || !pres || pres.closed) return;
-    pres.postMessage({ type: "xerxes:state", cur, t0, greeted, hasAudio, hasVideo }, "*");
+    pres.postMessage({ type: "xerxes:state", cur, t0, hasVideo }, "*");
   }
 
   function command(cmd, arg) {
@@ -259,7 +169,7 @@
       case "go": go(Number(arg)); break;
       case "first": go(0); break;
       case "last": go(N - 1); break;
-      case "greet": if (slides[cur] === hook) playGreeting(); break;
+      case "greet": if (slides[cur] === hook) intro && intro.enter(); break;
       case "video": toggleVideo(); break;
       case "clock": resetClock(); break;
     }
@@ -270,7 +180,7 @@
     if (!PRESENTER && d.type === "xerxes:hello") { pres = e.source; sync(); }
     if (!PRESENTER && d.type === "xerxes:cmd") command(d.cmd, d.arg);
     if (PRESENTER && d.type === "xerxes:state") {
-      t0 = d.t0; hasAudio = d.hasAudio; hasVideo = d.hasVideo; greeted = d.greeted;
+      t0 = d.t0; hasVideo = d.hasVideo;
       cur = clamp(d.cur);
       renderPresenter();
     }
@@ -285,7 +195,6 @@
     const m = meta(cur);
     const nx = cur + 1 < N ? meta(cur + 1) : null;
     let tip = "";
-    if (slides[cur] === hook && hasAudio && !greeted) tip = "<p class=\"tip\">→ plays the greeting first.</p>";
     if (slides[cur] === demo && !hasVideo) tip = "<p class=\"tip\">No demo.mp4 yet: the storyboard is on screen.</p>";
     P.innerHTML = `
       <div>
@@ -299,7 +208,7 @@
         <div class="next">${nx ? `Next: <b>${nx.title}</b> <span>(${nx.time})</span>` : "Last slide."}</div>
         <button data-cmd="next">Next →</button>
         <button class="ghost" data-cmd="prev">← Back</button>
-        <button class="ghost" data-cmd="greet">Replay greeting (A)</button>
+        <button class="ghost" data-cmd="greet">Replay intro (R)</button>
         <button class="ghost" data-cmd="video">Play / pause clip (V)</button>
         <button class="ghost" data-cmd="clock">Restart clock (T)</button>
       </div>`;
@@ -326,7 +235,7 @@
     else if (k === "Home") act("first");
     else if (k === "End") act("last");
     else if (/^[1-9]$/.test(k)) act("go", Number(k) - 1);
-    else if (k === "a" || k === "A") act("greet");
+    else if (k === "r" || k === "R") act("greet");
     else if (k === "v" || k === "V") act("video");
     else if (k === "t" || k === "T") act("clock");
     else if (!PRESENTER && (k === "f" || k === "F")) toggleFull();
@@ -364,7 +273,7 @@
     }
     go(0, { instant: true, force: true });
     const imgs = [...document.images].map((img) => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()));
-    Promise.all([document.fonts.ready, firstFrame, ...imgs]).then(() => requestAnimationFrame(() => { window.deckReady = true; }));
+    Promise.all([document.fonts.ready, firstFrame, intro ? intro.ready : null, ...imgs]).then(() => requestAnimationFrame(() => { window.deckReady = true; }));
     return;
   }
 
@@ -379,8 +288,6 @@
     return;
   }
 
-  watchMedia(audio, () => { hasAudio = true; if (slides[cur] === hook) armGreeting(); sync(); });
-  if (audio) audio.addEventListener("ended", finishGreeting);
   watchMedia(video, () => {
     hasVideo = true;
     demo.classList.add("has-video");
