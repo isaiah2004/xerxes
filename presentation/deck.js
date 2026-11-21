@@ -8,6 +8,7 @@
   const qs = new URLSearchParams(location.search);
   const EXPORT = qs.has("export");
   const PRESENTER = qs.has("presenter");
+  const NOVIDEO = qs.has("novideo"); // ?novideo forces slide 3's storyboard tour (testing the no-clip fallback)
 
   const root = document.documentElement;
   const body = document.body;
@@ -58,6 +59,8 @@
   }
 
   function enterDemo() {
+    // a tab opened before demo.mp4 existed (or a failed read) has given up on the file: ask again on entering slide 3
+    if (!hasVideo && video && !NOVIDEO && !EXPORT && (video.error || video.networkState === 3)) video.load();
     if (!hasVideo || EXPORT) return;
     video.pause();
     video.currentTime = 0;
@@ -79,15 +82,59 @@
   /* ---------------------------------------------------------------- slide 3 without a clip: tour the three screens, then the overview */
   const board = demo && demo.querySelector(".board .cols");
   const cols = board ? [...board.querySelectorAll(".col")] : [];
-  const TOUR = [0, 6.2, 12.6, 19.2]; // seconds: screen 1, 2, 3, back to the overview
+  const TOUR = [0, 3.8, 7.6, 11.4]; // seconds: screen 1, 2, 3, back to the overview
   let tourTimers = [];
   const touring = () => !!demo && demo.classList.contains("touring");
+
+  // Zoom a tour container so one child fills the frame: measured from layout offsets (immune to running transforms),
+  // centred, and clamped so the focused content stays clear of the top edge and the countdown at the bottom.
+  function localBox(el, container) {
+    let x = 0, y = 0, n = el;
+    while (n && n !== container) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+    return { x, y, w: el.offsetWidth, h: el.offsetHeight };
+  }
+  function contentBox(el, container) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    [...el.querySelectorAll("*")].forEach((n) => {
+      if (!(n instanceof HTMLElement) || !n.offsetWidth) return;
+      const b = localBox(n, container);
+      x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
+    });
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  const ZTOP = 24, ZBOTTOM = 1080 - 100, ZMAX = 2;
+  function zoomTo(container, el) {
+    const b = contentBox(el, container), cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    const s = Math.min(ZMAX, (ZBOTTOM - ZTOP) / b.h, 1840 / b.w);
+    container.style.transformOrigin = `${cx}px ${cy}px`;
+    container.style.transform = `translate(${960 - (container.offsetLeft + cx)}px, ${(ZTOP + ZBOTTOM) / 2 - (container.offsetTop + cy)}px) scale(${s.toFixed(3)})`;
+  }
+
+  // Countdown: one segment per screen; the current one fills over the time left before the tour moves on.
+  function makeTicker(slide, n) {
+    if (!slide) return null;
+    const el = document.createElement("div");
+    el.className = "ticker";
+    el.innerHTML = Array.from({ length: n }, () => "<i><b></b></i>").join("");
+    slide.appendChild(el);
+    const segs = [...el.children];
+    return {
+      step(k, secs) {
+        segs.forEach((g, i) => { g.className = i < k ? "done" : ""; g.firstChild.style.animation = "none"; });
+        void el.offsetWidth;
+        segs[k].className = "now";
+        segs[k].firstChild.style.animation = `tick ${secs}s linear both`;
+      },
+      reset() { segs.forEach((g) => { g.className = ""; g.firstChild.style.animation = "none"; }); },
+    };
+  }
+  const demoTicker = makeTicker(demo, 3);
+  const stepSecs = (T, k) => (k < T.length - 2 ? T[k + 1] + 0.3 : T[T.length - 1]) - (T[k] + 0.3);
+
   function focusCol(k) {
     cols.forEach((c, i) => c.classList.toggle("on", i === k));
-    const gap = 44, cw = (board.clientWidth - 2 * gap) / 3;
-    const cx = k * (cw + gap) + cw / 2, cy = board.clientHeight / 2;
-    board.style.transformOrigin = `${cx}px ${cy}px`;
-    board.style.transform = `translate(${960 - (board.offsetLeft + cx)}px, ${588 - (board.offsetTop + cy)}px) scale(1.15)`;
+    zoomTo(board, cols[k]);
+    demoTicker && demoTicker.step(k, stepSecs(TOUR, k));
   }
   function resetTour() {
     tourTimers.forEach(clearTimeout); tourTimers = [];
@@ -95,6 +142,7 @@
     demo.classList.remove("touring", "overview");
     cols.forEach((c) => c.classList.remove("on"));
     if (board) board.style.transform = "";
+    demoTicker && demoTicker.reset();
   }
   function endTour() {
     resetTour();
@@ -116,11 +164,11 @@
   const ATOUR = [0, 2.7, 5.4, 8.1]; // seconds: Radar, Calendar, People, back to the overview (10s slot)
   let aTimers = [];
   const aTouring = () => !!always && always.classList.contains("touring");
+  const alwaysTicker = units.length ? makeTicker(always, units.length) : null;
   function focusUnit(k) {
     units.forEach((u, i) => u.classList.toggle("on", i === k));
-    const u = units[k], cx = u.offsetLeft + u.offsetWidth / 2, cy = trio.clientHeight / 2;
-    trio.style.transformOrigin = `${cx}px ${cy}px`;
-    trio.style.transform = `translate(${960 - (trio.offsetLeft + cx)}px, ${560 - (trio.offsetTop + cy)}px) scale(1.15)`;
+    zoomTo(trio, units[k]);
+    alwaysTicker && alwaysTicker.step(k, stepSecs(ATOUR, k));
   }
   function resetAlways() {
     aTimers.forEach(clearTimeout); aTimers = [];
@@ -128,6 +176,7 @@
     always.classList.remove("touring", "overview");
     units.forEach((u) => u.classList.remove("on"));
     if (trio) trio.style.transform = "";
+    alwaysTicker && alwaysTicker.reset();
   }
   function endAlways() {
     resetAlways();
@@ -512,7 +561,8 @@
     return;
   }
 
-  watchMedia(video, () => {
+  if (NOVIDEO && video) { video.removeAttribute("src"); video.load(); }
+  if (!NOVIDEO) watchMedia(video, () => {
     hasVideo = true;
     demo.classList.add("has-video");
     resetTour(); // a storyboard tour started before the clip loaded would swallow the next click

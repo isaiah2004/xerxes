@@ -455,17 +455,22 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 .s-demo .board .col { transition: opacity .6s ease, filter .6s ease; }
 .s-demo .board .title, .s-demo .board .badges { transition: opacity .5s ease; }
 .s-demo.touring .board .title, .s-demo.touring .board .badges { opacity: 0; }
-.s-demo.touring .board .col:not(.on) { opacity: .12; filter: blur(2px); }
+.s-demo.touring .board .col:not(.on) { opacity: .05; filter: blur(3px); }
 .s-demo.touring .board .col:not(.on) .bubble, .s-demo.touring .board .col:not(.on) .tool { visibility: hidden; }
 .s-demo.touring .board .col.on .stepline { animation: rise .5s ease both .2s; }
+/* the focused screen is compacted to phone height (step title beside the phone, tools under the bubbles) so the zoom can go harder */
+.s-demo.touring .board .col.on .stepline { position: absolute; left: 316px; top: 70px; width: max-content; }
+.s-demo.touring .board .col.on .stepline .at { display: none; }
+.s-demo.touring .board .col.on .bubbles { top: 140px; }
+.s-demo.touring .board .col.on .tools { left: 316px; right: auto; bottom: auto; top: 600px; width: 300px; }
 .s-demo.touring .board .col.on .bubble { animation: bubbleIn .5s cubic-bezier(.2,1.4,.4,1) both; }
-.s-demo.touring .board .col.on .bubble:nth-child(1) { animation-delay: .9s; }
-.s-demo.touring .board .col.on .bubble:nth-child(2) { animation-delay: 2.4s; }
-.s-demo.touring .board .col.on .bubble:nth-child(3) { animation-delay: 3.7s; }
+.s-demo.touring .board .col.on .bubble:nth-child(1) { animation-delay: .5s; }
+.s-demo.touring .board .col.on .bubble:nth-child(2) { animation-delay: 1.4s; }
+.s-demo.touring .board .col.on .bubble:nth-child(3) { animation-delay: 2.2s; }
 .s-demo.touring .board .col.on .tool { animation: pop .4s cubic-bezier(.2,1.6,.4,1) both; }
-.s-demo.touring .board .col.on .tool:nth-child(1) { animation-delay: 1.3s; }
-.s-demo.touring .board .col.on .tool:nth-child(2) { animation-delay: 2.8s; }
-.s-demo.touring .board .col.on .tool:nth-child(3) { animation-delay: 4.1s; }
+.s-demo.touring .board .col.on .tool:nth-child(1) { animation-delay: .8s; }
+.s-demo.touring .board .col.on .tool:nth-child(2) { animation-delay: 1.7s; }
+.s-demo.touring .board .col.on .tool:nth-child(3) { animation-delay: 2.5s; }
 @keyframes bubbleIn { from { opacity: 0; translate: -24px 14px; scale: .9; } to { opacity: 1; translate: 0 0; scale: 1; } }
 .s-demo .skip { position: absolute; right: 96px; bottom: 34px; font: 600 18px/1 "Inter"; color: var(--muted); opacity: 0; transition: opacity .4s; pointer-events: none; }
 .s-demo.touring .skip { opacity: 1; }
@@ -478,7 +483,7 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 .s-always .unit { transition: opacity .6s ease, filter .6s ease; }
 .s-always .title { transition: opacity .5s ease; }
 .s-always.touring .title { opacity: 0; }
-.s-always.touring .unit:not(.on) { opacity: .12; filter: blur(2px); }
+.s-always.touring .unit:not(.on) { opacity: .05; filter: blur(3px); }
 .s-always.touring .unit:not(.on) .bubble { visibility: hidden; }
 .s-always.touring .unit.on .cap > * { animation: rise .5s ease both; }
 .s-always.touring .unit.on .cap > :nth-child(2) { animation-delay: .15s; }
@@ -489,6 +494,15 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 .s-always.overview .unit { animation: rise .6s ease both; }
 .s-always.overview .unit:nth-child(2) { animation-delay: .08s; }
 .s-always.overview .unit:nth-child(3) { animation-delay: .16s; }
+
+/* ==== 3 + 6 · tour countdown: a segment per screen, the current one fills until the tour moves on ==== */
+.ticker { position: absolute; right: 96px; bottom: 66px; display: flex; gap: 8px; opacity: 0; transition: opacity .4s; pointer-events: none; }
+.ticker i { display: block; width: 72px; height: 6px; border-radius: 3px; background: rgba(16,24,40,.12); overflow: hidden; }
+.ticker i b { display: block; height: 100%; width: 100%; border-radius: 3px; background: var(--g-primary); transform-origin: left; transform: scaleX(0); }
+.ticker i.done b { transform: scaleX(1); opacity: .45; }
+.s-demo.touring .ticker, .s-always.touring .ticker { opacity: 1; }
+.export .ticker { display: none; }
+@keyframes tick { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ==== 5 · latency conversation ==== */
 .lc-chat { position: absolute; left: 96px; top: 306px; width: 1180px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
