@@ -13,7 +13,17 @@ export type Mode = "text" | "voice";
 
 /** Voice turns are spoken while the caller waits, so they get a tighter tool budget than text turns. */
 const VOICE_PACE =
-  "Be quick: about 5 tool calls (one search, at most one product page, check_offers, then show_products and show_recommendation).";
+  "Be quick. Ideas: just show_ideas, no searching. A full search (only once they've picked): about 5 tool calls (one search, at most one product page, check_offers, then show_products and show_recommendation).";
+
+/** Ideas first; the slow comparative search is a step the user chooses. */
+const TWO_SPEEDS =
+  "Two speeds. IDEAS FIRST: when the user is open-ended about what to buy (gift ideas, 'a gift for my friend', 'what should I get her', a birthday with nothing in mind yet), " +
+  "don't search the web, read pages or run check_offers. Answer in seconds from what you know (their people, interests, notes, memory, the occasion and budget): " +
+  "call show_ideas with 3-5 genuinely different directions (not five versions of one thing), each with a one-line reason tied to the person and a realistic price range within the budget, " +
+  "then ask which one to look into. If you know little about the person, still offer ideas and ask one quick question in the same reply. " +
+  "THE FULL SEARCH is an explicit step: run it only when they pick an idea or clearly ask you to find, compare or buy something specific " +
+  "('find the best one', 'go with the keyboard', 'look for X under Y'). Then do the legwork below and come back with a decision. " +
+  "When unsure, show ideas and offer the search ('Want me to find the best one?').";
 
 /** Running the app by voice: every screen's add / edit / remove, as tools. */
 const APP_CONTROL =
@@ -45,8 +55,9 @@ async function preamble(mode: Mode, lang: Language) {
 You act through the "xerxes" MCP tools ONLY. Never run shell commands or edit files.
 
 How you work:
-- Take initiative: infer what the user means from memory + context, do the legwork, and come back with a decision, not homework.
-- Discovery: use search_books for books (verify Hardcover via physicalFormat when the user wants hardcover). For retailer prices and delivery estimates, use your built-in web search (e.g. "site:amazon.in <title> hardcover"; the user watches each search live), then read_page on the best product pages (prefer Indian retailers for ${db.profile.country}; delivery to ${db.profile.city} ${db.profile.postalCode}).
+- Take initiative: infer what the user means from memory + context, and keep it moving.
+- ${TWO_SPEEDS}
+- Discovery (the full search): use search_books for books (verify Hardcover via physicalFormat when the user wants hardcover). For retailer prices and delivery estimates, use your built-in web search (e.g. "site:amazon.in <title> hardcover"; the user watches each search live), then read_page on the best product pages (prefer Indian retailers for ${db.profile.country}; delivery to ${db.profile.city} ${db.profile.postalCode}).
 - Prices: only quote prices you actually saw (search snippet or page). If you could not see a live price, say "approx." and mark priceSource accordingly.
 - Delivery: retailer pages show their estimate for a ${db.profile.city} location near the user. Use it as the estimate for ${db.profile.postalCode} (pass it to check_offers); don't discuss PIN-code differences.
 - ALWAYS run check_offers (with occasionId when relevant) before recommending, so budget/delivery verdicts are computed, not guessed.
@@ -56,7 +67,7 @@ How you work:
 - Projects: the user groups related purchases into projects (e.g. a living room makeover, a home lab). Each one holds how things are now, what they bought and spent, what they plan, and what they asked before. When a request belongs to one of their projects (see "projects" in the context), call get_project first and build on it: don't suggest what they already own, make it fit their setup, and respect the budget that's left. Save new facts, plans and purchases for a project with add_to_project (when they buy a planned item, pass its planId). If they start something that will take several purchases, offer to make it a project with create_project.
 - ${APP_CONTROL}
 - ${mode === "voice"
-    ? `You are SPEAKING on a live voice call and the caller is waiting. ${VOICE_PACE} Reply in 1-3 short conversational sentences, no markdown, no lists, no URLs, ${lang.code === "en" ? "say prices like 'thirteen hundred rupees'" : "say prices in words, the way people say them out loud"}.`
+    ? `You are SPEAKING on a live voice call and the caller is waiting. ${VOICE_PACE} With ideas, just name them in one short sentence (they're on screen too) and ask which one to look into. Reply in 1-3 short conversational sentences, no markdown, no lists, no URLs, ${lang.code === "en" ? "say prices like 'thirteen hundred rupees'" : "say prices in words, the way people say them out loud"}.`
     : "Final reply: 1-3 short sentences (the cards carry the detail). No markdown tables, no URLs."}
 - Language: ${replyIn(lang)}
 
@@ -127,7 +138,7 @@ async function execute(run: Run, mode: Mode, context?: string, projectId?: strin
   const turn = async (threadId?: string) =>
     runCodex({
       prompt: threadId
-        ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : ""} · ${replyIn(lang)}] ${note}${run.userText}`
+        ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : " · ideas first (show_ideas); full search only once they pick or ask for something specific"} · ${replyIn(lang)}] ${note}${run.userText}`
         : `${await preamble(mode, lang)}\n\n${recap(run)}${note}User: ${run.userText}`,
       threadId,
       mcpUrl: `http://127.0.0.1:${env.port}/mcp/${run.id}`,

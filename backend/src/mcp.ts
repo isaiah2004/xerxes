@@ -88,6 +88,9 @@ const money = (m: Money) => new Intl.NumberFormat("en-IN", { style: "currency", 
 /** "2026-12-02" → "Wed, 2 Dec" */
 const day = (iso?: string | null) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) : "");
 
+/** The first emoji/character as the eye sees it (a flag or a family emoji is several code points). */
+const firstGrapheme = (s: string) => new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(s)[Symbol.iterator]().next().value?.segment ?? "";
+
 /** "zara-testwala" → "Zara Testwala": the agent often passes ids, and step labels are read by people. */
 const who = (ref: string) =>
   /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(ref)
@@ -415,6 +418,35 @@ export function buildServer(runId: string) {
       emit(runId, { type: "card", card: { id: newCardId(), type: "question", ...a } });
       return { shown: true, note: "Stop and wait for the user's answer." };
     }, { silent: true });
+
+  tool("show_ideas",
+    "Show a few gift or product ideas to pick from (3-5 genuinely different directions) BEFORE any searching. Use it for open-ended asks: gift ideas, 'something for my friend', a birthday with nothing in mind yet. The full search only starts once they pick one.",
+    {
+      heading: z.string().describe("e.g. 'Gift ideas for your cousin sister' or 'Ideas for a techie friend'"),
+      ideas: z
+        .array(
+          z.object({
+            title: z.string().describe("2-6 words, e.g. 'Mechanical keyboard'"),
+            why: z.string().describe("One short line on why it fits them"),
+            price: z.string().optional().describe("Rough range in their currency, e.g. '₹2,000–4,000'"),
+            emoji: z.string().optional().describe("One emoji that pictures it"),
+          }),
+        )
+        .min(2)
+        .max(6),
+      occasionId: z.string().optional(),
+    },
+    (a) => `Came up with ${a.ideas.length} ideas`,
+    async (a) => {
+      const ideas = a.ideas.map((i) => ({
+        title: clip(i.title.trim(), 48),
+        why: clip(i.why.trim(), 160),
+        ...(i.price?.trim() ? { price: clip(i.price.trim(), 28) } : {}),
+        ...(i.emoji?.trim() ? { emoji: firstGrapheme(i.emoji.trim()) } : {}),
+      }));
+      emit(runId, { type: "card", card: { id: newCardId(), type: "ideas", heading: clip(a.heading.trim(), 70), ideas, ...(a.occasionId ? { occasionId: a.occasionId } : {}) } });
+      return { shown: true, note: "Now ask which one to look into, in one short sentence. Don't search until they pick one." };
+    });
 
   tool("save_to_plan", "Save a chosen item to the user's plan/shortlist for an occasion.",
     { occasionId: z.string().optional(), title: z.string(), source: z.string(), url: z.string().optional(), imageUrl: z.string().optional(),

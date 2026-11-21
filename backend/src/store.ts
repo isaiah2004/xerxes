@@ -127,7 +127,13 @@ export type Db = {
   seededPeople?: string[];
   /** dedupeKeys of finds the user dismissed, so the watcher doesn't announce the same deal again. */
   dismissedFinds?: string[];
+  /** Gift ideas thought up ahead for upcoming occasions (ideas.ts), by occasionId. key: what they were based on. */
+  ideas?: Record<string, { text: string; card: IdeasCard; at: string; key: string }>;
 };
+
+export type Idea = { title: string; why: string; price?: string; emoji?: string };
+/** The card a gift chat or call opens on: a few directions to pick from, before any searching. */
+export type IdeasCard = { id: string; type: "ideas"; heading: string; ideas: Idea[]; occasionId?: string };
 
 // ---------- seed (demo profile, editable in-app / by the agent) ----------
 const occ = (

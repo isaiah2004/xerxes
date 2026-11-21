@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { startTurn } from "./agent.js";
 import { env } from "./env.js";
 import { AGENT_UID, USER_UID, agentStatus, startAgent, stopAgent, userRtcToken } from "./integrations/agora.js";
+import { ideasFor } from "./ideas.js";
 import { languageOf, type Language } from "./languages.js";
 import { upcoming } from "./occasions.js";
 import { bindConversation, listProjects, projectOf } from "./projects.js";
@@ -33,6 +34,17 @@ const clip = (s: unknown, n: number) => (typeof s === "string" ? s.replace(/\s+/
 /** "Home lab" → "home lab" mid-sentence; "NAS build" stays. */
 const lowerFirst = (s: string) => (/^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 
+type SavedIdeas = NonNullable<Db["ideas"]>[string];
+/** " I've got a few ideas: a, b or c. Want me to look into one?" from the ideas thought up ahead (English greetings). */
+function offerIdeas(saved?: SavedIdeas) {
+  const t = saved?.card.ideas.slice(0, 3).map((i) => lowerFirst(i.title));
+  if (!t?.length) return undefined;
+  return ` I've got a few ideas: ${t.length === 1 ? t[0] : `${t.slice(0, -1).join(", ")} or ${t[t.length - 1]}`}. Want me to look into one?`;
+}
+/** For the first turn: what was offered, so "the second one" or "go with the binoculars" makes sense. */
+const ideasNote = (saved: SavedIdeas) =>
+  `Gift ideas you already have for it (shown on their screen): ${saved.card.ideas.map((i, n) => `${n + 1}) ${i.title}${i.price ? ` (${i.price})` : ""}: ${i.why}`).join("; ")}. If they pick one, run the full search for it; if they want others, call show_ideas with new ones.`;
+
 /** A new deal, said out loud: "Outer Wilds is down to $9.74 on Fanatical". */
 function findLine(n: Notification) {
   if (n.kind === "hardware") return `there's a new second-hand listing for your home lab${n.price ? ` at ${n.price}` : ""}`;
@@ -50,6 +62,7 @@ function briefing(db: Db, name: string, lang: Language) {
   const project = listProjects(db).find((p) => p.status === "active" && p.entries.some((e) => e.kind === "plan"));
   const plan = project?.entries.find((e) => e.kind === "plan");
   const say = lang.phrases;
+  const ideas = occasion ? ideasFor(db, occasion.id) : undefined;
   const greeting = say
     ? occasion
       ? say.occasion(name, occasion.label, occasion.daysLeft)
@@ -59,7 +72,7 @@ function briefing(db: Db, name: string, lang: Language) {
           ? say.project(name, project.name)
           : say.hello(name)
     : occasion
-    ? `Hey ${name}! Heads up, ${occasion.label.toLowerCase()} is in ${occasion.daysLeft} days. Want me to find something?`
+    ? `Hey ${name}! Heads up, ${occasion.label.toLowerCase()} is in ${occasion.daysLeft} days.${offerIdeas(ideas) ?? " Want me to find something?"}`
     : finds[0]
       ? `Hey ${name}! Good news: ${findLine(finds[0])}. Want me to take a look?`
       : project && plan
@@ -162,6 +175,8 @@ export function voiceRoutes(app: Hono) {
     const lang = languageOf(db.profile.language);
     const say = lang.phrases;
     const brief = body.briefing === true && !topic && !hello && !occasion && !project && !continuing ? briefing(db, name, lang) : undefined;
+    // ideas thought up ahead for this occasion: Xerxes opens by offering them, and the call screen shows them
+    const ideas = !continuing && (occasion ?? brief?.occasion) ? ideasFor(db, (occasion ?? brief?.occasion)!.id) : undefined;
     const greeting = say
       ? continuing
         ? say.continuing(name)
@@ -175,7 +190,7 @@ export function voiceRoutes(app: Hono) {
       : continuing
         ? `Hey ${name}! Picking up where we left off${topic ? ` on ${lowerFirst(topic)}` : ""}. What's next?`
         : occasion
-          ? `Hey ${name}! Heads up, ${occasion.label.toLowerCase()} is in ${occasion.daysLeft} days. Want me to find something?`
+          ? `Hey ${name}! Heads up, ${occasion.label.toLowerCase()} is in ${occasion.daysLeft} days.${offerIdeas(ideas) ?? " Want me to find something?"}`
           : project
             ? `Hey ${name}! Let's work on your ${lowerFirst(project.name)}.${nextPlan ? ` Next on the list: ${nextPlan.text}. Want me to start there?` : " What are we looking for?"}`
             : (brief?.greeting ?? `Hey ${name}, Xerxes here. What are we shopping for?`);
@@ -185,6 +200,7 @@ export function voiceRoutes(app: Hono) {
       topic && `The caller started this call from "${topic}" in the app.${body.context ? ` ${clip(body.context, 600)}` : ""}`,
       continuing && "This call carries on the chat they were just in.",
       nudge && `It's about ${nudge.label} (occasionId ${nudge.id}): ${nudge.daysLeft} days left, arrive by ${nudge.arriveBy}, budget ${nudge.budget.amount} ${nudge.budget.currency}.`,
+      ideas && ideasNote(ideas),
       brief?.context,
       `You opened the call by saying: "${greeting}"`,
     ].filter(Boolean).join(" ");
@@ -205,7 +221,7 @@ export function voiceRoutes(app: Hono) {
       });
       sessions.set(id, { id, channel, agentId: agent.agent_id, llmKey, runIds: sessions.get(id)?.runIds ?? [], context, lang });
       log(id, `agent ${agent.agent_id} started in ${channel} (${agent.status})${topic ? ` from "${topic}"` : ""}${say ? ` · ${lang.name}` : ""}`);
-      return c.json({ sessionId: id, appId: env.agoraAppId, channel, uid: USER_UID, agentUid: AGENT_UID, token: userRtcToken(channel), agentId: agent.agent_id, greeting });
+      return c.json({ sessionId: id, appId: env.agoraAppId, channel, uid: USER_UID, agentUid: AGENT_UID, token: userRtcToken(channel), agentId: agent.agent_id, greeting, ...(ideas ? { ideas: ideas.card } : {}) });
     } catch (e) {
       log(id, `agent failed to start: ${(e as Error).message}`);
       return c.json({ error: (e as Error).message }, 502);

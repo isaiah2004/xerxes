@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { startTurn } from "./agent.js";
 import { codexLoggedIn } from "./codex.js";
 import { env, mask } from "./env.js";
+import { ideasRoutes, startIdeas } from "./ideas.js";
 import { findLanguage, LANGUAGES, languageOf } from "./languages.js";
 import { handleMcp } from "./mcp.js";
 import { upcoming } from "./occasions.js";
@@ -123,10 +124,12 @@ app.get("/api/tts", async (c) => {
 manageRoutes(app); // tracked items / Calendar add-edit-delete, dismiss finds
 projectRoutes(app);
 peopleRoutes(app); // the People tab: add, edit, remove
+ideasRoutes(app); // gift ideas thought up ahead, for chats and calls that open on an occasion
 voiceRoutes(app);
 
 serve({ fetch: app.fetch, port: env.port, hostname: "0.0.0.0" }, (info) => {
   console.log(`Xerxes backend on :${info.port}`);
   console.log(`  agora app id ${mask(env.agoraAppId)} · murf ${env.murfApiKey ? "set" : "unset"} · public url ${env.publicUrl ?? "(unset — voice needs it)"}`);
   startWatchers();
+  startIdeas();
 });
