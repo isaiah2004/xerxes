@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+import type { StoresCardData } from "@/components/StoresCard";
 
 // Backend base URL: EXPO_PUBLIC_API_URL (e.g. the Railway URL) wins; in dev, use the machine running Metro.
 function resolveBase(): string {
@@ -144,7 +145,9 @@ export type Card =
       added?: { kind: ProjectEntryKind; text: string; price?: Money };
     }
   /** Something Xerxes changed in the app for you, by voice or chat (verb: e.g. "Added · Calendar"). */
-  | { id: string; type: "action"; area: ActionArea; verb: string; title: string; detail?: string };
+  | { id: string; type: "action"; area: ActionArea; verb: string; title: string; detail?: string }
+  /** Shops near you on a map, for when it has to be today (find_stores → show_stores). */
+  | StoresCardData;
 export type ActionArea = "person" | "occasion" | "watch" | "project" | "profile" | "find";
 
 export type RunEvent =

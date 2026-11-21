@@ -9,6 +9,7 @@ import { openLink } from "@/lib/links";
 import { color, font, palette, radius, type GradientName } from "@/lib/theme";
 import { iconOf } from "./projects";
 import { SpeakButton } from "./Speak";
+import { StoresCard } from "./StoresCard";
 import { Button, Card, Chip, GradientSurface, IconTile, Ring, Row, T, Tap, type Tone } from "./ui";
 
 const open = (url?: string) => void openLink(url);
@@ -445,6 +446,8 @@ export function AgentCard({ card, onAction }: { card: CardT; onAction?: (t: stri
       return <IdeasCard card={card} onAction={onAction} />;
     case "watch":
       return <WatchCard card={card} />;
+    case "stores":
+      return <StoresCard card={card} />;
     default:
       return null;
   }
