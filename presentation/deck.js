@@ -196,24 +196,24 @@
     const a = slide.querySelector(".arch");
     if (!a || a.dataset.seq) return;
     a.dataset.seq = "1";
-    const box = [...a.querySelectorAll(".box")], p = [...a.querySelectorAll(".wires path")], wl = [...a.querySelectorAll(".wlabel")];
+    const box = [...a.querySelectorAll(".box")], p = [...a.querySelectorAll(".wires > g > path")], wl = [...a.querySelectorAll(".wlabel")];
     const at = (el, d) => { if (el) { el.classList.add("seq"); el.style.setProperty("--d", `${d}s`); } };
-    a.querySelectorAll(".lane").forEach((el) => at(el, 0.1));
-    at(box[0], 0.3);                                   // you
-    at(p[0], 0.8); at(wl[0], 0.8);                    // ① speak
-    at(box[1], 1.1);                                   // agora
-    at(p[4], 1.9); at(a.querySelector(".bridge"), 1.9); // ② custom LLM
-    at(box[3], 2.5);                                   // backend
-    at(p[6], 3.1); at(wl[5], 3.1);                    // ③
-    at(box[4], 3.4);                                   // codex
-    at(p[7], 4.0); at(wl[6], 4.0);                    // ④
-    at(box[5], 4.3);                                   // tools
-    box[5] && box[5].querySelectorAll(".tool").forEach((t, k) => at(t, 4.6 + k * 0.07));
-    at(p[5], 5.8); at(wl[4], 5.8);                    // ⑤ narration + answer
-    at(p[2], 6.4); at(wl[2], 6.4);                    // ⑥ text to murf
-    at(box[2], 6.7);                                   // murf
-    at(p[3], 7.2); at(wl[3], 7.2);                    // voice back
-    at(p[1], 7.6); at(wl[1], 7.6);                    // hear it
+    // 1) every box blurs + fades in together, tiny stagger
+    a.querySelectorAll(".lane").forEach((el) => at(el, 0));
+    box.forEach((b, k) => at(b, k * 0.04));
+    // 2) wires draw in, in call order, slight stagger; their labels come with them
+    // order: ① you→agora, ② agora→backend, ③ backend→codex, ④ codex→tools, ⑤ answer up, ⑥ agora→murf, voice back, hear it
+    const order = [[p[0], wl[0]], [p[4], a.querySelector(".bridge")], [p[6], wl[5]], [p[7], wl[6]], [p[5], wl[4]], [p[2], wl[2]], [p[3], wl[3]], [p[1], wl[1]]];
+    const g = p[0] && p[0].parentNode, N = order.length;
+    order.forEach(([path, lab], k) => {
+      at(path, 0.4 + k * 0.065); at(lab, 0.45 + k * 0.065);
+      // 3) a glowing pulse rides each wire in turn, forever (overlay copy, no marker)
+      if (!path || !g) return;
+      const f = path.cloneNode(false);
+      f.removeAttribute("marker-end"); f.setAttribute("pathLength", "100"); f.setAttribute("class", "flow");
+      f.style.setProperty("--fd", `${1.5 + k * (3.2 / N)}s`);
+      g.appendChild(f);
+    });
   }
 
   /* ---------------------------------------------------------------- slide 2: the price counts up as the card fills in */
@@ -244,10 +244,9 @@
   const worldX = (i) => `translate(${-i * 60}px, ${(i % 2 ? -1 : 1) * 14}px)`;
 
   // forward-only pairs [from slide class, to slide class, source, target]; the brand mark also rides across every step
-  const demoPhone = (sl) => (sl.classList.contains("has-video") ? sl.querySelector(".live .phone") : sl.querySelectorAll(".board .col .phone")[2]);
+  // (2→3 has no morph: a plain camera move reads better than squeezing the card into the phone)
   const MORPHS = [
     ["s-hook", "s-legwork", ".orb", ".topbar .brand .mark"],
-    ["s-legwork", "s-demo", ".decision", demoPhone],
     ["s-arch", "s-byo", (sl) => sl.querySelectorAll(".arch .box")[4], ".byo-card.c1"],
   ];
   const pick = (sl, q) => (typeof q === "function" ? q(sl) : sl.querySelector(q));

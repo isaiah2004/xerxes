@@ -505,9 +505,9 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 @keyframes tick { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ==== 5 · latency conversation ==== */
-.lc-chat { position: absolute; left: 96px; top: 306px; width: 1180px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
-.lc-b { max-width: 980px; padding: 14px 26px 16px; font: 600 31px/1.22 "Inter"; letter-spacing: -0.01em; box-shadow: 0 18px 40px -22px rgba(16,24,40,.45); }
-.lc-b .who { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font: 800 16px/1 "Inter"; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }
+.lc-chat { position: absolute; left: 96px; top: 300px; width: 900px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.lc-b { max-width: 860px; padding: 12px 24px 14px; font: 600 28px/1.2 "Inter"; letter-spacing: -0.01em; box-shadow: 0 18px 40px -22px rgba(16,24,40,.45); }
+.lc-b .who { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; font: 800 15px/1 "Inter"; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }
 .lc-b.you { align-self: flex-end; background: #0B0F17; color: #fff; border-radius: 28px 28px 8px 28px; }
 .lc-b.x { background: var(--green); color: #fff; border-radius: 28px 28px 28px 8px; }
 .lc-b.ans { background: #0B7A57; box-shadow: 0 0 0 6px rgba(17,156,112,.22), 0 18px 40px -22px rgba(16,24,40,.45); }
@@ -515,12 +515,12 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 .lc-b .wv { display: inline-flex; align-items: center; gap: 3px; height: 18px; }
 .lc-b .wv b { width: 4px; height: 10px; border-radius: 2px; background: currentColor; }
 .lc-b .wv b:nth-child(2), .lc-b .wv b:nth-child(4) { height: 16px; }
-.lc-nums { position: absolute; left: 1356px; top: 330px; width: 468px; display: flex; flex-direction: column; gap: 26px; }
-.lc-n { background: #fff; border: 2px solid var(--line); border-radius: 30px; padding: 24px 32px 26px; box-shadow: 0 7px 0 var(--l-ghost), 0 30px 60px -40px rgba(16,24,40,.3); }
-.lc-n .v { font: 800 128px/1 "Inter Tight"; letter-spacing: -0.05em; color: var(--green); }
-.lc-n .v small { font-size: 64px; margin-left: 6px; }
-.lc-n .l { margin-top: 8px; font: 600 28px/1.2 "Inter"; color: var(--ink); }
-.lc-src { font: 600 20px/1.2 "Inter"; color: var(--muted); padding-left: 8px; }
+.lc-nums { position: absolute; right: 96px; top: 104px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px 18px; width: 900px; flex-wrap: nowrap; }
+.lc-n { display: flex; align-items: center; gap: 14px; background: #fff; border: 2px solid var(--line); border-radius: 26px; padding: 14px 24px; box-shadow: 0 7px 0 var(--l-ghost), 0 30px 60px -40px rgba(16,24,40,.3); }
+.lc-n .v { font: 800 84px/1 "Inter Tight"; letter-spacing: -0.05em; color: var(--green); }
+.lc-n .v small { font-size: 44px; margin-left: 4px; }
+.lc-n .l { font: 600 24px/1.2 "Inter"; color: var(--ink); }
+.lc-src { position: absolute; right: 8px; top: 100%; margin-top: 8px; text-align: right; font: 600 19px/1.2 "Inter"; color: var(--muted); padding-right: 8px; }
 .lc-tl { position: absolute; left: 96px; top: 972px; width: 1728px; }
 .lc-track { position: relative; height: 40px; border-radius: 999px; background: rgba(16,24,40,.07); }
 .lc-track .seg { position: absolute; top: 0; height: 40px; border-radius: 999px; background: repeating-linear-gradient(135deg, rgba(16,24,40,.16) 0 12px, rgba(16,24,40,.08) 12px 24px); transform-origin: left; display: flex; align-items: center; padding-left: 70px; }
@@ -543,7 +543,28 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 .s-latency.play .lc-say { animation: pop .4s cubic-bezier(.2,.9,.3,1.4) var(--d) both; }
 .s-latency.play .lc-track .seg { animation: lcGrow 7.4s linear 1.6s both; }
 .s-latency.play .lc-head { animation: lcHead 11s linear .3s both; }
-.s-latency.play .lc-nums { animation: rise .7s ease 10.2s both; }
+.s-latency.play .lc-n { animation: pop .5s cubic-bezier(.2,.9,.3,1.4) var(--d) both; }
+.s-latency.play .lc-src { animation: rise .6s ease 10.9s both; }
+.s-latency.play .lc-sec, .s-latency.play .lc-card, .s-latency.play .lc-buy { animation: lcCard .7s cubic-bezier(.2,.9,.3,1.15) var(--d) both; }
+@keyframes lcCard { from { opacity: 0; transform: translateX(80px) scale(.96); } to { opacity: 1; transform: none; } }
+.lc-ui { position: absolute; left: 1040px; top: 292px; width: 784px; display: flex; flex-direction: column; gap: 12px; }
+.lc-sec { font: 700 18px/1 "Inter"; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding-left: 6px; }
+.lc-card { background: #fff; border: 2px solid #E7E5EE; border-radius: 28px; padding: 16px 26px 14px; box-shadow: 0 24px 50px -30px rgba(16,24,40,.4); }
+.lc-card .top { display: flex; gap: 22px; align-items: center; padding-bottom: 12px; border-bottom: 2px solid #EEEDF3; }
+.lc-th { flex: none; width: 92px; height: 112px; border-radius: 14px; display: grid; place-items: center; background: radial-gradient(120% 80% at 90% 0%, rgba(17,156,112,.45), transparent 55%), linear-gradient(160deg, #1E2635, #0B0F17); box-shadow: 0 10px 20px -10px rgba(16,24,40,.6); }
+.lc-th svg { width: 38px; height: 38px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.lc-card .pick { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 999px; background: #0B0F17; color: #fff; font: 700 17px/1 "Inter"; margin-bottom: 8px; }
+.lc-card .pick .i { width: 16px; height: 16px; }
+.lc-card h4 { font: 700 32px/1.15 "Inter Tight"; letter-spacing: -0.02em; color: var(--ink); }
+.lc-card .top p { margin-top: 4px; font: 500 21px/1 "Inter"; color: var(--muted); }
+.lc-card .bot { display: flex; justify-content: space-between; align-items: flex-end; padding-top: 12px; }
+.lc-card .bot b { display: block; font: 800 34px/1 "Inter Tight"; color: var(--ink); }
+.lc-card .bot span { display: block; margin-top: 6px; font: 500 19px/1 "Inter"; color: var(--muted); }
+.lc-card .bot .r { text-align: right; }
+.lc-card .bot em { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; background: var(--ok-bg); color: var(--ok); font: 700 20px/1 "Inter"; font-style: normal; }
+.lc-card .bot em .i { width: 16px; height: 16px; stroke-width: 3; }
+.lc-card .desc { margin-top: 8px; font: 500 21px/1.3 "Inter"; color: var(--ink2); }
+.lc-buy { height: 66px; border-radius: 24px; display: grid; place-items: center; background: linear-gradient(180deg, #23A57B, #128A63); box-shadow: 0 6px 0 #0B6B4C, 0 22px 40px -22px rgba(17,156,112,.8); color: #fff; font: 800 28px/1 "Inter Tight"; letter-spacing: -0.01em; }
 @keyframes lcIn { from { opacity: 0; transform: translate(-30px, 18px) scale(.92); } to { opacity: 1; transform: none; } }
 @keyframes lcInR { from { opacity: 0; transform: translate(30px, 18px) scale(.92); } to { opacity: 1; transform: none; } }
 @keyframes lcWave { from { transform: scaleY(.35); } to { transform: scaleY(1.3); } }
@@ -551,9 +572,14 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 @keyframes lcHead { from { left: 0; } to { left: 100%; } }
 
 /* ==== 4 · arch animation + BYO slide ==== */
-.s-arch.play .seq { animation: pop .5s cubic-bezier(.2,1.3,.4,1) both; animation-delay: var(--d); }
-.s-arch.play .wires path.seq { stroke-dasharray: 600; animation: draw .6s ease both; animation-delay: var(--d); }
+.s-arch.play .seq { animation: archIn .45s cubic-bezier(.2,.8,.3,1) both; animation-delay: var(--d); }
+.s-arch.play .wires path.seq { stroke-dasharray: 600; animation: draw .35s ease-out both; animation-delay: var(--d); }
+@keyframes archIn { from { opacity: 0; filter: blur(12px); translate: 0 14px; } to { opacity: 1; filter: blur(0); translate: 0 0; } }
 @keyframes draw { from { stroke-dashoffset: 600; opacity: 0; } 15% { opacity: 1; } to { stroke-dashoffset: 0; opacity: 1; } }
+/* data flow: a short glowing dash travels each wire in call order, looping (3.2s cycle) */
+.arch .wires path.flow { display: none; }
+.s-arch.play .wires path.flow { display: inline; stroke: #3EE0A8; stroke-width: 5; stroke-dasharray: 24 200; stroke-dashoffset: 24; opacity: 0; filter: drop-shadow(0 0 5px #3EE0A8); animation: flow 3.2s linear var(--fd) infinite; }
+@keyframes flow { 0% { stroke-dashoffset: 24; opacity: 0; } 2% { opacity: 1; } 16% { opacity: 1; } 18% { stroke-dashoffset: -100; opacity: 0; } 100% { stroke-dashoffset: -100; opacity: 0; } }
 
 .s-byo .title { position: absolute; left: 96px; top: 120px; }
 .byo-grid { position: absolute; left: 96px; top: 340px; width: 1728px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px 32px; }
@@ -612,3 +638,24 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 .ghost-wrap > * { transform-origin: 0 0; will-change: transform, opacity; }
 .ghost-wrap *, .ghost-wrap *::before, .ghost-wrap *::after { animation: none !important; transition: none !important; }
 .slide.play .landed { animation: none !important; }
+
+/* slide 3 idle float: drifts on `transform` so it composes with the entry keyframes (which use translate/scale) */
+@keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes bobX { 0%,100% { transform: translate(0,0); } 50% { transform: translate(3px,-5px); } }
+.s-demo.active .live .rail .r { animation: bob 5.2s ease-in-out infinite; }
+.s-demo.active .live .rail .r:nth-child(2) { animation-duration: 5.8s; animation-delay: -1.6s; }
+.s-demo.active .live .rail .r:nth-child(3) { animation-duration: 4.8s; animation-delay: -3.1s; }
+.s-demo.active .live .rail .r:nth-child(4) { animation-duration: 5.5s; animation-delay: -2.2s; }
+.s-demo.active.overview .board .bubble { animation: bobX 5s ease-in-out infinite .8s; }
+.s-demo.active.overview .board .col .bubble:nth-child(2) { animation-duration: 5.7s; animation-delay: 1.4s; }
+.s-demo.active.overview .board .col .bubble:nth-child(3) { animation-duration: 4.6s; animation-delay: 1.1s; }
+.s-demo.active.overview .board .col:nth-child(2) .bubble { animation-duration: 5.4s; }
+.s-demo.active.overview .board .tool { animation: bob 4.4s ease-in-out infinite 1s; }
+.s-demo.active.overview .board .tool:nth-child(even) { animation-duration: 5.3s; }
+.s-demo.active.touring .board .col.on .bubble:nth-child(1) { animation: bubbleIn .5s cubic-bezier(.2,1.4,.4,1) .5s both, bobX 5s ease-in-out 1.1s infinite; }
+.s-demo.active.touring .board .col.on .bubble:nth-child(2) { animation: bubbleIn .5s cubic-bezier(.2,1.4,.4,1) 1.4s both, bobX 5.7s ease-in-out 2s infinite; }
+.s-demo.active.touring .board .col.on .bubble:nth-child(3) { animation: bubbleIn .5s cubic-bezier(.2,1.4,.4,1) 2.2s both, bobX 4.6s ease-in-out 2.8s infinite; }
+.s-demo.active.touring .board .col.on .tool:nth-child(1) { animation: pop .4s cubic-bezier(.2,1.6,.4,1) .8s both, bob 4.4s ease-in-out 1.3s infinite; }
+.s-demo.active.touring .board .col.on .tool:nth-child(2) { animation: pop .4s cubic-bezier(.2,1.6,.4,1) 1.7s both, bob 5.3s ease-in-out 2.2s infinite; }
+.s-demo.active.touring .board .col.on .tool:nth-child(3) { animation: pop .4s cubic-bezier(.2,1.6,.4,1) 2.5s both, bob 4.9s ease-in-out 3s infinite; }
+@media (prefers-reduced-motion: reduce) { .s-demo .bubble, .s-demo .tool, .s-demo .rail .r { animation: none !important; } }
