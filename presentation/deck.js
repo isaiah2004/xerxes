@@ -17,6 +17,7 @@
   const N = slides.length;
   const hook = deckEl.querySelector(".s-hook");
   const demo = deckEl.querySelector(".s-demo");
+  const problem = deckEl.querySelector(".s-problem");   // two stages: the page, then (next click) the Q&A and everything after
   const video = document.getElementById("demo-video");
   const intro = window.xerxesIntro;
   const rails = demo ? [...demo.querySelectorAll(".rail .r")] : [];
@@ -64,9 +65,21 @@
     if (!hasVideo || EXPORT) return;
     video.pause();
     video.currentTime = 0;
+    video.muted = false; demo.classList.remove("muted", "blocked");
     updateRail();
     clearTimeout(videoTimer);
-    videoTimer = setTimeout(() => video.play().catch(() => {}), 450);
+    videoTimer = setTimeout(playVideo, 450);
+  }
+  // Chrome blocks autoplay with sound when the page has had no click/key yet (e.g. opened straight at #4):
+  // fall back to muted playback and show a "tap for sound" badge; a tap on the clip unmutes it.
+  function playVideo() {
+    if (!video || slides[cur] !== demo) return;
+    video.play().then(() => { demo.classList.remove("blocked"); demo.classList.toggle("muted", video.muted); }).catch((e) => {
+      if (e && e.name === "NotAllowedError" && !video.muted) {
+        video.muted = true; demo.classList.add("muted");
+        video.play().catch(() => demo.classList.add("blocked"));
+      } else demo.classList.add("blocked");
+    });
   }
 
   function leaveDemo() {
@@ -76,7 +89,8 @@
 
   function toggleVideo() {
     if (!hasVideo || slides[cur] !== demo) return;
-    if (video.paused) video.play().catch(() => {}); else video.pause();
+    if (video.muted) { video.muted = false; demo.classList.remove("muted"); if (video.paused) playVideo(); return; }
+    if (video.paused) playVideo(); else video.pause();
   }
 
   /* ---------------------------------------------------------------- tours: zoom into one child at a time, then the overview */
@@ -119,6 +133,7 @@
         segs[k].className = "now";
         segs[k].firstChild.style.animation = `tick ${secs}s linear both`;
       },
+      hold(k) { segs.forEach((g, i) => { g.className = i < k ? "done" : i === k ? "now held" : ""; g.firstChild.style.animation = "none"; }); },
       reset() { segs.forEach((g) => { g.className = ""; g.firstChild.style.animation = "none"; }); },
     };
   }
@@ -131,36 +146,63 @@
   const dAt = (k) => D0 + DSTEPS.slice(0, k).reduce((a, b) => a + b, 0);
   let dTimers = [];
   const diffTicker = units.length ? makeTicker(diff, units.length) : null;
-  // tour layout: the focused unit is scaled so its UI is ~78% of the slide height, text stacked in a column beside it
-  const BIG = 1.68, BX = 214, BY = 118, VIST = 88, VISH = 500; // .vis sits 88px down the unit
-  const textOf = (u) => [u.querySelector(".uh"), ...u.querySelectorAll(".vis .fl, .vis .fl2, .vis .ins"), u.querySelector(".uc")].filter(Boolean);
+  // tour layout: the focused unit's UI fills almost the whole slide height in the left half; its bubbles sit beside the
+  // screen's right edge (toward the centre) and the step header + caption chips are tucked under them, level with the screen's foot
+  const BIG = 1.9, BX = 262, BY = 72, VIST = 88, VISW = 324, VISH = 500; // .vis sits 88px down the unit (unit-local px)
+  const bubblesOf = (u) => [...u.querySelectorAll(".vis .fl, .vis .fl2, .vis .ins")];
+  const textOf = (u) => [u.querySelector(".uh"), ...bubblesOf(u), u.querySelector(".uc")].filter(Boolean);
   units.forEach((u) => textOf(u).forEach((el) => { el.dataset.top0 = el.style.top; }));
-  function bigUnit(u) {
+  let dPaused = false, dStep = -1;
+  // transform that puts the unit's .vis at (BX, BY) at BIG scale; k < 1 shrinks it about the screen's centre (for the fade-in)
+  function bigT(u, k) {
+    const s = 0.94, S = BIG * k, fl = five.offsetLeft, ft = five.offsetTop;
+    const X0 = BX + (BIG - S) * VISW / 2, Y0 = BY + BIG * VISH / 2 - S * (VIST + VISH / 2);
+    return `translate(${((X0 - fl) / s - u.offsetLeft).toFixed(1)}px, ${((Y0 - ft) / s).toFixed(1)}px) scale(${(S / s).toFixed(3)})`;
+  }
+  function bigUnit(u, fade) {
     u.classList.add("big");
-    const items = textOf(u), gap = 20, hs = items.map((el) => el.offsetHeight);
-    const H = hs.reduce((a, b) => a + b, 0) + gap * (items.length - 1) + 10;
-    let y = Math.max(0, (VISH - H) / 2);
-    items.forEach((el, i) => { el.style.setProperty("top", (el.closest(".vis") ? y : y + VIST) + "px", "important"); y += hs[i] + gap + (i === 0 ? 10 : 0); });
-    const s = 0.94, fl = five.offsetLeft, ft = five.offsetTop;
-    u.style.transform = `translate(${((BX - fl) / s - u.offsetLeft).toFixed(1)}px, ${((BY - ft) / s - VIST * BIG / s).toFixed(1)}px) scale(${(BIG / s).toFixed(3)})`;
+    const put = (el, y) => el.style.setProperty("top", (el.closest(".vis") ? y : y + VIST) + "px", "important");
+    const gap = 16, bub = bubblesOf(u), foot = [u.querySelector(".uh"), u.querySelector(".uc")].filter(Boolean);
+    let y = 20;
+    bub.forEach((el) => { put(el, y); y += el.offsetHeight + gap; });
+    const fh = foot.reduce((a, el) => a + el.offsetHeight, 0) + 12;
+    let fy = bub.length ? Math.max(y + 14, VISH - 6 - fh) : (VISH - fh) / 2;
+    foot.forEach((el) => { put(el, fy); fy += el.offsetHeight + 12; });
+    if (fade) {   // cross-fade: appear in place, growing slightly, instead of panning across from the overview slot
+      u.style.transition = "none"; u.style.transform = bigT(u, 0.95); void u.offsetWidth;
+      u.style.transition = "opacity .55s ease, filter .55s ease, transform .7s cubic-bezier(.2,.8,.2,1)";
+    }
+    u.style.transform = bigT(u, 1);
   }
   function smallUnit(u) {
     u.classList.remove("big");
-    u.style.transform = "";
+    u.style.transform = ""; u.style.transition = "";
     textOf(u).forEach((el) => { el.style.removeProperty("top"); if (el.dataset.top0) el.style.top = el.dataset.top0; });
   }
   function focusUnit(k) {
+    const fade = units.some((u) => u.classList.contains("big"));
+    diff.classList.add("touring");
     units.forEach((u, i) => {
-      u.classList.toggle("on", i === k);
-      if (i !== k && u.classList.contains("big")) dTimers.push(setTimeout(() => smallUnit(u), 400));
+      if (i !== k && u.classList.contains("big")) { u.classList.remove("on"); const t = setTimeout(() => { if (!u.classList.contains("on")) smallUnit(u); }, 600); dTimers.push(t); }
     });
-    bigUnit(units[k]);
-    diffTicker && diffTicker.step(k, DSTEPS[k] || DSTEPS[DSTEPS.length - 1]);
+    if (units[k].classList.contains("big")) smallUnit(units[k]);
+    bigUnit(units[k], fade);
+    units.forEach((u, i) => u.classList.toggle("on", i === k));
+    dStep = k;
+    if (diffTicker) dPaused ? diffTicker.hold(k) : diffTicker.step(k, DSTEPS[k] || DSTEPS[DSTEPS.length - 1]);
+  }
+  // auto-advance from step k onward, the first change after `lead` seconds
+  function scheduleDiff(k, lead) {
+    dTimers.forEach(clearTimeout); dTimers = [];
+    let t = lead;
+    for (let j = k; j < units.length; j++) { const jj = j; dTimers.push(setTimeout(() => focusUnit(jj), t * 1000)); t += DSTEPS[j]; }
+    dTimers.push(setTimeout(endDiff, t * 1000));
   }
   function resetDiff() {
     dTimers.forEach(clearTimeout); dTimers = [];
+    dPaused = false; dStep = -1;
     if (!diff) return;
-    diff.classList.remove("touring", "overview");
+    diff.classList.remove("touring", "overview", "paused");
     units.forEach((u) => { u.classList.remove("on"); smallUnit(u); });
     diffTicker && diffTicker.reset();
   }
@@ -172,8 +214,31 @@
   function startDiff() {
     if (!units.length || EXPORT) return;
     resetDiff();
-    units.forEach((_, k) => dTimers.push(setTimeout(() => { diff.classList.add("touring"); focusUnit(k); }, dAt(k) * 1000)));
-    dTimers.push(setTimeout(endDiff, dAt(units.length) * 1000));
+    scheduleDiff(0, D0);
+  }
+  // pause (K or the button by the countdown): stop the timer; clicks / → then step through, the last one opens the overview
+  function togglePause() {
+    if (slides[cur] !== diff || diff.classList.contains("overview") || EXPORT) return;
+    if (!dPaused) {
+      dPaused = true; diff.classList.add("paused");
+      dTimers.forEach(clearTimeout); dTimers = [];
+      units.forEach((u, i) => { if (i !== dStep && u.classList.contains("big")) smallUnit(u); });
+      if (dStep < 0) focusUnit(0); else diffTicker && diffTicker.hold(dStep);
+    } else {
+      dPaused = false; diff.classList.remove("paused");
+      const k = Math.max(dStep, 0);
+      diffTicker && diffTicker.step(k, DSTEPS[k]);
+      scheduleDiff(k + 1, DSTEPS[k]);
+    }
+  }
+  function diffStepping() { return slides[cur] === diff && dPaused && diff.classList.contains("touring"); }
+  if (diff && units.length && !EXPORT) {
+    const pb = document.createElement("button");
+    pb.className = "tour-pause"; pb.type = "button"; pb.title = "Pause the tour: click to step (K)";
+    pb.innerHTML = '<svg viewBox="0 0 24 24" class="ic-pause"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg><svg viewBox="0 0 24 24" class="ic-play"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
+    ["pointerdown", "mousedown", "pointerup", "mouseup"].forEach((ev) => pb.addEventListener(ev, (e) => e.stopPropagation()));
+    pb.addEventListener("click", (e) => { e.stopPropagation(); e.preventDefault(); togglePause(); pb.blur(); });
+    diff.appendChild(pb);
   }
 
   /* ---------------------------------------------------------------- camera transitions + shared-element morphs */
@@ -287,6 +352,7 @@
     if (from === hook && to !== hook) intro && intro.leave();
     if (from === demo && to !== demo) leaveDemo();
     if (from === diff && to !== diff) resetDiff();
+    if (to === problem) problem.classList.remove("stage2");
     to.querySelectorAll(".landed").forEach((el) => el.classList.remove("landed"));
     if (moving) to.classList.remove("play");
 
@@ -317,10 +383,18 @@
 
   function next() {
     if (!t0) startClock();
+    if (diffStepping()) { if (dStep < units.length - 1) focusUnit(dStep + 1); else endDiff(); return; } // paused tour: one step per click
     if (slides[cur] === diff && dTimers.length) { endDiff(); return; } // first click skips the tour to the overview
+    if (slides[cur] === problem && !EXPORT && !problem.classList.contains("stage2")) { settle(); problem.classList.add("stage2"); renderChrome(); sync(); return; }
     go(cur + 1);
   }
-  function prev() { go(cur - 1); }
+  function prev() {
+    if (diffStepping() && dStep > 0) { focusUnit(dStep - 1); return; }
+    if (slides[cur] === problem && problem.classList.contains("stage2")) {   // back to stage 1: replay the page on its own
+      settle(); problem.classList.remove("stage2", "play"); void problem.offsetWidth; problem.classList.add("play"); renderChrome(); sync(); return;
+    }
+    go(cur - 1);
+  }
 
   function startClock() { if (!t0) { t0 = Date.now(); sync(); } }
   function resetClock() { t0 = Date.now(); sync(); renderChrome(); }
@@ -373,7 +447,7 @@
 
   function sync() {
     if (PRESENTER || !pres || pres.closed) return;
-    pres.postMessage({ type: "xerxes:state", cur, t0, hasVideo }, "*");
+    pres.postMessage({ type: "xerxes:state", cur, t0, hasVideo, stage2: !!problem && problem.classList.contains("stage2") }, "*");
   }
 
   function command(cmd, arg) {
@@ -394,13 +468,14 @@
     if (!PRESENTER && d.type === "xerxes:hello") { pres = e.source; sync(); }
     if (!PRESENTER && d.type === "xerxes:cmd") command(d.cmd, d.arg);
     if (PRESENTER && d.type === "xerxes:state") {
-      t0 = d.t0; hasVideo = d.hasVideo;
+      t0 = d.t0; hasVideo = d.hasVideo; stage2 = !!d.stage2;
       cur = clamp(d.cur);
       renderPresenter();
     }
   });
 
   const P = document.getElementById("presenter");
+  let stage2 = false;   // presenter mirror of slide 2's stage
   function send(cmd, arg) {
     if (window.opener && !window.opener.closed) window.opener.postMessage({ type: "xerxes:cmd", cmd, arg }, "*");
   }
@@ -409,6 +484,7 @@
     const m = meta(cur);
     const nx = cur + 1 < N ? meta(cur + 1) : null;
     let tip = "";
+    if (slides[cur] === problem) tip += stage2 ? "<p class=\"tip\">Stage 2 of 2: Q&amp;A playing. Next click goes to slide 3.</p>" : "<p class=\"tip\">Stage 1 of 2: just the page. Click to play the Q&amp;A.</p>";
     if (slides[cur] === demo && !hasVideo) tip = "<p class=\"tip\">demo.mp4 has not loaded: the phone shows a still.</p>";
     P.innerHTML = `
       <div>
@@ -452,6 +528,7 @@
     else if (k === "r" || k === "R") act("greet");
     else if (k === "v" || k === "V") act("video");
     else if (k === "t" || k === "T") act("clock");
+    else if (!PRESENTER && (k === "k" || k === "K")) togglePause();
     else if (!PRESENTER && (k === "f" || k === "F")) toggleFull();
     else if (!PRESENTER && (k === "n" || k === "N")) body.classList.toggle("show-notes");
     else if (!PRESENTER && (k === "p" || k === "P")) openPresenter();

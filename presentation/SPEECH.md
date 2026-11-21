@@ -24,7 +24,7 @@ About two minutes. The same lines are in each slide's speaker notes (press **N**
 
 ### 2 · The problem (0:08–0:22)
 
-*Cue: the storefront slides in, the store bot answers with its own bestsellers, then your context appears on the right and gets cut off. Speak over the whole build.*
+*Cue: two stages. The slide lands on just the storefront. Start speaking, then* ***click*** *(stays on slide 2): the store bot answers with its own bestsellers, then your context appears on the right and gets cut off. Speak over the build.*
 
 > Most shopping AIs today are a simple chat slapped onto a platform, with RAG over its catalogue.
 > They're tied to that one store, and they know nothing about you: not who you're buying for, not when it has to arrive, not what you already own.
@@ -78,10 +78,10 @@ About two minutes. The same lines are in each slide's speaker notes (press **N**
 
 ## If asked (Q&A)
 
-- **Sending a photo** is marked "Soon": the app has no image upload yet (text-only composer). Don't demo it.
-- **Links**: paste a product URL in chat or say it, and Codex opens that page with its live web tool to read price and details. There is no dedicated link-preview card.
+- **Sending a photo** is live: attach a photo in chat and it goes to the agent with your message (app/components/Attachments.tsx, backend/src/uploads.ts). It runs through your own authorized agent.
+- **Links**: paste a product URL in chat or say it; the chat shows a preview and Codex opens that page with its live web tool to read price and details (backend/src/links.ts).
 - **Conversation**: Agora ConvoAI keeps the last 20 turns and lets you talk over Xerxes; chat keeps the Codex thread, so follow-ups carry context.
-- **Reviews** are marked "Soon": Xerxes can search the web for reviews, but there's no review summary on its cards yet.
+- **Reviews** are live: the agent checks reviews with its web search while it compares options, through your own authorized agent.
 - **Other agents** are "Next": the 32 Xerxes tools are a standard MCP server, but today only Codex CLI drives them.
 - **Google Drive backup** is "Next": today the data is one local file (`.data/xerxes.json`).
 - **The living-room project, people and occasions** are sample entries loaded so the app has something to remember. Every search, price and delivery date in the demo is live.

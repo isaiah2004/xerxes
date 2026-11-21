@@ -142,6 +142,7 @@
   <div class="block b3"><svg class="i"><use href="#i-x"/></svg></div>
 
   <aside class="notes">
+    <p><em>[Two clicks. Lands on just the storefront. Click once to play the bot's question and answer, the red tags and the cut-off context; the next click goes to slide 3.]</em></p>
     <p>Most shopping AIs today are a simple chat slapped onto a platform, with RAG over its catalogue.</p>
     <p>They’re tied to that one store, and they know nothing about you: not who you’re buying for, not when it has to arrive, not what you already own.</p>
   </aside>
@@ -169,7 +170,7 @@
         <div class="ins">
           <span class="in"><svg class="i"><use href="#i-msg"/></svg>Talk over it, follow up</span>
           <span class="in"><svg class="i"><use href="#i-link"/></svg>Paste a product link</span>
-          <span class="in"><svg class="i"><use href="#i-image"/></svg>Send a photo<span class="soon">Soon</span></span>
+          <span class="in"><svg class="i"><use href="#i-image"/></svg>Send a photo</span>
         </div>
       </div>
       <div class="uc"><span class="chip ok">Anything in chat works by voice</span><span class="chip ok">Cards appear as it talks</span></div>
@@ -197,7 +198,7 @@
           <div class="map"><i style="left:30%;top:40%"></i><i style="left:62%;top:58%"></i><i class="me" style="left:46%;top:70%"></i></div>
         </div>
       </div>
-      <div class="uc"><span class="chip ok">Prices</span><span class="chip ok">Delivery vs deadline</span><span class="chip ok">Local stores</span><span class="chip line">Reviews <span class="soon">Soon</span></span></div>
+      <div class="uc"><span class="chip ok">Prices</span><span class="chip ok">Delivery vs deadline</span><span class="chip ok">Local stores</span><span class="chip ok">Reviews</span></div>
     </div>
     <!-- 3.4 -->
     <div class="unit u4">
@@ -236,7 +237,7 @@
     <p><em>[3 · legwork]</em> It does the legwork: compares prices, checks delivery against your deadline, looks at reviews, and suggests a shop nearby when it has to be today.</p>
     <p><em>[4 · project]</em> It knows the project. Furnishing your living room? You already have the sofa and the rug, so it recommends what’s missing.</p>
     <p><em>[5 · calendar]</em> And it knows your calendar and budget, and reminds you to buy gifts, with ideas from each person’s profile.</p>
-    <p><em>[Step 1 holds about 8.5 s, the others about 6.5 s. A click skips to the overview; the next click moves on. “Send a photo” is Soon: the app has no image upload yet, so don’t claim it. Links work because Codex can open any URL you paste, but there’s no link preview card. Reviews are “Soon”: Xerxes can search for reviews, but there’s no review summary yet.]</em></p>
+    <p><em>[Step 1 holds about 8.5 s, the others about 6.5 s. A click skips to the overview; the next click moves on. K (or the pause button by the countdown) pauses the tour, then each click shows the next step. Photos and reviews are live: attach a photo in chat and the agent sees it; reviews come from the agent’s live web search. Both run through the user’s own authorized agent. Paste a product link and Codex opens the page.]</em></p>
   </aside>
 </section>
 
@@ -251,6 +252,7 @@
 
   <div class="live">
     <div class="phone android"><div class="screen"><video id="demo-video" preload="auto" playsinline poster="assets/shots/chat-result.jpg" src="assets/video/demo.mp4"></video></div></div>
+    <div class="sound" aria-live="polite"></div>
     <div class="title"><h2 class="h2">One real call.</h2><p class="lead">Agora runs the call, Codex does the work, Murf does the talking.</p></div>
     <div class="rail">
       <div class="r" data-at="0"><span class="n">1</span><div><h3>Reaches out</h3><p>Opens with the birthday it noticed. You answer: “Let’s get her an encyclopedia.”</p></div></div>
@@ -367,12 +369,12 @@
         <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>People you shop for and what it learns about them</li>
         <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>Its own calendar: occasions, budgets, arrive-by dates</li>
         <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>Projects: what you have, bought and plan, and budget left</li>
+        <li><svg class="i" style="color:var(--info-ink)"><use href="#i-bookmark"/></svg>Photos and product links in chat; reviews checked as it shops</li>
       </ul>
     </div>
     <div class="cl">
       <h3><span class="ic" style="background:var(--g-warning)"><svg class="i"><use href="#i-arrow"/></svg></span>Next</h3>
       <ul>
-        <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Review summaries per product</li>
         <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Google Drive backup (today: a local file)</li>
         <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Other MCP agents as the brain, not only Codex</li>
         <li><svg class="i" style="color:var(--warn)"><use href="#i-arrow"/></svg>Price watches for any product; checkout in the app</li>
@@ -388,7 +390,7 @@ cd backend &amp;&amp; npm install &amp;&amp; npm run dev        <span class="c">
 cloudflared tunnel --url http://localhost:8787  <span class="c"># then set PUBLIC_URL</span></pre>
   </div>
 
-  <aside class="notes"><p>Appendix for Q&amp;A, not presented. If asked: the people, occasions and the living-room project are sample entries so the app has something to remember; every search, price and delivery estimate is live. Reviews, Drive backup and other agents are next.</p></aside>
+  <aside class="notes"><p>Appendix for Q&amp;A, not presented. If asked: the people, occasions and the living-room project are sample entries so the app has something to remember; every search, price and delivery estimate is live. Photos and reviews are live through your own authorized agent; Drive backup and other agents are next.</p></aside>
 </section>
 
 </div>

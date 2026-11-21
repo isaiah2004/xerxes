@@ -30,11 +30,12 @@ Open `index.html` in Chrome and press **F**.
 | P | Presenter window: script, clock, next slide and buttons. Keep it on the laptop screen while the deck is on the projector. |
 | T | Restart the clock |
 | R | Replay the intro animation |
-| V | Play or pause the demo clip |
+| V | Play or pause the demo clip (if Chrome blocked sound, the clip plays muted with a "Tap the video for sound" badge; a click on it unmutes) |
+| K | Pause / resume the slide 3 tour (paused: each click shows the next step) |
 
 Slides move like one continuous camera shot: the old slide drifts out and blurs while the next one slides in from the direction you're travelling (about 0.85 s), over a faint background that pans with you, and the brand mark stays put. Two things fly across going forward: the intro orb lands as the slide 2 logo, and the voice step's phone (step 1 on slide 3, seen in the overview) grows into the demo phone on slide 4. Each slide's own animation starts as the camera settles. Pressing again mid-move finishes it at once, so rapid presses are safe; number keys, Home and End use a quicker zoom cut. `?export` and reduced-motion get no transitions.
 
-Slide 3 tours itself, in this order: 1 voice-native with generative UI (plus conversational flow, links and photos), 2 reaches out first, 3 does the legwork, 4 knows the project, 5 calendar, budget and people. It runs 1.5 s on the title, then 8.5 s zoomed into step 1 (voice: its three input chips land last) and 6.5 s into each of the other four, with a countdown bar at the bottom right, then the overview. One click skips to the overview; the next click moves on. Slide 4 plays the clip once the camera settles and pauses it when you leave.
+Slide 2 has two stages: it lands on just the storefront, one click plays the bot's question and answer, the red tags and the cut-off context (← goes back to the bare page), and the next click moves on. Slide 3 tours itself, in this order: 1 voice-native with generative UI (plus conversational flow, links and photos), 2 reaches out first, 3 does the legwork, 4 knows the project, 5 calendar, budget and people. It runs 1.5 s on the title, then 8.5 s zoomed into step 1 (voice: its three input chips land last) and 6.5 s into each of the other four, with a countdown bar at the bottom right, then the overview. One click skips to the overview; the next click moves on. **K** or the pause button next to the countdown pauses the tour: each click or → then shows the next step, the click after step 5 opens the overview, and the play button resumes the timer. Slide 4 plays the clip once the camera settles and pauses it when you leave.
 
 The clock starts on the first forward press. It turns orange when a slide runs past its slot. Adding `#3` to the URL opens slide 3.
 
@@ -60,6 +61,6 @@ python presentation/tools/build_pptx.py   # dist/xerxes-pitch.pptx
 
 ## Notes for Q&A
 
-- Anything not built yet carries a small "Soon" or "Next" tag on its slide: reviews and sending a photo (slide 3), other MCP agents and Google Drive backup (slide 5). SPEECH.md lists what to say if asked.
+- Anything not built yet carries a small "Soon" or "Next" tag on its slide: other MCP agents and Google Drive backup (slide 5). SPEECH.md lists what to say if asked.
 - The people, occasions and the living-room project are sample entries; searches, prices, delivery estimates and the voice call are live.
 - The tool count (32) is the number of `tool(...)` registrations in `backend/src/mcp.ts`.
