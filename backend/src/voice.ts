@@ -9,16 +9,13 @@ import { upcoming } from "./occasions.js";
 import { bindConversation, listProjects, projectOf } from "./projects.js";
 import { createRun, emit, getRun, runsFor, type Run, type RunEvent } from "./runs.js";
 import { smallTalk } from "./smalltalk.js";
+import { saveSessions, sessions, type VoiceSession } from "./voiceSessions.js";
 import { pickedVoice } from "./voices.js";
 import { readDb, type Db } from "./store.js";
 
 // Agora Conversational AI: Agora handles ASR + turn-taking + Murf Falcon TTS in the RTC channel,
 // and calls our OpenAI-compatible endpoint below as its "custom LLM" — which runs the same Codex agent + tools.
 
-/** llmKey: per-session secret handed to Agora as llm.api_key; checked when Agora sends it back as a Bearer token.
- *  context: where the call was started from (a card, a deal) + what Xerxes opened with; handed to the first turn only. */
-type VoiceSession = { id: string; channel: string; agentId?: string; llmKey?: string; runIds: string[]; context?: string; lang: Language };
-const sessions = new Map<string, VoiceSession>();
 const log = (id: string, msg: string) => console.log(`[voice ${id.slice(0, 8)}] ${msg}`);
 
 /** Agora's cloud reaches our LLM endpoint through PUBLIC_URL. If that tunnel is down, every turn fails and the agent
@@ -203,7 +200,8 @@ export function voiceRoutes(app: Hono) {
         locale: voice.locale,
         failureMessage: say?.snag,
       });
-      sessions.set(id, { id, channel, agentId: agent.agent_id, llmKey, runIds: sessions.get(id)?.runIds ?? [], context, lang });
+      sessions.set(id, { id, channel, agentId: agent.agent_id, llmKey, runIds: sessions.get(id)?.runIds ?? [], context, lang, at: Date.now() });
+      saveSessions();
       log(id, `agent ${agent.agent_id} started in ${channel} (${agent.status})${topic ? ` from "${topic}"` : ""}${say ? ` · ${lang.name}` : ""}`);
       return c.json({ sessionId: id, appId: env.agoraAppId, channel, uid: USER_UID, agentUid: AGENT_UID, token: userRtcToken(channel), agentId: agent.agent_id, greeting, ...(ideas ? { ideas: ideas.card } : {}) });
     } catch (e) {
@@ -220,6 +218,7 @@ export function voiceRoutes(app: Hono) {
       await stopAgent(s.channel, s.agentId);
       log(s.id, `agent ${s.agentId} stopped`);
       s.agentId = undefined;
+      saveSessions();
       return c.json({ ok: true });
     } catch (e) {
       log(s.id, `agent stop failed: ${(e as Error).message}`);
@@ -278,6 +277,7 @@ export function voiceRoutes(app: Hono) {
       emit(run.id, { type: "message", text: quick });
       emit(run.id, { type: "done" });
       session.runIds.push(run.id);
+      saveSessions();
       log(id, `heard: "${text.slice(0, 160)}" -> small talk, answered at once: "${quick}"`);
       const chunk = `chatcmpl-${run.id.slice(0, 8)}`;
       return new Response([sseChunk(chunk, quick), sseChunk(chunk, null, "stop"), "data: [DONE]\n\n"].join(""), {
@@ -292,6 +292,7 @@ export function voiceRoutes(app: Hono) {
     // the whole call stays in the language it started in (Agora's ASR and Murf's voice are fixed for this agent)
     const run = await startTurn(id, text, "voice", context, undefined, session.lang.code);
     session.runIds.push(run.id);
+    saveSessions();
     log(id, `heard: "${text.slice(0, 160)}" -> run ${run.id.slice(0, 8)}`);
     const p = session.lang.phrases;
     return speakTurn(session, run, p ? p.ack : first && project ? `On it, pulling up your ${lowerFirst(project.name)} notes.` : "On it, give me a moment.");

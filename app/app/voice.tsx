@@ -9,12 +9,25 @@ import { Hearing, hearingFeed } from "@/components/Hearing";
 import { LogoGlyph } from "@/components/Logo";
 import { Button, GradientSurface, Row, T } from "@/components/ui";
 import { api } from "@/lib/api";
+import { claimCall, releaseCall } from "@/lib/callSlot";
 import { haptic } from "@/lib/haptics";
 import { openLink } from "@/lib/links";
 import { color, ledge, shadow } from "@/lib/theme";
 import { joinVoice, openMic, voiceAvailable, type MicHandle, type VoiceHandle } from "@/lib/voice";
 
 type Phase = "connecting" | "mic" | "waiting" | "live" | "ended" | "error";
+
+/** One call (one attempt): kept in a ref, so it outlives the effect that started it when that effect runs again. */
+type Live = {
+  attempt: number;
+  /** false once the call is really over; every await in it checks this */
+  alive: boolean;
+  handle: VoiceHandle | null;
+  session: string | null;
+  poll?: ReturnType<typeof setTimeout>;
+  /** the hang-up pending after the effect's cleanup, cancelled if the effect runs again straight away for this call */
+  bye?: ReturnType<typeof setTimeout>;
+};
 
 /** The call runs in the app on web and in builds with the Agora module; Expo Go hands it to the browser. */
 const inApp = Platform.OS === "web" || voiceAvailable;
@@ -81,12 +94,51 @@ export default function Voice() {
   const [level] = useState(() => new Animated.Value(0));
   const [attempt, setAttempt] = useState(0);
   const [feed] = useState(hearingFeed); // mic levels + live transcripts → the Hearing card
-  const handle = useRef<VoiceHandle | null>(null);
-  const session = useRef<string | null>(null);
+  const [me] = useState(() => Symbol("call screen"));
+  const live = useRef<Live | null>(null);
+  const owner = useRef(false);
+  const bowedOut = useRef(false);
+
+  // One call screen at a time (lib/callSlot): this one takes the slot, or another call screen already has it.
+  useEffect(() => {
+    owner.current = claimCall(me);
+    return () => releaseCall(me);
+  }, [me]);
+
+  /** Really hangs up: leaves the channel, stops the agent, stops polling. */
+  const end = (ctl: Live) => {
+    ctl.alive = false;
+    clearTimeout(ctl.poll);
+    clearTimeout(ctl.bye);
+    ctl.handle?.leave().catch(() => undefined);
+    ctl.handle = null;
+    if (ctl.session) api.voiceStop(ctl.session).catch(() => undefined);
+    ctl.session = null;
+    if (live.current === ctl) live.current = null;
+  };
 
   useEffect(() => {
-    let alive = true;
-    let poll: ReturnType<typeof setTimeout> | undefined;
+    if (!owner.current) {
+      // a second tap on a mic button stacked this screen on a call that's already open: that call carries on
+      if (!bowedOut.current && router.canGoBack()) router.back();
+      bowedOut.current = true;
+      return;
+    }
+    const was = live.current;
+    if (was?.alive && was.attempt === attempt) {
+      // The same call, and this effect ran again: Fast Refresh after an edit to this screen or anything it imports
+      // (or StrictMode). Hanging up and dialling again here is what made calls restart; now the call carries on.
+      clearTimeout(was.bye);
+      return () => {
+        was.bye = setTimeout(() => end(was), 0);
+      };
+    }
+    const ctl: Live = { attempt, alive: true, handle: null, session: null };
+    live.current = ctl;
+    // the hang-up waits a tick: if this effect runs again straight away for the same call, it's called off (above)
+    const hangUpSoon = () => {
+      ctl.bye = setTimeout(() => end(ctl), 0);
+    };
     if (!inApp) {
       // Expo Go has no Agora RTC module, so there the call runs in the browser, which has WebRTC.
       // (localhost / 127.0.0.1 count as secure, so the mic works there; a hosted build sets EXPO_PUBLIC_WEB_URL.)
@@ -95,26 +147,24 @@ export default function Voice() {
           setError(e.message);
           setPhase("error");
         })
-        .finally(() => alive && router.canGoBack() && router.back());
-      return () => {
-        alive = false;
-      };
+        .finally(() => ctl.alive && router.canGoBack() && router.back());
+      return hangUpSoon;
     }
     (async () => {
       let mic: MicHandle | undefined;
       try {
         // Mic first: if the browser says no, no agent gets started (and nobody greets an empty room).
-        const askTimer = setTimeout(() => alive && setPhase((p) => (p === "connecting" ? "mic" : p)), 400);
+        const askTimer = setTimeout(() => ctl.alive && setPhase((p) => (p === "connecting" ? "mic" : p)), 400);
         mic = await openMic().finally(() => clearTimeout(askTimer));
-        if (!alive) return mic.close();
+        if (!ctl.alive) return mic.close();
         setPhase("connecting");
         const { conversationId, occasionId, projectId, topic, context, hello, briefing } = params;
         const s = await api.voiceStart({ conversationId, occasionId, projectId, topic, context, hello, briefing: briefing === "1" });
-        if (!alive) {
+        if (!ctl.alive) {
           mic.close();
           return void api.voiceStop(s.sessionId);
         }
-        session.current = s.sessionId;
+        ctl.session = s.sessionId;
         setGreeting(s.greeting);
         setPhase("waiting");
         const call = await joinVoice(
@@ -141,36 +191,29 @@ export default function Voice() {
           mic,
         );
         mic = undefined; // the call owns it now; leave() closes it
-        if (!alive) return void call.leave().catch(() => undefined); // hung up while connecting (cleanup already stopped the agent)
-        handle.current = call;
+        if (!ctl.alive) return void call.leave().catch(() => undefined); // hung up while connecting (end() already stopped the agent)
+        ctl.handle = call;
         setPhase((p) => (p === "waiting" ? "live" : p));
         const tick = async () => {
           try {
             const r = await api.voiceSession(s.sessionId);
-            setTurns(r.runs.filter(Boolean).map((x) => ({ key: x!.id, text: x!.userText, runId: x!.id })));
+            if (ctl.alive) setTurns(r.runs.filter(Boolean).map((x) => ({ key: x!.id, text: x!.userText, runId: x!.id })));
           } catch {}
-          if (alive) poll = setTimeout(tick, 1500);
+          if (ctl.alive) ctl.poll = setTimeout(tick, 1500);
         };
         tick();
       } catch (e) {
         mic?.close();
-        if (session.current) api.voiceStop(session.current).catch(() => undefined);
-        session.current = null;
-        if (!alive) return;
+        if (ctl.session) api.voiceStop(ctl.session).catch(() => undefined);
+        ctl.session = null;
+        if (!ctl.alive) return;
         haptic.error();
         setMicBlocked(e instanceof Error && e.message === "MIC_BLOCKED");
         setError(friendlyError(e));
         setPhase("error");
       }
     })();
-    return () => {
-      alive = false;
-      clearTimeout(poll);
-      handle.current?.leave().catch(() => undefined);
-      handle.current = null;
-      if (session.current) api.voiceStop(session.current).catch(() => undefined);
-      session.current = null;
-    };
+    return hangUpSoon;
   }, [attempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const retry = () => {
@@ -178,12 +221,16 @@ export default function Voice() {
     setError(null);
     setTurns([]);
     setGreeting("");
+    setMuted(false);
     setPhase("connecting");
     setAttempt((a) => a + 1);
   };
 
   const hangUp = () => {
     haptic.heavy();
+    // hang up now, not once the screen has animated away, and free the slot so a new call can open meanwhile
+    if (live.current) end(live.current);
+    releaseCall(me);
     if (router.canGoBack()) router.back();
     else router.replace("/");
   };
@@ -260,7 +307,7 @@ export default function Voice() {
             const m = !muted;
             haptic.tap();
             setMuted(m);
-            handle.current?.setMuted(m);
+            live.current?.handle?.setMuted(m);
           }}
           disabled={phase !== "live"}
         >
