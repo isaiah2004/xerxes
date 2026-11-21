@@ -17,6 +17,9 @@ export const env = {
   agoraCustomerSecret: opt("AGORA_CUSTOMER_SECRET"),
   agoraAsrVendor: opt("AGORA_ASR_VENDOR") ?? "ares",
   agoraAsrLanguage: opt("AGORA_ASR_LANGUAGE") ?? "en-US",
+  /** The agent's noise gate: how sure Agora's VAD must be that a sound is speech before it reaches ASR (0-1).
+   * 0.5 is Agora's default; raise it (0.6-0.7) in a loud room so chatter and clatter don't start turns. */
+  agoraSpeechThreshold: Math.min(0.95, Math.max(0.05, Number(opt("AGORA_SPEECH_THRESHOLD") ?? 0.5) || 0.5)),
 
   murfApiKey: opt("MURF_API_KEY"),
   murfVoice: opt("MURF_VOICE") ?? "en-IN-anisha",

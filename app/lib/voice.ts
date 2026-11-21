@@ -3,9 +3,19 @@
 // Expo Go has no Agora module, so voiceAvailable is false there and the call screen falls back to the browser.
 import { NativeModules, PermissionsAndroid, Platform, TurboModuleRegistry } from "react-native";
 import type { IRtcEngineEventHandler } from "react-native-agora";
+import { transcriptReader, type Heard } from "./convoStream";
 
 export type VoiceHandle = { leave: () => Promise<void>; setMuted: (muted: boolean) => Promise<void> };
 export type MicHandle = { close: () => void };
+export type VoiceEvents = {
+  level: (who: "agent" | "me", level: number) => void;
+  agentJoined: () => void;
+  agentLeft: () => void;
+  /** your mic's level (0-100), several times a second: the call screen's noise gate meter */
+  mic?: (level: number) => void;
+  /** live speech-to-text from the agent's ASR (and its own words as it speaks) */
+  heard?: (h: Heard) => void;
+};
 
 /** True when this build includes react-native-agora's native module. */
 export const voiceAvailable = (() => {
@@ -33,7 +43,7 @@ const MIC_FAILED = new Set([1011, 1012]);
 
 export async function joinVoice(
   opts: { appId: string; channel: string; token: string; uid: number; agentUid: number },
-  on: { level: (who: "agent" | "me", level: number) => void; agentJoined: () => void; agentLeft: () => void },
+  on: VoiceEvents,
   _mic: MicHandle,
 ): Promise<VoiceHandle> {
   const agora = await import("react-native-agora");
@@ -44,8 +54,20 @@ export async function joinVoice(
     audioScenario: agora.AudioScenarioType.AudioScenarioAiClient, // Agora's tuning for talking to a Conversational AI agent
   });
 
+  // Agora's on-device AI noise suppression: fans, traffic and keyboards are taken out before the audio leaves the phone.
+  try {
+    engine.setAINSMode(true, agora.AudioAinsMode.AinsModeBalanced);
+  } catch {
+    /* older SDK: the AI-client audio scenario still suppresses noise */
+  }
+
+  // the agent's ASR transcripts come over the RTC data stream
+  const read = transcriptReader((h) => on.heard?.(h));
   let joining: { resolve: () => void; reject: (e: Error) => void } | undefined;
   const handler: IRtcEngineEventHandler = {
+    onStreamMessage: (_c, remoteUid, _streamId, data) => {
+      if (remoteUid === opts.agentUid) read(data);
+    },
     onJoinChannelSuccess: () => joining?.resolve(),
     onError: (err, msg) => {
       if (MIC_FAILED.has(err)) joining?.reject(new Error("MIC_UNAVAILABLE"));
@@ -58,7 +80,11 @@ export async function joinVoice(
     onUserOffline: (_c, uid) => uid === opts.agentUid && on.agentLeft(),
     // Native volumes are 0-255 (local user reported as uid 0); the call screen works in the web SDK's 0-100.
     onAudioVolumeIndication: (_c, speakers) => {
-      for (const s of speakers) on.level(s.uid === opts.agentUid ? "agent" : "me", Math.round(((s.volume ?? 0) / 255) * 100));
+      for (const s of speakers) {
+        const level = Math.round(((s.volume ?? 0) / 255) * 100);
+        on.level(s.uid === opts.agentUid ? "agent" : "me", level);
+        if (s.uid === 0) on.mic?.(level); // uid 0 = this phone's mic
+      }
     },
   };
   engine.registerEventHandler(handler);
@@ -75,7 +101,7 @@ export async function joinVoice(
   try {
     engine.enableAudio();
     engine.setDefaultAudioRouteToSpeakerphone(true); // you look at the screen while Xerxes talks, so not the earpiece
-    engine.enableAudioVolumeIndication(200, 3, true);
+    engine.enableAudioVolumeIndication(150, 3, true); // often enough for the noise gate meter to feel live
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Timed out joining the voice channel")), 15_000);
       joining = {

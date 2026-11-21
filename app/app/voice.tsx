@@ -6,6 +6,7 @@ import { Animated, Easing, Linking, Platform, Pressable, ScrollView, View } from
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IdeasCard } from "@/components/cards";
 import { TurnView, type Turn } from "@/components/Conversation";
+import { Hearing, hearingFeed } from "@/components/Hearing";
 import { LogoGlyph } from "@/components/Logo";
 import { Button, GradientSurface, Row, T } from "@/components/ui";
 import { api, type Card } from "@/lib/api";
@@ -81,6 +82,7 @@ export default function Voice() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [level] = useState(() => new Animated.Value(0));
   const [attempt, setAttempt] = useState(0);
+  const [feed] = useState(hearingFeed); // mic levels + live transcripts → the Hearing card
   const handle = useRef<VoiceHandle | null>(null);
   const session = useRef<string | null>(null);
 
@@ -131,6 +133,8 @@ export default function Voice() {
               setPhase("live");
             },
             agentLeft: () => setPhase("ended"),
+            mic: feed.mic,
+            heard: feed.heard,
           },
           mic,
         );
@@ -241,6 +245,12 @@ export default function Voice() {
           </Row>
         ) : null}
       </View>
+
+      {phase === "live" ? (
+        <View style={{ paddingHorizontal: 18, paddingTop: 12, width: "100%", maxWidth: 520, alignSelf: "center" }}>
+          <Hearing feed={feed} muted={muted} />
+        </View>
+      ) : null}
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 18, gap: 16, width: "100%", maxWidth: 520, alignSelf: "center" }}>
         {ideas ? <IdeasCard card={ideas} /> : null}
