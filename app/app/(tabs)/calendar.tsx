@@ -1,5 +1,6 @@
+import { useFocusEffect } from "expo-router";
 import { Gift, Pencil, Plus, Trash2 } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { MonthArrow, monthCells, shiftYm, WeekdayHeader, WeekRows, ymKey, ymOf, type Ym } from "@/components/DatePicker";
 import { daysLabel, OccasionRow, openOccasion, urgencyOf } from "@/components/dates";
@@ -147,16 +148,19 @@ export default function CalendarScreen() {
   const [selected, setSelected] = useState<string | null>(null);
   const load = useCallback(() => api.feed().then(setFeed).catch(() => undefined), []);
 
-  useEffect(() => {
-    let alive = true;
-    api
-      .feed()
-      .then((f) => alive && setFeed(f))
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, []);
+  // every visit: back from a call or a chat, Xerxes may have added, moved or removed an event
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      api
+        .feed()
+        .then((f) => alive && setFeed(f))
+        .catch(() => undefined);
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
 
   // one sheet: menu (find a gift / edit / delete) → form or confirm; "edit" without an occasion = add
   const [sheet, setSheet] = useState<{ n: number; mode: Mode; o: Occ | null; date?: string }>({ n: 0, mode: "edit", o: null });

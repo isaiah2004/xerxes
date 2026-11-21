@@ -1,6 +1,6 @@
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { BookOpen, Cake, Cpu, Gamepad2, Gift, Library, Mic, PartyPopper, Truck, Wallet, type LucideIcon } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ScrollView, useWindowDimensions, View } from "react-native";
 import { OccasionCard } from "@/components/dates";
 import { Screen } from "@/components/Screen";
@@ -172,24 +172,27 @@ export default function Today() {
       })
       .catch((e: Error) => setError(e.message));
 
-  useEffect(() => {
-    let alive = true;
-    const tick = () =>
-      api
-        .feed()
-        .then((f) => {
-          if (!alive) return;
-          setFeed(f);
-          setError(null);
-        })
-        .catch((e: Error) => alive && setError(e.message));
-    tick();
-    const t = setInterval(tick, 30_000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, []);
+  // fresh on every visit (a call or a chat may have changed things), then every 30s while it's on screen
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      const tick = () =>
+        api
+          .feed()
+          .then((f) => {
+            if (!alive) return;
+            setFeed(f);
+            setError(null);
+          })
+          .catch((e: Error) => alive && setError(e.message));
+      tick();
+      const t = setInterval(tick, 30_000);
+      return () => {
+        alive = false;
+        clearInterval(t);
+      };
+    }, []),
+  );
 
   const deals = feed?.notifications.filter((n) => n.kind !== "occasion").slice(0, 4) ?? [];
   const nudge = feed?.nudges[0];

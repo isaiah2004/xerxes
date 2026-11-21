@@ -36,6 +36,33 @@ export function addPerson(db: Db, p: { name: string; relation?: string; interest
   return person;
 }
 
+export type PersonPatch = z.infer<typeof personPatch>;
+export { personPatch };
+
+/** Edits someone (shared by the People tab and the agent's update_person). */
+export function changePerson(db: Db, id: string, b: PersonPatch): Person {
+  const p = db.people.find((x) => x.id === id);
+  if (!p) throw new HttpError(404, "That person isn't in your people any more (maybe they were removed)");
+  if (b.name !== undefined && b.name !== p.name) {
+    const have = sameName(db, b.name, p.id);
+    if (have) throw new HttpError(409, `${have.name} is already in your people`);
+    // "Cousin sister's birthday" follows a rename to "Ananya's birthday"
+    for (const o of db.occasions) if (o.personIds.includes(p.id) && o.label.includes(p.name)) o.label = o.label.replace(p.name, b.name);
+    p.name = b.name;
+  }
+  if (b.relation !== undefined) p.relation = b.relation;
+  if (b.interests) p.interests = distinct(b.interests);
+  if (b.notes) p.notes = distinct(b.notes);
+  return p;
+}
+
+/** Removes someone; returns them and the birthdays/anniversaries that were only theirs (gone with them). */
+export function dropPerson(db: Db, id: string): { person: Person; removedOccasions: string[] } {
+  const person = db.people.find((p) => p.id === id);
+  if (!person) throw new HttpError(404, "That person isn't in your people any more (maybe they were removed)");
+  return { person, removedOccasions: forget(db, id) };
+}
+
 /** Takes someone off every occasion; a birthday or anniversary left with nobody goes too. Returns what went. */
 function forget(db: Db, id: string): string[] {
   const gone: string[] = [];
@@ -72,21 +99,7 @@ export function peopleRoutes(app: Hono) {
   app.patch("/api/people/:id", async (c) => {
     try {
       const b = await parse(c, personPatch);
-      const p = await mutate((db) => {
-        const p = db.people.find((x) => x.id === c.req.param("id"));
-        if (!p) throw new HttpError(404, "That person isn't in your people any more (maybe they were removed)");
-        if (b.name !== undefined && b.name !== p.name) {
-          const have = sameName(db, b.name, p.id);
-          if (have) throw new HttpError(409, `${have.name} is already in your people`);
-          // "Cousin sister's birthday" follows a rename to "Ananya's birthday"
-          for (const o of db.occasions) if (o.personIds.includes(p.id) && o.label.includes(p.name)) o.label = o.label.replace(p.name, b.name);
-          p.name = b.name;
-        }
-        if (b.relation !== undefined) p.relation = b.relation;
-        if (b.interests) p.interests = distinct(b.interests);
-        if (b.notes) p.notes = distinct(b.notes);
-        return p;
-      });
+      const p = await mutate((db) => changePerson(db, c.req.param("id"), b));
       return c.json(p);
     } catch (e) {
       return fail(c, e);
@@ -96,10 +109,7 @@ export function peopleRoutes(app: Hono) {
   app.delete("/api/people/:id", async (c) => {
     try {
       const id = c.req.param("id");
-      const removedOccasions = await mutate((db) => {
-        if (!db.people.some((p) => p.id === id)) throw new HttpError(404, "That person isn't in your people any more (maybe they were removed)");
-        return forget(db, id);
-      });
+      const { removedOccasions } = await mutate((db) => dropPerson(db, id));
       return c.json({ ok: true, id, removedOccasions });
     } catch (e) {
       return fail(c, e);

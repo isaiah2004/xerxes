@@ -121,30 +121,125 @@ function normalise(db: Db, o: Occasion, addsPerson: boolean): Occasion {
 
 const withNext = (o: Occasion) => ({ ...o, nextDate: nextOccurrence(o) });
 
+// ---------------------------------------------------------------- operations (routes and the agent's tools share them)
+export type WatchCreate = z.infer<typeof watchCreate>;
+export type WatchPatch = z.infer<typeof watchPatch>;
+export type OccasionCreate = z.infer<typeof occasionCreate>;
+export type OccasionPatch = z.infer<typeof occasionPatch>;
+export { occasionCreate, occasionPatch, watchCreate, watchPatch, withNext };
+type NewPerson = { name: string; relation: string };
+
+export function addWatch(db: Db, b: WatchCreate): Watch {
+  const dupe = db.watches.find((x) => sameWatch(x, b));
+  if (dupe) throw new HttpError(409, `Already tracking “${dupe.query}”${dupe.active ? "" : " (paused)"}`);
+  const project = b.projectId ? projectFor(db, b.projectId) : undefined;
+  const w: Watch = {
+    id: newId(),
+    kind: b.kind,
+    query: b.query,
+    ...(b.maxPrice ? { maxPrice: b.maxPrice } : {}),
+    ...(b.notes ? { notes: b.notes } : {}),
+    ...(project ? { projectId: project.id } : {}),
+    active: true,
+    createdAt: new Date().toISOString(),
+  };
+  db.watches.unshift(w);
+  if (project) touchProject(project);
+  return w;
+}
+
+export function changeWatch(db: Db, id: string, b: WatchPatch): Watch {
+  const w = findWatch(db, id);
+  const query = b.query;
+  if (query !== undefined && db.watches.some((x) => x !== w && sameWatch(x, { kind: w.kind, query })))
+    throw new HttpError(409, `Already tracking “${query}”`);
+  if (b.projectId) projectFor(db, b.projectId); // checked before anything changes
+  if (b.active !== undefined) w.active = b.active;
+  if (query !== undefined && query !== w.query) {
+    w.query = query;
+    delete w.lastCheckedAt; // a new search starts fresh
+    delete w.lastError;
+  }
+  if (b.maxPrice === null) delete w.maxPrice;
+  else if (b.maxPrice) w.maxPrice = b.maxPrice;
+  if (b.notes === null || b.notes === "") delete w.notes;
+  else if (b.notes) w.notes = b.notes;
+  if (b.projectId === null) delete w.projectId;
+  else if (b.projectId) w.projectId = projectFor(db, b.projectId).id;
+  return w;
+}
+
+export function dropWatch(db: Db, id: string): Watch {
+  const w = findWatch(db, id);
+  // seed watches are tombstoned in db.seededWatches, so a removed one stays gone
+  db.watches = db.watches.filter((x) => x.id !== id);
+  return w;
+}
+
+/** newPeople: names Xerxes doesn't know yet, remembered as people (checked first, so a bad date adds nobody). */
+export function addOccasion(db: Db, b: OccasionCreate, newPeople: NewPerson[] = b.newPerson ? [b.newPerson] : []): Occasion {
+  if (b.id && db.occasions.some((x) => x.id === b.id)) throw new HttpError(409, `id "${b.id}" is already used`);
+  const draft = normalise(
+    db,
+    {
+      id: b.id ?? uniqueId(slug(b.label), (id) => db.occasions.some((x) => x.id === id) || !!db.seededOccasions?.includes(id)),
+      personIds: [...new Set(b.personIds)],
+      kind: b.kind,
+      label: b.label,
+      date: b.date,
+      budget: b.budget,
+      remindDaysBefore: b.remindDaysBefore,
+      bufferDays: b.bufferDays ?? (b.kind === "festival" ? 3 : 2), // same lead time as the seeded ones
+    },
+    newPeople.length > 0,
+  );
+  for (const np of newPeople) {
+    const p = personFor(db, np);
+    if (!draft.personIds.includes(p.id)) draft.personIds.push(p.id);
+  }
+  db.occasions.push(draft);
+  return draft;
+}
+
+export function changeOccasion(db: Db, id: string, fields: Omit<OccasionPatch, "newPerson">, newPeople: NewPerson[] = []): Occasion {
+  const cur = db.occasions.find((x) => x.id === id);
+  if (!cur) throw new HttpError(404, "That occasion doesn't exist (maybe already removed)");
+  const next = normalise(db, { ...cur, ...fields, personIds: [...new Set(fields.personIds ?? cur.personIds)] }, newPeople.length > 0);
+  for (const np of newPeople) {
+    const p = personFor(db, np);
+    if (!next.personIds.includes(p.id)) next.personIds.push(p.id);
+  }
+  // a moved date gets a fresh reminder for the new day
+  if (next.date !== cur.date) db.notifications = db.notifications.filter((n) => !n.dedupeKey.startsWith(`occ:${cur.id}:`));
+  Object.assign(cur, next);
+  return cur;
+}
+
+export function dropOccasion(db: Db, id: string): Occasion {
+  const o = db.occasions.find((x) => x.id === id);
+  if (!o) throw new HttpError(404, "That occasion doesn't exist (maybe already removed)");
+  // a seed occasion's id stays in db.seededOccasions, so mergeSeed won't bring it back
+  db.occasions = db.occasions.filter((x) => x.id !== id);
+  db.notifications = db.notifications.filter((n) => !n.dedupeKey.startsWith(`occ:${id}:`));
+  return o;
+}
+
+/** Fresh finds: dismissed = gone from the feed, and the watcher won't re-announce the same deal. */
+export function dismissFind(db: Db, id: string) {
+  const n = db.notifications.find((x) => x.id === id);
+  if (!n) throw new HttpError(404, "That find doesn't exist (maybe already dismissed)");
+  db.notifications = db.notifications.filter((x) => x.id !== id);
+  db.dismissedFinds = [n.dedupeKey, ...(db.dismissedFinds ?? []).filter((k) => k !== n.dedupeKey)].slice(0, 500);
+  return n;
+}
+
 // ---------------------------------------------------------------- routes
 export function manageRoutes(app: Hono) {
   // ---- Tracking: items (watches)
   app.post("/api/watches", async (c) => {
     try {
       const b = await parse(c, watchCreate);
-      const w = await mutate((db) => {
-        const dupe = db.watches.find((x) => sameWatch(x, b));
-        if (dupe) throw new HttpError(409, `Already tracking “${dupe.query}”${dupe.active ? "" : " (paused)"}`);
-        const project = b.projectId ? projectFor(db, b.projectId) : undefined;
-        const w: Watch = {
-          id: newId(),
-          kind: b.kind,
-          query: b.query,
-          ...(b.maxPrice ? { maxPrice: b.maxPrice } : {}),
-          ...(b.notes ? { notes: b.notes } : {}),
-          ...(project ? { projectId: project.id } : {}),
-          active: true,
-          createdAt: new Date().toISOString(),
-        };
-        db.watches.unshift(w);
-        if (project) touchProject(project);
-        return w;
-      });
+      const w = await mutate((db) => addWatch(db, b));
       return c.json(w, 201);
     } catch (e) {
       return fail(c, e);
@@ -154,25 +249,7 @@ export function manageRoutes(app: Hono) {
   app.patch("/api/watches/:id", async (c) => {
     try {
       const b = await parse(c, watchPatch);
-      const w = await mutate((db) => {
-        const w = findWatch(db, c.req.param("id"));
-        const query = b.query;
-        if (query !== undefined && db.watches.some((x) => x !== w && sameWatch(x, { kind: w.kind, query })))
-          throw new HttpError(409, `Already tracking “${query}”`);
-        if (b.active !== undefined) w.active = b.active;
-        if (query !== undefined && query !== w.query) {
-          w.query = query;
-          delete w.lastCheckedAt; // a new search starts fresh
-          delete w.lastError;
-        }
-        if (b.maxPrice === null) delete w.maxPrice;
-        else if (b.maxPrice) w.maxPrice = b.maxPrice;
-        if (b.notes === null || b.notes === "") delete w.notes;
-        else if (b.notes) w.notes = b.notes;
-        if (b.projectId === null) delete w.projectId;
-        else if (b.projectId) w.projectId = projectFor(db, b.projectId).id;
-        return w;
-      });
+      const w = await mutate((db) => changeWatch(db, c.req.param("id"), b));
       return c.json(w);
     } catch (e) {
       return fail(c, e);
@@ -182,11 +259,7 @@ export function manageRoutes(app: Hono) {
   app.delete("/api/watches/:id", async (c) => {
     try {
       const id = c.req.param("id");
-      await mutate((db) => {
-        findWatch(db, id);
-        // seed watches are tombstoned in db.seededWatches, so a removed one stays gone
-        db.watches = db.watches.filter((x) => x.id !== id);
-      });
+      await mutate((db) => dropWatch(db, id));
       return c.json({ ok: true, id });
     } catch (e) {
       return fail(c, e);
@@ -197,29 +270,7 @@ export function manageRoutes(app: Hono) {
   app.post("/api/occasions", async (c) => {
     try {
       const b = await parse(c, occasionCreate);
-      const o = await mutate((db) => {
-        if (b.id && db.occasions.some((x) => x.id === b.id)) throw new HttpError(409, `id "${b.id}" is already used`);
-        const draft = normalise(
-          db,
-          {
-            id: b.id ?? uniqueId(slug(b.label), (id) => db.occasions.some((x) => x.id === id) || !!db.seededOccasions?.includes(id)),
-            personIds: [...new Set(b.personIds)],
-            kind: b.kind,
-            label: b.label,
-            date: b.date,
-            budget: b.budget,
-            remindDaysBefore: b.remindDaysBefore,
-            bufferDays: b.bufferDays ?? (b.kind === "festival" ? 3 : 2), // same lead time as the seeded ones
-          },
-          !!b.newPerson,
-        );
-        if (b.newPerson) {
-          const p = personFor(db, b.newPerson);
-          if (!draft.personIds.includes(p.id)) draft.personIds.push(p.id);
-        }
-        db.occasions.push(draft);
-        return draft;
-      });
+      const o = await mutate((db) => addOccasion(db, b));
       return c.json(withNext(o), 201);
     } catch (e) {
       return fail(c, e);
@@ -229,19 +280,7 @@ export function manageRoutes(app: Hono) {
   app.patch("/api/occasions/:id", async (c) => {
     try {
       const { newPerson, ...fields } = await parse(c, occasionPatch);
-      const o = await mutate((db) => {
-        const cur = db.occasions.find((x) => x.id === c.req.param("id"));
-        if (!cur) throw new HttpError(404, "That occasion doesn't exist (maybe already removed)");
-        const next = normalise(db, { ...cur, ...fields, personIds: [...new Set(fields.personIds ?? cur.personIds)] }, !!newPerson);
-        if (newPerson) {
-          const p = personFor(db, newPerson);
-          if (!next.personIds.includes(p.id)) next.personIds.push(p.id);
-        }
-        // a moved date gets a fresh reminder for the new day
-        if (next.date !== cur.date) db.notifications = db.notifications.filter((n) => !n.dedupeKey.startsWith(`occ:${cur.id}:`));
-        Object.assign(cur, next);
-        return cur;
-      });
+      const o = await mutate((db) => changeOccasion(db, c.req.param("id"), fields, newPerson ? [newPerson] : []));
       return c.json(withNext(o));
     } catch (e) {
       return fail(c, e);
@@ -251,14 +290,7 @@ export function manageRoutes(app: Hono) {
   app.delete("/api/occasions/:id", async (c) => {
     try {
       const id = c.req.param("id");
-      const removed = await mutate((db) => {
-        const o = db.occasions.find((x) => x.id === id);
-        if (!o) throw new HttpError(404, "That occasion doesn't exist (maybe already removed)");
-        // a seed occasion's id stays in db.seededOccasions, so mergeSeed won't bring it back
-        db.occasions = db.occasions.filter((x) => x.id !== id);
-        db.notifications = db.notifications.filter((n) => !n.dedupeKey.startsWith(`occ:${id}:`));
-        return o;
-      });
+      const removed = await mutate((db) => dropOccasion(db, id));
       // the removed occasion comes back so the app can offer an undo (POST it again with the same id)
       return c.json({ ok: true, id, removed });
     } catch (e) {
@@ -269,13 +301,11 @@ export function manageRoutes(app: Hono) {
   // ---- Fresh finds: dismissed = gone from the feed, and the watcher won't re-announce the same deal
   app.delete("/api/notifications/:id", async (c) => {
     const id = c.req.param("id");
-    const found = await mutate((db) => {
-      const n = db.notifications.find((x) => x.id === id);
-      if (!n) return false;
-      db.notifications = db.notifications.filter((x) => x.id !== id);
-      db.dismissedFinds = [n.dedupeKey, ...(db.dismissedFinds ?? []).filter((k) => k !== n.dedupeKey)].slice(0, 500);
-      return true;
-    });
-    return found ? c.json({ ok: true, id }) : c.json({ error: "That find doesn't exist (maybe already dismissed)" }, 404);
+    try {
+      await mutate((db) => dismissFind(db, id));
+      return c.json({ ok: true, id });
+    } catch (e) {
+      return fail(c, e);
+    }
   });
 }

@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { startTurn } from "./agent.js";
 import { codexLoggedIn } from "./codex.js";
 import { env, mask } from "./env.js";
+import { findLanguage, LANGUAGES, languageOf } from "./languages.js";
 import { handleMcp } from "./mcp.js";
 import { upcoming } from "./occasions.js";
 import { getRun } from "./runs.js";
@@ -64,6 +65,23 @@ app.get("/api/feed", async (c) => {
     projects: listProjects(db).map((p) => projectSummary(db, p)),
     shortlist: db.shortlist,
   });
+});
+
+// ---- Settings (Profile → Language): the language Xerxes hears, speaks and replies in. App text stays English. ----
+const settings = async () => ({
+  language: languageOf((await readDb()).profile.language).code,
+  languages: LANGUAGES.map(({ code, name, native }) => ({ code, name, native })),
+});
+app.get("/api/settings", async (c) => c.json(await settings()));
+app.patch("/api/settings", async (c) => {
+  const b: { language?: unknown } = await c.req.json().catch(() => ({}));
+  const lang = typeof b.language === "string" ? findLanguage(b.language) : undefined;
+  if (!lang) return c.json({ error: `Pick one of: ${LANGUAGES.map((l) => l.name).join(", ")}` }, 400);
+  await mutate((db) => {
+    db.profile.language = lang.code;
+  });
+  console.log(`[settings] language → ${lang.name} (chat now, voice from the next call)`);
+  return c.json(await settings());
 });
 
 app.post("/api/notifications/:id/read", async (c) => {

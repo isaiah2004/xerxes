@@ -16,16 +16,21 @@ export const fail = (c: Context, e: unknown) => {
   throw e;
 };
 
-/** JSON body checked against a schema; the first problem becomes a readable 400. */
-export async function parse<S extends z.ZodType>(c: Context, schema: S): Promise<z.infer<S>> {
-  const raw: unknown = await c.req.json().catch(() => undefined);
-  if (raw === undefined) throw new HttpError(400, "Send a JSON body");
+/** Checked against a schema; the first problem becomes a readable 400. The agent's tools use it too. */
+export function check<S extends z.ZodType>(schema: S, raw: unknown): z.infer<S> {
   const r = schema.safeParse(raw);
   if (!r.success) {
     const i = r.error.issues[0];
     throw new HttpError(400, i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message);
   }
   return r.data;
+}
+
+/** JSON body checked against a schema. */
+export async function parse<S extends z.ZodType>(c: Context, schema: S): Promise<z.infer<S>> {
+  const raw: unknown = await c.req.json().catch(() => undefined);
+  if (raw === undefined) throw new HttpError(400, "Send a JSON body");
+  return check(schema, raw);
 }
 
 export const currency = z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "use a 3-letter currency code");

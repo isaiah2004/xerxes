@@ -1,5 +1,6 @@
 import { CodexAuthError, runCodex, type CodexTurn } from "./codex.js";
 import { env } from "./env.js";
+import { languageOf, replyIn, type Language } from "./languages.js";
 import { upcoming } from "./occasions.js";
 import { bindConversation, logSearch, projectContext, projectOf, projectStats, setSearchReply } from "./projects.js";
 import { createRun, emit, runsFor, type Run } from "./runs.js";
@@ -14,18 +15,31 @@ export type Mode = "text" | "voice";
 const VOICE_PACE =
   "Be quick: about 5 tool calls (one search, at most one product page, check_offers, then show_products and show_recommendation).";
 
-async function preamble(mode: Mode) {
+/** Running the app by voice: every screen's add / edit / remove, as tools. */
+const APP_CONTROL =
+  "You can run the whole app for the user, by voice or chat, with these tools: " +
+  "People: save_person (add someone, or add what they like), update_person (rename, change how they're related, replace interests or notes), remove_person. " +
+  "Calendar: add_occasion (a birthday, an anniversary, a festival or any event; MM-DD repeats every year, YYYY-MM-DD happens once; name the people it's for, new names are added to their people), update_occasion, remove_occasion. " +
+  "Tracking: create_watch (a game, a book, a product or second-hand hardware, with an optional target price), update_watch (pause, resume, change the target price or what to look for), remove_watch. " +
+  "Projects: create_project, update_project (rename, change the goal or budget, mark it done or active again), add_to_project, remove_from_project, remove_project. " +
+  "Profile: update_profile (their name, delivery city and PIN code, and the language you talk in). Fresh finds: dismiss_find. " +
+  "When they ask for one of these, do it right away (no searching), then confirm in one short sentence what changed. " +
+  "Only remove something they clearly asked to remove; if it's ambiguous which one they mean, ask. Ids are in the context; after a change, call get_context if you need fresh ones.";
+
+async function preamble(mode: Mode, lang: Language) {
   const db = await readDb();
   const ctx = {
     today: toIso(today()),
     profile: db.profile,
     memory: db.memory,
     people: db.people,
-    upcoming: upcoming(db, 120).map((o) => ({
-      id: o.id, label: o.label, date: o.nextDate, daysLeft: o.daysLeft, arriveBy: o.arriveBy,
+    upcoming: upcoming(db, 400).map((o) => ({
+      id: o.id, label: o.label, kind: o.kind, date: o.nextDate, daysLeft: o.daysLeft, arriveBy: o.arriveBy,
       turningAge: o.turningAge, budget: o.budget, people: o.people.map((p) => p.name),
     })),
-    projects: db.projects.filter((p) => p.status === "active").map((p) => ({ projectId: p.id, name: p.name, goal: p.goal })),
+    projects: db.projects.map((p) => ({ projectId: p.id, name: p.name, goal: p.goal, status: p.status })),
+    tracking: db.watches.map((w) => ({ watchId: w.id, kind: w.kind, query: w.query, maxPrice: w.maxPrice, active: w.active, projectId: w.projectId })),
+    finds: db.notifications.filter((n) => !n.read && n.kind !== "occasion").slice(0, 8).map((n) => ({ findId: n.id, title: n.title, body: n.body })),
   };
   return `You are Xerxes, a proactive personal shopping agent that makes shopping genuinely fun and stress-free.
 You act through the "xerxes" MCP tools ONLY. Never run shell commands or edit files.
@@ -40,9 +54,11 @@ How you work:
 - Be efficient: aim for at most ~10 tool calls per turn. Run one broad search_books, pick 2-3 candidates, then verify price/delivery on 1-2 retailer pages each. Don't re-search the same thing.
 - Save durable facts the user tells you with remember. When they mention someone new they shop for (a friend, a colleague, a family), save them with save_person, with whatever you learn about what they like.
 - Projects: the user groups related purchases into projects (e.g. a living room makeover, a home lab). Each one holds how things are now, what they bought and spent, what they plan, and what they asked before. When a request belongs to one of their projects (see "projects" in the context), call get_project first and build on it: don't suggest what they already own, make it fit their setup, and respect the budget that's left. Save new facts, plans and purchases for a project with add_to_project (when they buy a planned item, pass its planId). If they start something that will take several purchases, offer to make it a project with create_project.
+- ${APP_CONTROL}
 - ${mode === "voice"
-    ? `You are SPEAKING on a live voice call and the caller is waiting. ${VOICE_PACE} Reply in 1-3 short conversational sentences, no markdown, no lists, no URLs, say prices like 'thirteen hundred rupees'.`
+    ? `You are SPEAKING on a live voice call and the caller is waiting. ${VOICE_PACE} Reply in 1-3 short conversational sentences, no markdown, no lists, no URLs, ${lang.code === "en" ? "say prices like 'thirteen hundred rupees'" : "say prices in words, the way people say them out loud"}.`
     : "Final reply: 1-3 short sentences (the cards carry the detail). No markdown tables, no URLs."}
+- Language: ${replyIn(lang)}
 
 Context (JSON): ${JSON.stringify(ctx)}`;
 }
@@ -51,9 +67,9 @@ Context (JSON): ${JSON.stringify(ctx)}`;
  * context: app-side facts the user didn't say (e.g. which card started a voice call); goes in the prompt, not the transcript.
  * projectId: the chat was opened from a project. The conversation stays tied to it for every later turn.
  */
-export async function startTurn(conversationId: string, userText: string, mode: Mode = "text", context?: string, projectId?: string): Promise<Run> {
+export async function startTurn(conversationId: string, userText: string, mode: Mode = "text", context?: string, projectId?: string, lang?: string): Promise<Run> {
   const run = createRun(conversationId, userText);
-  void execute(run, mode, context, projectId);
+  void execute(run, mode, context, projectId, lang);
   return run;
 }
 
@@ -99,18 +115,20 @@ function recap(run: Run): string {
   return lines.length ? `Earlier in this conversation:\n${lines.join("\n")}\n\n` : "";
 }
 
-async function execute(run: Run, mode: Mode, context?: string, projectId?: string) {
+async function execute(run: Run, mode: Mode, context?: string, projectId?: string, langCode?: string) {
   const inProject = await projectTurn(run, projectId).catch((e: Error) => {
     console.warn(`[agent] project context skipped: ${e.message}`);
     return undefined;
   });
+  // a call keeps the language it started in; a chat follows the setting, turn by turn
+  const lang = languageOf(langCode ?? (await readDb()).profile.language);
   const about = [context, inProject?.note].filter(Boolean).join(" ");
   const note = about ? `(Context, not said by the user: ${about})\n` : "";
   const turn = async (threadId?: string) =>
     runCodex({
       prompt: threadId
-        ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : ""}] ${note}${run.userText}`
-        : `${await preamble(mode)}\n\n${recap(run)}${note}User: ${run.userText}`,
+        ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : ""} · ${replyIn(lang)}] ${note}${run.userText}`
+        : `${await preamble(mode, lang)}\n\n${recap(run)}${note}User: ${run.userText}`,
       threadId,
       mcpUrl: `http://127.0.0.1:${env.port}/mcp/${run.id}`,
       onSearch: (s) => emit(run.id, { type: "step", stepId: `web-${s.id}`, label: s.label, state: s.done ? "done" : "running" }),

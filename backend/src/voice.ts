@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { startTurn } from "./agent.js";
 import { env } from "./env.js";
 import { AGENT_UID, USER_UID, agentStatus, startAgent, stopAgent, userRtcToken } from "./integrations/agora.js";
+import { languageOf, type Language } from "./languages.js";
 import { upcoming } from "./occasions.js";
 import { bindConversation, listProjects, projectOf } from "./projects.js";
 import { getRun, runsFor, type Run, type RunEvent } from "./runs.js";
@@ -13,7 +14,7 @@ import { readDb, type Db, type Notification } from "./store.js";
 
 /** llmKey: per-session secret handed to Agora as llm.api_key; checked when Agora sends it back as a Bearer token.
  *  context: where the call was started from (a card, a deal) + what Xerxes opened with; handed to the first turn only. */
-type VoiceSession = { id: string; channel: string; agentId?: string; llmKey?: string; runIds: string[]; context?: string };
+type VoiceSession = { id: string; channel: string; agentId?: string; llmKey?: string; runIds: string[]; context?: string; lang: Language };
 const sessions = new Map<string, VoiceSession>();
 const log = (id: string, msg: string) => console.log(`[voice ${id.slice(0, 8)}] ${msg}`);
 
@@ -43,12 +44,21 @@ function findLine(n: Notification) {
  * The centre mic button: Xerxes opens with whatever is worth knowing right now (an upcoming birthday, else a new
  * deal, else the next step of a project) and keeps the rest ready for "anything else?".
  */
-function briefing(db: Db, name: string) {
+function briefing(db: Db, name: string, lang: Language) {
   const occasion = upcoming(db, 60).find((o) => o.inReminderWindow);
   const finds = db.notifications.filter((n) => n.kind !== "occasion" && !n.read).slice(0, 3);
   const project = listProjects(db).find((p) => p.status === "active" && p.entries.some((e) => e.kind === "plan"));
   const plan = project?.entries.find((e) => e.kind === "plan");
-  const greeting = occasion
+  const say = lang.phrases;
+  const greeting = say
+    ? occasion
+      ? say.occasion(name, occasion.label, occasion.daysLeft)
+      : finds[0]
+        ? say.deal(name)
+        : project
+          ? say.project(name, project.name)
+          : say.hello(name)
+    : occasion
     ? `Hey ${name}! Heads up, ${occasion.label.toLowerCase()} is in ${occasion.daysLeft} days. Want me to find something?`
     : finds[0]
       ? `Hey ${name}! Good news: ${findLine(finds[0])}. Want me to take a look?`
@@ -73,8 +83,18 @@ const siteName = (host: string) => {
   return base.charAt(0).toUpperCase() + base.slice(1);
 };
 
+/** In another language, the same moments get one of a few short lines (the step labels themselves are English). */
+function narrateIn(say: NonNullable<Language["phrases"]>, label: string): string | undefined {
+  if (/^(Searched|Searching|Scanned|Checked game stores)/.test(label)) return say.search;
+  if (label.startsWith("Checked price, budget and delivery")) return say.budget;
+  if (/^(Opened|Checked) /.test(label)) return say.check;
+  if (/^(Watching for|Added|Started|Saved|Updated|Removed|Paused|Resumed|Moved|Renamed|Changed)/.test(label)) return say.save;
+  return undefined;
+}
+
 /** What Xerxes says out loud when a tool step starts, so a caller hears the real work instead of silence. */
-export function narrate(label: string): string | undefined {
+export function narrate(label: string, lang?: Language): string | undefined {
+  if (lang?.phrases) return narrateIn(lang.phrases, label);
   let m: RegExpMatchArray | null;
   if (label.startsWith("Searched book catalogues")) return "Looking through book catalogues.";
   if (/^Search(ed|ing) the web/.test(label)) return "Searching the online stores.";
@@ -87,6 +107,8 @@ export function narrate(label: string): string | undefined {
   if ((m = label.match(/^Recalled your (.+) project/))) return `Pulling up your ${lowerFirst(m[1])} notes.`;
   if (label.startsWith("Added to your project")) return "Adding that to your project.";
   if (label.startsWith("Started a project")) return "Starting a project for this.";
+  if (/to your calendar$|on your calendar$/.test(label)) return "Updating your calendar.";
+  if (/to your people$|from your people$/.test(label)) return "Updating your people.";
   return undefined;
 }
 
@@ -136,8 +158,19 @@ export function voiceRoutes(app: Hono) {
     const continuing = !!body.conversationId && runsFor(id).some((r) => r.status === "done");
     // Only the centre mic button opens with a briefing (an upcoming birthday, a new deal...). Every other call
     // starts from something specific and sticks to it.
-    const brief = body.briefing === true && !topic && !hello && !occasion && !project && !continuing ? briefing(db, name) : undefined;
-    const greeting = hello
+    // the caller's language (Profile → Language): Agora listens for it, Murf speaks it, and Xerxes opens in it
+    const lang = languageOf(db.profile.language);
+    const say = lang.phrases;
+    const brief = body.briefing === true && !topic && !hello && !occasion && !project && !continuing ? briefing(db, name, lang) : undefined;
+    const greeting = say
+      ? continuing
+        ? say.continuing(name)
+        : occasion
+          ? say.occasion(name, occasion.label, occasion.daysLeft)
+          : project
+            ? say.project(name, project.name)
+            : (brief?.greeting ?? say.hello(name))
+      : hello
       ? `Hey ${name}! ${hello}`
       : continuing
         ? `Hey ${name}! Picking up where we left off${topic ? ` on ${lowerFirst(topic)}` : ""}. What's next?`
@@ -165,9 +198,13 @@ export function voiceRoutes(app: Hono) {
         llmKey,
         greeting,
         instructions: "You are Xerxes, a proactive voice shopping agent.",
+        asrLanguage: lang.asr,
+        voiceId: lang.voice,
+        locale: lang.locale,
+        failureMessage: say?.snag,
       });
-      sessions.set(id, { id, channel, agentId: agent.agent_id, llmKey, runIds: sessions.get(id)?.runIds ?? [], context });
-      log(id, `agent ${agent.agent_id} started in ${channel} (${agent.status})${topic ? ` from "${topic}"` : ""}`);
+      sessions.set(id, { id, channel, agentId: agent.agent_id, llmKey, runIds: sessions.get(id)?.runIds ?? [], context, lang });
+      log(id, `agent ${agent.agent_id} started in ${channel} (${agent.status})${topic ? ` from "${topic}"` : ""}${say ? ` · ${lang.name}` : ""}`);
       return c.json({ sessionId: id, appId: env.agoraAppId, channel, uid: USER_UID, agentUid: AGENT_UID, token: userRtcToken(channel), agentId: agent.agent_id, greeting });
     } catch (e) {
       log(id, `agent failed to start: ${(e as Error).message}`);
@@ -228,7 +265,9 @@ export function voiceRoutes(app: Hono) {
     session.context = undefined;
     const first = session.runIds.length === 0;
     const project = projectOf(await readDb(), id);
-    const run = await startTurn(id, text, "voice", context);
+    // the whole call stays in the language it started in (Agora's ASR and Murf's voice are fixed for this agent)
+    const run = await startTurn(id, text, "voice", context, undefined, session.lang.code);
+    const p = session.lang.phrases;
     session.runIds.push(run.id);
     const chunkId = `chatcmpl-${run.id.slice(0, 8)}`;
     const t0 = Date.now();
@@ -266,13 +305,14 @@ export function voiceRoutes(app: Hono) {
           lastSpoke = Date.now();
           send(sseChunk(chunkId, `${line} `));
         };
-        ack = setTimeout(() => say(first && project ? `On it, pulling up your ${lowerFirst(project.name)} notes.` : "On it, give me a moment."), 1500);
+        ack = setTimeout(() => say(p ? p.ack : first && project ? `On it, pulling up your ${lowerFirst(project.name)} notes.` : "On it, give me a moment."), 1500);
+        const fillers = p?.fillers ?? FILLERS;
         idle = setInterval(() => {
-          if (Date.now() - lastSpoke >= 16_000 && filler < FILLERS.length) say(FILLERS[filler++]);
+          if (Date.now() - lastSpoke >= 16_000 && filler < fillers.length) say(fillers[filler++]);
         }, 2000);
         onStep = (e) => {
           if (e.type !== "step" || e.state !== "running" || Date.now() - lastSpoke < 7000) return;
-          const line = narrate(e.label);
+          const line = narrate(e.label, session.lang);
           if (line) say(line);
         };
         run.listeners.add(onStep);
@@ -281,9 +321,9 @@ export function voiceRoutes(app: Hono) {
           stopNarrating();
           const msg = run.events.find((e) => e.type === "message");
           const err = run.events.find((e) => e.type === "error");
-          const reply = msg && msg.type === "message" && msg.text ? msg.text : "Sorry, I couldn't finish that one. Mind trying again?";
+          const reply = msg && msg.type === "message" && msg.text ? msg.text : (p?.sorry ?? "Sorry, I couldn't finish that one. Mind trying again?");
           log(id, `run ${run.id.slice(0, 8)} ${run.status} in ${secs()}${err && err.type === "error" ? ` (${err.message.slice(0, 200)})` : ""}${open ? "" : " (caller had moved on)"}: "${reply.slice(0, 160)}"`);
-          for (const part of reply.match(/[^.!?]+[.!?]*\s*/g) ?? [reply]) send(sseChunk(chunkId, part));
+          for (const part of reply.match(/[^.!?।]+[.!?।]*\s*/g) ?? [reply]) send(sseChunk(chunkId, part));
           send(sseChunk(chunkId, null, "stop"));
           send("data: [DONE]\n\n");
           if (open) {

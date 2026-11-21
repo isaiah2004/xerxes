@@ -78,8 +78,13 @@ export type ProjectSummary = {
 };
 export type Project = ProjectSummary & { entries: ProjectEntry[]; watches: Watch[] };
 
+/** A language Xerxes can talk in (Profile → Language). The app's own text stays English. */
+export type Language = { code: string; name: string; native: string };
+export type Settings = { language: string; languages: Language[] };
+
 export type Feed = {
-  profile: { name: string; city: string; postalCode: string; country: string; currency: string };
+  /** language: the code of the language Xerxes hears, speaks and replies in (unset = English) */
+  profile: { name: string; city: string; postalCode: string; country: string; currency: string; language?: string };
   nudges: Upcoming[];
   upcoming: Upcoming[];
   notifications: Notification[];
@@ -133,7 +138,10 @@ export type Card =
       project: { id: string; name: string; icon: ProjectIcon };
       created?: boolean;
       added?: { kind: ProjectEntryKind; text: string; price?: Money };
-    };
+    }
+  /** Something Xerxes changed in the app for you, by voice or chat (verb: e.g. "Added · Calendar"). */
+  | { id: string; type: "action"; area: ActionArea; verb: string; title: string; detail?: string };
+export type ActionArea = "person" | "occasion" | "watch" | "project" | "profile" | "find";
 
 export type RunEvent =
   | { seq: number; type: "step"; stepId: string; label: string; state: "running" | "done" | "error"; detail?: string }
@@ -160,6 +168,9 @@ export const api = {
     ),
   voiceStop: (sessionId: string) => j("/api/voice/stop", { method: "POST", body: JSON.stringify({ sessionId }) }),
   voiceSession: (id: string) => j<{ runIds: string[]; runs: ({ id: string; userText: string; status: string } | null)[] }>(`/api/voice/sessions/${id}`),
+  /** Profile → Language. Chat switches right away; a call keeps the language it started in, so voice switches from the next call. */
+  settings: () => j<Settings>("/api/settings"),
+  setLanguage: (language: string) => j<Settings>("/api/settings", { method: "PATCH", body: JSON.stringify({ language }) }),
 };
 
 // ---------- manage it yourself: Radar watches, Calendar occasions, Fresh finds ----------

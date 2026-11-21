@@ -8,10 +8,15 @@ import { searchHardware } from "./integrations/hardware.js";
 import { readPage, webSearch } from "./integrations/web.js";
 import { evaluateOffers } from "./offers.js";
 import { upcoming } from "./occasions.js";
-import { addPerson, distinct, sameName } from "./people.js";
-import { addEntry, bindConversation, logSearch, PROJECT_ICONS, projectContext, projectSummary, touchProject } from "./projects.js";
+import { check, HttpError } from "./http.js";
+import { findLanguage, LANGUAGES } from "./languages.js";
+import { addOccasion, changeOccasion, changeWatch, dismissFind, dropOccasion, dropWatch, occasionCreate, occasionPatch, watchPatch, withNext } from "./manage.js";
+import { addPerson, changePerson, distinct, dropPerson, personPatch, sameName } from "./people.js";
+import {
+  addEntry, bindConversation, changeProject, dropEntry, dropProject, logSearch, PROJECT_ICONS, projectContext, projectPatch, projectSummary, touchProject,
+} from "./projects.js";
 import { emit, getRun, newCardId } from "./runs.js";
-import { mutate, newId, readDb, slug, uniqueId, type Db, type Project } from "./store.js";
+import { mutate, newId, readDb, slug, uniqueId, type Db, type Money, type Project } from "./store.js";
 import { toIso, today } from "./dates.js";
 
 // Xerxes tools, exposed to Codex CLI over MCP. The run id in the URL ties tool calls to the app's live view.
@@ -77,6 +82,45 @@ async function withCover(item: { title: string; imageUrl?: string; url?: string 
 const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data) }] });
 /** Step labels are shown in the app; agent queries can be very long. */
 const clip = (s: string, n = 60) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
+/** Only the fields the agent actually passed, so a patch never clears what it didn't mention. */
+const defined = <T extends Record<string, unknown>>(o: T) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<T>;
+const money = (m: Money) => new Intl.NumberFormat("en-IN", { style: "currency", currency: m.currency, maximumFractionDigits: 0 }).format(m.amount);
+/** "2026-12-02" → "Wed, 2 Dec" */
+const day = (iso?: string | null) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) : "");
+
+/** "zara-testwala" → "Zara Testwala": the agent often passes ids, and step labels are read by people. */
+const who = (ref: string) =>
+  /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(ref)
+    ? ref.replace(/-\d+$/, "").split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+    : ref;
+
+/** Someone in their people, by personId or name. */
+function personRef(db: Db, ref: string) {
+  const p = db.people.find((x) => x.id === ref) ?? sameName(db, ref);
+  if (!p) throw new HttpError(404, `No one called "${ref}" in their people. Known: ${db.people.map((x) => `${x.id} (${x.name})`).join(", ") || "nobody yet"}`);
+  return p;
+}
+function occasionRef(db: Db, ref: string) {
+  const o = db.occasions.find((x) => x.id === ref) ?? db.occasions.find((x) => x.label.toLowerCase() === ref.trim().toLowerCase());
+  if (!o) throw new HttpError(404, `No event "${ref}" on their calendar. Call get_context for the ids.`);
+  return o;
+}
+function watchRef(db: Db, ref: string) {
+  const w = db.watches.find((x) => x.id === ref) ?? db.watches.find((x) => x.query.toLowerCase() === ref.trim().toLowerCase());
+  if (!w) throw new HttpError(404, `Not tracking "${ref}". Tracked: ${db.watches.map((x) => `${x.id} (${x.query})`).join(", ") || "nothing"}`);
+  return w;
+}
+/** People for an event: known ones by id or name; names Xerxes doesn't know yet become new people. */
+function peopleFor(db: Db, refs: string[], relation?: string) {
+  const known: string[] = [];
+  const fresh: { name: string; relation: string }[] = [];
+  for (const ref of refs.map((r) => r.trim()).filter(Boolean)) {
+    const p = db.people.find((x) => x.id === ref) ?? sameName(db, ref);
+    if (p) known.push(p.id);
+    else if (!fresh.some((f) => f.name.toLowerCase() === ref.toLowerCase())) fresh.push({ name: ref.slice(0, 60), relation: (relation ?? "").trim().slice(0, 40) });
+  }
+  return { known, fresh };
+}
 
 export function buildServer(runId: string) {
   const server = new McpServer({ name: "xerxes", version: "0.1.0" });
@@ -105,12 +149,30 @@ export function buildServer(runId: string) {
     }) as any);
   }
 
+  type Area = "person" | "occasion" | "watch" | "project" | "profile" | "find";
+  /** A small "done" card in the chat or call, so the caller sees exactly what changed in the app. */
+  const done = (area: Area, verb: string, title: string, detail?: string) =>
+    emit(runId, { type: "card", card: { id: newCardId(), type: "action", area, verb, title, ...(detail ? { detail } : {}) } });
+
   // ---------- memory & context ----------
-  tool("get_context", "Profile, long-term memory, people, upcoming occasions (with arrive-by dates and budgets) and the user's projects.", {},
+  tool("get_context", "Profile, long-term memory, people, their calendar (occasions with arrive-by dates and budgets), projects, tracked items and fresh finds, with the ids the other tools take.", {},
     () => "Recalled your profile and people",
     async () => {
       const db = await readDb();
-      return { today: toIso(today()), profile: db.profile, memory: db.memory, people: db.people, upcoming: upcoming(db, 120), projects: db.projects.map((p) => projectSummary(db, p)) };
+      return {
+        today: toIso(today()),
+        profile: db.profile,
+        languages: LANGUAGES.map((l) => l.name),
+        memory: db.memory,
+        people: db.people,
+        calendar: upcoming(db, 400).map((o) => ({
+          occasionId: o.id, label: o.label, kind: o.kind, date: o.nextDate, every: /^\d{2}-\d{2}$/.test(o.date) ? "year" : "once", daysLeft: o.daysLeft,
+          arriveBy: o.arriveBy, turningAge: o.turningAge, budget: o.budget, people: o.people.map((p) => p.id),
+        })),
+        projects: db.projects.map((p) => projectSummary(db, p)),
+        tracking: db.watches.map((w) => ({ watchId: w.id, kind: w.kind, query: w.query, maxPrice: w.maxPrice, active: w.active, projectId: w.projectId })),
+        finds: db.notifications.filter((n) => !n.read && n.kind !== "occasion").slice(0, 10).map((n) => ({ findId: n.id, title: n.title, body: n.body })),
+      };
     });
 
   tool("remember", "Save a durable fact about the user, a person or a project (preferences, home lab gear, room size...).",
@@ -138,19 +200,24 @@ export function buildServer(runId: string) {
       notes: z.array(z.string()).optional(),
     },
     (a) => `Saved ${clip(a.name)} to your people`,
-    async (a) =>
-      mutate((db) => {
+    async (a) => {
+      const out = await mutate((db) => {
         const add = (list: string[], xs: string[] = []) => distinct([...list, ...xs.map((x) => x.trim()).filter(Boolean)]).slice(0, 12);
         const have = sameName(db, a.name);
         if (have) {
+          const before = JSON.stringify([have.relation, have.interests, have.notes]);
           if (a.relation && !have.relation) have.relation = a.relation.trim().slice(0, 40);
           have.interests = add(have.interests, a.interests);
           have.notes = add(have.notes, a.notes);
-          return { saved: true, personId: have.id, updated: true };
+          return { person: { ...have }, updated: true, changed: JSON.stringify([have.relation, have.interests, have.notes]) !== before };
         }
         const p = addPerson(db, { name: a.name.trim().slice(0, 60), relation: a.relation?.trim().slice(0, 40), interests: add([], a.interests), notes: add([], a.notes) });
-        return { saved: true, personId: p.id };
-      }));
+        return { person: { ...p }, updated: false, changed: true };
+      });
+      const p = out.person;
+      if (out.changed) done("person", out.updated ? "Updated · People" : "Added · People", p.name, [p.relation, p.interests.slice(0, 3).join(", ")].filter(Boolean).join(" · ") || undefined);
+      return { saved: true, personId: p.id, ...(out.updated ? { updated: true } : {}) };
+    });
 
   // ---------- projects: buckets of context for a chain of purchases ----------
   const conversationId = getRun(runId)?.conversationId;
@@ -371,6 +438,211 @@ export function buildServer(runId: string) {
       emit(runId, { type: "card", card: { id: newCardId(), type: "watch", watch: w } as Json & { id: string; type: string } });
       return w;
     }));
+
+  // ---------- running the app by voice: everything the screens can add, change or remove ----------
+  const occasionLine = (o: Parameters<typeof withNext>[0]) =>
+    [day(withNext(o).nextDate), /^\d{2}-\d{2}$/.test(o.date) ? "every year" : "", `${money(o.budget)} budget`].filter(Boolean).join(" · ");
+
+  tool("update_person",
+    "Change someone in their people: rename them, change how they're related, or replace their interests or notes (to just add something they like, use save_person).",
+    {
+      person: z.string().describe("personId or their name"),
+      name: z.string().optional().describe("New name"),
+      relation: z.string().optional(),
+      interests: z.array(z.string()).optional().describe("Replaces the list"),
+      notes: z.array(z.string()).optional().describe("Replaces the list"),
+    },
+    (a) => `Updated ${clip(a.name ?? who(a.person))} in your people`,
+    async (a) => {
+      const p = await mutate((db) => changePerson(db, personRef(db, a.person).id, check(personPatch, defined({ name: a.name, relation: a.relation, interests: a.interests, notes: a.notes }))));
+      done("person", "Updated · People", p.name, [p.relation, p.interests.slice(0, 3).join(", ")].filter(Boolean).join(" · ") || undefined);
+      return { updated: true, personId: p.id, name: p.name };
+    });
+
+  tool("remove_person", "Remove someone from their people. Birthdays and anniversaries that were only theirs go with them.",
+    { person: z.string().describe("personId or their name") },
+    (a) => `Removed ${clip(who(a.person))} from your people`,
+    async (a) => {
+      const out = await mutate((db) => dropPerson(db, personRef(db, a.person).id));
+      done("person", "Removed · People", out.person.name, out.removedOccasions.length ? `Also off the calendar: ${out.removedOccasions.join(", ")}` : undefined);
+      return { removed: true, name: out.person.name, removedOccasions: out.removedOccasions };
+    });
+
+  tool("add_occasion",
+    "Add an event to their calendar: a birthday, an anniversary, a festival or any date they'll want a gift for. Birthdays and anniversaries need the people they're for. Xerxes reminds them ahead of it and plans the gift to arrive in time.",
+    {
+      kind: z.enum(["birthday", "anniversary", "festival", "other"]),
+      label: z.string().describe("e.g. \"Priya's birthday\", \"Diwali\", \"Ankit's farewell\""),
+      date: z.string().describe("MM-DD to repeat every year (birthdays, anniversaries), YYYY-MM-DD for a one-off"),
+      people: z.array(z.string()).optional().describe("personIds or names; a name they don't have yet is added to their people"),
+      relation: z.string().optional().describe("How a new person is related to them, e.g. colleague"),
+      budget: z.number().optional().describe("Gift budget, default 2000"),
+      currency: z.string().optional(),
+      remindDaysBefore: z.number().int().optional().describe("Default 21"),
+    },
+    (a) => `Added ${clip(a.label)} to your calendar`,
+    async (a) => {
+      const o = await mutate((db) => {
+        const { known, fresh } = peopleFor(db, a.people ?? [], a.relation);
+        const b = check(occasionCreate, defined({
+          kind: a.kind, label: a.label, date: a.date, personIds: known,
+          budget: { amount: a.budget ?? 2000, currency: (a.currency ?? db.profile.currency).toUpperCase() }, remindDaysBefore: a.remindDaysBefore,
+        }));
+        return addOccasion(db, b, fresh);
+      });
+      done("occasion", "Added · Calendar", o.label, occasionLine(o));
+      return { added: true, occasionId: o.id, nextDate: withNext(o).nextDate };
+    });
+
+  tool("update_occasion", "Change an event on their calendar: its title, date, budget, reminder, or who it's for.",
+    {
+      occasionId: z.string().describe("occasionId (or its exact title)"),
+      label: z.string().optional(),
+      kind: z.enum(["birthday", "anniversary", "festival", "other"]).optional(),
+      date: z.string().optional().describe("MM-DD every year, YYYY-MM-DD once"),
+      people: z.array(z.string()).optional().describe("Replaces who it's for: personIds or names (new names are added to their people)"),
+      relation: z.string().optional(),
+      budget: z.number().optional(),
+      currency: z.string().optional(),
+      remindDaysBefore: z.number().int().optional(),
+    },
+    (a) => `Updated ${clip(a.label ?? "an event")} on your calendar`,
+    async (a) => {
+      const o = await mutate((db) => {
+        const cur = occasionRef(db, a.occasionId);
+        const who = a.people ? peopleFor(db, a.people, a.relation) : undefined;
+        const fields = check(occasionPatch, defined({
+          kind: a.kind, label: a.label, date: a.date, personIds: who?.known,
+          budget: a.budget !== undefined ? { amount: a.budget, currency: (a.currency ?? cur.budget.currency).toUpperCase() } : undefined,
+          remindDaysBefore: a.remindDaysBefore,
+        }));
+        return changeOccasion(db, cur.id, fields, who?.fresh ?? []);
+      });
+      done("occasion", "Updated · Calendar", o.label, occasionLine(o));
+      return { updated: true, occasionId: o.id, nextDate: withNext(o).nextDate };
+    });
+
+  tool("remove_occasion", "Remove an event from their calendar.",
+    { occasionId: z.string().describe("occasionId (or its exact title)") },
+    () => "Removed an event from your calendar",
+    async (a) => {
+      const o = await mutate((db) => dropOccasion(db, occasionRef(db, a.occasionId).id));
+      done("occasion", "Removed · Calendar", o.label);
+      return { removed: true, label: o.label };
+    });
+
+  tool("update_watch", "Change something they track: pause or resume it, change the target price, or what to look for.",
+    {
+      watchId: z.string().describe("watchId (or exactly what it tracks)"),
+      active: z.boolean().optional().describe("false pauses it, true resumes it"),
+      query: z.string().optional(),
+      maxPrice: z.number().optional().describe("New target price; 0 clears it"),
+      currency: z.string().optional(),
+      notes: z.string().optional(),
+    },
+    (a) => (a.active === false ? "Paused tracking" : a.active === true ? "Resumed tracking" : "Updated what you track"),
+    async (a) => {
+      const w = await mutate((db) => {
+        const cur = watchRef(db, a.watchId);
+        const maxPrice =
+          a.maxPrice === undefined ? undefined : a.maxPrice <= 0 ? null : { amount: a.maxPrice, currency: (a.currency ?? cur.maxPrice?.currency ?? db.profile.currency).toUpperCase() };
+        return changeWatch(db, cur.id, check(watchPatch, defined({ active: a.active, query: a.query, maxPrice, notes: a.notes })));
+      });
+      done("watch", a.active === false ? "Paused · Tracking" : a.active === true ? "Resumed · Tracking" : "Updated · Tracking", w.query, w.maxPrice ? `Target ${money(w.maxPrice)}` : undefined);
+      return { updated: true, watchId: w.id, active: w.active, maxPrice: w.maxPrice };
+    });
+
+  tool("remove_watch", "Stop tracking something for good.",
+    { watchId: z.string().describe("watchId (or exactly what it tracks)") },
+    () => "Removed an item from your tracking",
+    async (a) => {
+      const w = await mutate((db) => dropWatch(db, watchRef(db, a.watchId).id));
+      done("watch", "Removed · Tracking", w.query);
+      return { removed: true, query: w.query };
+    });
+
+  tool("update_project", "Change one of their projects: rename it, change its goal or budget, or mark it done (or active again).",
+    {
+      projectId: z.string(),
+      name: z.string().optional(),
+      goal: z.string().optional(),
+      budget: z.number().optional().describe("0 clears it"),
+      currency: z.string().optional(),
+      status: z.enum(["active", "done"]).optional(),
+      icon: z.enum(PROJECT_ICONS).optional(),
+    },
+    (a) => (a.status === "done" ? "Marked a project done" : `Updated your ${clip(a.name ?? "project")} project`),
+    async (a) => {
+      const p = await mutate((db) => {
+        const cur = findProject(db, a.projectId);
+        const budget = a.budget === undefined ? undefined : a.budget <= 0 ? null : { amount: a.budget, currency: (a.currency ?? cur.budget?.currency ?? db.profile.currency).toUpperCase() };
+        return changeProject(db, cur.id, check(projectPatch, defined({ name: a.name, goal: a.goal, budget, status: a.status, icon: a.icon })));
+      });
+      done("project", a.status === "done" ? "Done · Projects" : a.status === "active" ? "Reopened · Projects" : "Updated · Projects", p.name, p.budget ? `Budget ${money(p.budget)}` : undefined);
+      return { updated: true, projectId: p.id, name: p.name, status: p.status };
+    });
+
+  tool("remove_project", "Delete one of their projects (its tracked items keep being tracked).",
+    { projectId: z.string() },
+    () => "Removed a project",
+    async (a) => {
+      const p = await mutate((db) => dropProject(db, findProject(db, a.projectId).id));
+      done("project", "Removed · Projects", p.name);
+      return { removed: true, name: p.name };
+    });
+
+  tool("remove_from_project", "Take a note, a plan or a purchase off one of their projects (entryIds come from get_project).",
+    { projectId: z.string(), entryId: z.string() },
+    () => "Removed an item from your project",
+    async (a) => {
+      const out = await mutate((db) => dropEntry(db, findProject(db, a.projectId).id, a.entryId));
+      done("project", `Removed · ${out.project.name}`, out.entry.text);
+      return { removed: true, text: out.entry.text };
+    });
+
+  tool("update_profile",
+    "Change their profile: their name, where gifts are delivered (city and PIN code), or the language you talk in (English, Hindi, Tamil, Telugu, Kannada, Bengali, Marathi).",
+    {
+      name: z.string().optional(),
+      city: z.string().optional(),
+      postalCode: z.string().optional(),
+      language: z.string().optional().describe("e.g. Hindi"),
+    },
+    (a) => (a.language ? `Changed your language to ${clip(a.language, 20)}` : "Updated your profile"),
+    async (a) => {
+      const lang = a.language ? findLanguage(a.language) : undefined;
+      if (a.language && !lang) throw new HttpError(400, `Xerxes doesn't speak ${a.language} yet. It speaks ${LANGUAGES.map((l) => l.name).join(", ")}.`);
+      if (a.postalCode && !/^\d{6}$/.test(a.postalCode.replace(/\s/g, ""))) throw new HttpError(400, "A PIN code is 6 digits");
+      const name = a.name?.trim().slice(0, 40);
+      const city = a.city?.trim().slice(0, 60);
+      const profile = await mutate((db) => {
+        if (name) db.profile.name = name;
+        if (city) db.profile.city = city;
+        if (a.postalCode) db.profile.postalCode = a.postalCode.replace(/\s/g, "");
+        if (lang) db.profile.language = lang.code;
+        return { ...db.profile };
+      });
+      const details = [
+        name && `Name: ${name}`,
+        (city || a.postalCode) && `Deliver to ${profile.city} ${profile.postalCode}`,
+        lang && `Language: ${lang.native}${lang.code === "en" ? "" : ` (${lang.name})`}`,
+      ].filter(Boolean).join(" · ");
+      done("profile", "Updated · Profile", lang ? `Xerxes now talks in ${lang.name}` : "Your profile", details || undefined);
+      return {
+        saved: true,
+        profile,
+        ...(lang ? { note: `Chat replies switch to ${lang.name} now. A call keeps the language it started in, so voice switches from their next call: tell them to hang up and call again to hear it.` } : {}),
+      };
+    });
+
+  tool("dismiss_find", "Dismiss a fresh find (a deal from their tracking) so it leaves the feed and isn't announced again.",
+    { findId: z.string() },
+    () => "Dismissed a find",
+    async (a) => {
+      const n = await mutate((db) => dismissFind(db, a.findId));
+      done("find", "Dismissed · Fresh finds", n.title);
+      return { dismissed: true, title: n.title };
+    });
 
   return server;
 }

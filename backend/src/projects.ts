@@ -192,6 +192,43 @@ function find(db: Db, id: string) {
   return p;
 }
 
+export type ProjectPatch = z.infer<typeof projectPatch>;
+export { projectPatch };
+
+/** Edits a project (shared by the project screen and the agent's update_project). */
+export function changeProject(db: Db, id: string, b: ProjectPatch): Project {
+  const p = find(db, id);
+  if (b.name && db.projects.some((x) => x !== p && x.name.toLowerCase() === b.name!.toLowerCase())) throw new HttpError(409, `You already have a project called “${b.name}”`);
+  if (b.name) p.name = b.name;
+  if (b.icon) p.icon = b.icon;
+  if (b.status) p.status = b.status;
+  if (b.goal === null || b.goal === "") delete p.goal;
+  else if (b.goal) p.goal = b.goal;
+  if (b.budget === null || b.budget?.amount === 0) delete p.budget;
+  else if (b.budget) p.budget = b.budget;
+  touchProject(p);
+  return p;
+}
+
+export function dropProject(db: Db, id: string): Project {
+  const p = find(db, id);
+  // a seed project's id stays in db.seededProjects, so it isn't re-added on the next start
+  db.projects = db.projects.filter((x) => x.id !== id);
+  // its tracked items keep being tracked, just without a project
+  for (const w of db.watches) if (w.projectId === id) delete w.projectId;
+  for (const [conv, pid] of Object.entries(db.conversationProjects ?? {})) if (pid === id) delete db.conversationProjects![conv];
+  return p;
+}
+
+export function dropEntry(db: Db, projectId: string, entryId: string): { project: Project; entry: ProjectEntry } {
+  const p = find(db, projectId);
+  const entry = p.entries.find((x) => x.id === entryId);
+  if (!entry) throw new HttpError(404, "That entry doesn't exist (maybe it was removed)");
+  p.entries = p.entries.filter((x) => x !== entry);
+  touchProject(p);
+  return { project: p, entry };
+}
+
 export function projectRoutes(app: Hono) {
   app.get("/api/projects", async (c) => {
     const db = await readDb();
@@ -236,19 +273,7 @@ export function projectRoutes(app: Hono) {
   app.patch("/api/projects/:id", async (c) => {
     try {
       const b = await parse(c, projectPatch);
-      const out = await mutate((db) => {
-        const p = find(db, c.req.param("id"));
-        if (b.name && db.projects.some((x) => x !== p && x.name.toLowerCase() === b.name!.toLowerCase())) throw new HttpError(409, `You already have a project called “${b.name}”`);
-        if (b.name) p.name = b.name;
-        if (b.icon) p.icon = b.icon;
-        if (b.status) p.status = b.status;
-        if (b.goal === null || b.goal === "") delete p.goal;
-        else if (b.goal) p.goal = b.goal;
-        if (b.budget === null || b.budget?.amount === 0) delete p.budget;
-        else if (b.budget) p.budget = b.budget;
-        touchProject(p);
-        return projectDetail(db, p);
-      });
+      const out = await mutate((db) => projectDetail(db, changeProject(db, c.req.param("id"), b)));
       return c.json(out);
     } catch (e) {
       return fail(c, e);
@@ -258,14 +283,7 @@ export function projectRoutes(app: Hono) {
   app.delete("/api/projects/:id", async (c) => {
     try {
       const id = c.req.param("id");
-      await mutate((db) => {
-        find(db, id);
-        // a seed project's id stays in db.seededProjects, so it isn't re-added on the next start
-        db.projects = db.projects.filter((p) => p.id !== id);
-        // its tracked items keep being tracked, just without a project
-        for (const w of db.watches) if (w.projectId === id) delete w.projectId;
-        for (const [conv, pid] of Object.entries(db.conversationProjects ?? {})) if (pid === id) delete db.conversationProjects![conv];
-      });
+      await mutate((db) => dropProject(db, id));
       return c.json({ ok: true, id });
     } catch (e) {
       return fail(c, e);
@@ -315,14 +333,7 @@ export function projectRoutes(app: Hono) {
 
   app.delete("/api/projects/:id/entries/:entryId", async (c) => {
     try {
-      const out = await mutate((db) => {
-        const p = find(db, c.req.param("id"));
-        const before = p.entries.length;
-        p.entries = p.entries.filter((x) => x.id !== c.req.param("entryId"));
-        if (p.entries.length === before) throw new HttpError(404, "That entry doesn't exist (maybe it was removed)");
-        touchProject(p);
-        return projectDetail(db, p);
-      });
+      const out = await mutate((db) => projectDetail(db, dropEntry(db, c.req.param("id"), c.req.param("entryId")).project));
       return c.json(out);
     } catch (e) {
       return fail(c, e);

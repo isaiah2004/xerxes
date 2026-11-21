@@ -1,9 +1,9 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { AlertTriangle, BookOpen, Check, ChevronRight, Eye, Sparkles, X } from "lucide-react-native";
+import { AlertTriangle, BellOff, BookOpen, CalendarDays, Check, ChevronRight, Eye, FolderOpen, Sparkles, UserRound, Users, X, type LucideIcon } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Animated, Easing, Platform, Pressable, View } from "react-native";
-import type { Card as CardT, ProductItem, RunEvent } from "@/lib/api";
+import type { ActionArea, Card as CardT, ProductItem, RunEvent } from "@/lib/api";
 import { addDaysIso, dayNum, money, todayIso, weekdayDay, weekdayShort } from "@/lib/format";
 import { openLink } from "@/lib/links";
 import { color, font, palette, radius, type GradientName } from "@/lib/theme";
@@ -294,8 +294,49 @@ export function ProjectNoteCard({ card }: { card: Extract<CardT, { type: "projec
   );
 }
 
+// ---------------------------------------------------------------- action (the app, run by voice)
+const AREA: Record<ActionArea, { icon: LucideIcon; grad: GradientName }> = {
+  person: { icon: Users, grad: "primary" },
+  occasion: { icon: CalendarDays, grad: "navy" },
+  watch: { icon: Eye, grad: "info" },
+  project: { icon: FolderOpen, grad: "warning" },
+  profile: { icon: UserRound, grad: "navy" },
+  find: { icon: BellOff, grad: "info" },
+};
+
+/** Xerxes changed something in the app for you (added a birthday, paused tracking...): what changed, at a glance. */
+export function ActionCard({ card }: { card: Extract<CardT, { type: "action" }> }) {
+  const a = AREA[card.area] ?? AREA.profile;
+  const removed = /^(Removed|Dismissed)/.test(card.verb);
+  return (
+    <Card>
+      <Row gap={12}>
+        <IconTile icon={a.icon} grad={removed ? "danger" : a.grad} size={44} />
+        <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
+          <T v="eyebrow" numberOfLines={1}>
+            {card.verb}
+          </T>
+          <T v="h3" numberOfLines={2}>
+            {card.title}
+          </T>
+          {card.detail ? (
+            <T v="caption" numberOfLines={2}>
+              {card.detail}
+            </T>
+          ) : null}
+        </View>
+        <GradientSurface name={removed ? "danger" : "primary"} style={{ width: 22, height: 22, borderRadius: 7, alignItems: "center", justifyContent: "center" }} grain={0.3}>
+          {removed ? <X size={12} color="#fff" strokeWidth={3.5} /> : <Check size={12} color="#fff" strokeWidth={3.5} />}
+        </GradientSurface>
+      </Row>
+    </Card>
+  );
+}
+
 export function AgentCard({ card, onAction }: { card: CardT; onAction: (t: string) => void }) {
   switch (card.type) {
+    case "action":
+      return <ActionCard card={card} />;
     case "project":
       return <ProjectNoteCard card={card} />;
     case "products":

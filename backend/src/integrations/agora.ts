@@ -55,6 +55,11 @@ export type StartAgentInput = {
   llmKey: string;
   greeting: string;
   instructions: string;
+  /** The caller's language (Profile → Language): what ARES listens for and how Murf speaks. Defaults: env. */
+  asrLanguage?: string;
+  voiceId?: string;
+  locale?: string;
+  failureMessage?: string;
 };
 
 export async function startAgent(i: StartAgentInput): Promise<{ agent_id: string; status: string }> {
@@ -67,7 +72,7 @@ export async function startAgent(i: StartAgentInput): Promise<{ agent_id: string
       remote_rtc_uids: [String(USER_UID)],
       enable_string_uid: false,
       idle_timeout: 120,
-      asr: { vendor: env.agoraAsrVendor, language: env.agoraAsrLanguage, params: {} },
+      asr: { vendor: env.agoraAsrVendor, language: i.asrLanguage ?? env.agoraAsrLanguage, params: {} },
       llm: {
         vendor: "custom",
         style: "openai",
@@ -75,7 +80,7 @@ export async function startAgent(i: StartAgentInput): Promise<{ agent_id: string
         api_key: i.llmKey,
         system_messages: [{ role: "system", content: i.instructions }],
         greeting_message: i.greeting,
-        failure_message: "Hmm, I hit a snag looking that up. Could you say that again?",
+        failure_message: i.failureMessage ?? "Hmm, I hit a snag looking that up. Could you say that again?",
         max_history: 20,
         params: { model: "xerxes" },
       },
@@ -84,8 +89,8 @@ export async function startAgent(i: StartAgentInput): Promise<{ agent_id: string
         params: {
           api_key: env.murfApiKey,
           base_url: "wss://global.api.murf.ai/v1/speech/stream-input",
-          voiceId: env.murfVoice,
-          locale: env.murfLocale,
+          voiceId: i.voiceId ?? env.murfVoice,
+          locale: i.locale ?? env.murfLocale,
           model: "FALCON",
           sample_rate: 24000,
           rate: 0,
