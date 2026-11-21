@@ -60,25 +60,33 @@
   }
 
   function enterDemo() {
-    // a tab opened before demo.mp4 existed (or a failed read) has given up on the file: ask again on entering slide 3
+    // a tab opened before demo.mp4 existed (or a failed read) has given up on the file: ask again on entering the slide
     if (!hasVideo && video && !EXPORT && (video.error || video.networkState === 3)) video.load();
-    if (!hasVideo || EXPORT) return;
-    video.pause();
-    video.currentTime = 0;
-    video.muted = false; demo.classList.remove("muted", "blocked");
-    updateRail();
+    if (!video || EXPORT) return;
     clearTimeout(videoTimer);
-    videoTimer = setTimeout(playVideo, 450);
+    try { video.currentTime = 0; } catch (_) {}
+    demo.classList.remove("blocked");
+    updateRail();
+    playVideo(0);
   }
-  // Chrome blocks autoplay with sound when the page has had no click/key yet (e.g. opened straight at #4):
-  // fall back to muted playback and show a "tap for sound" badge; a tap on the clip unmutes it.
-  function playVideo() {
+  // Start muted (always allowed, even opened straight at #4 with no click yet), then unmute once the page has had a
+  // key/click (sticky user activation). If Chrome refuses sound it pauses the clip: go back to muted and show the badge.
+  function playVideo(tries = 0) {
     if (!video || slides[cur] !== demo) return;
-    video.play().then(() => { demo.classList.remove("blocked"); demo.classList.toggle("muted", video.muted); }).catch((e) => {
-      if (e && e.name === "NotAllowedError" && !video.muted) {
-        video.muted = true; demo.classList.add("muted");
-        video.play().catch(() => demo.classList.add("blocked"));
-      } else demo.classList.add("blocked");
+    video.muted = true;
+    video.play().then(() => {
+      if (slides[cur] !== demo) return;
+      demo.classList.remove("blocked");
+      const active = !navigator.userActivation || navigator.userActivation.hasBeenActive;
+      if (active) {
+        video.muted = false;
+        setTimeout(() => { if (video.paused && slides[cur] === demo) { video.muted = true; video.play().catch(() => {}); } demo.classList.toggle("muted", video.muted); }, 120);
+      }
+      demo.classList.toggle("muted", video.muted);
+    }).catch((e) => {
+      // AbortError: a load()/pause() interrupted this play; data not ready yet: retry shortly instead of giving up
+      if (tries < 12 && slides[cur] === demo) { videoTimer = setTimeout(() => playVideo(tries + 1), 250); return; }
+      demo.classList.add("blocked");
     });
   }
 
@@ -89,8 +97,8 @@
 
   function toggleVideo() {
     if (!hasVideo || slides[cur] !== demo) return;
-    if (video.muted) { video.muted = false; demo.classList.remove("muted"); if (video.paused) playVideo(); return; }
-    if (video.paused) playVideo(); else video.pause();
+    if (video.muted) { video.muted = false; demo.classList.remove("muted", "blocked"); if (video.paused) video.play().catch(() => { video.muted = true; demo.classList.add("muted"); video.play().catch(() => demo.classList.add("blocked")); }); return; }
+    if (video.paused) video.play().catch(() => playVideo()); else video.pause();
   }
 
   /* ---------------------------------------------------------------- tours: zoom into one child at a time, then the overview */
@@ -267,6 +275,7 @@
     const wrap = document.createElement("div");
     wrap.className = "ghost-wrap " + [...slide.classList].filter((c) => /^s-/.test(c) || c === "has-video").join(" ");
     const c = el.cloneNode(true);
+    c.querySelectorAll("video").forEach((v) => { const im = document.createElement("img"); im.src = v.getAttribute("poster") || ""; v.replaceWith(im); });
     c.removeAttribute("id"); c.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
     c.classList.remove("seq", "landed");
     const w = el.offsetWidth || 1, h = el.offsetHeight || 1, wv = getComputedStyle(el).getPropertyValue("--w");
@@ -584,6 +593,7 @@
     sync();
   });
   if (video) {
+    video.addEventListener("canplay", () => { if (slides[cur] === demo && video.paused && !EXPORT) playVideo(); });
     video.addEventListener("timeupdate", updateRail);
     video.addEventListener("seeked", updateRail);
     video.addEventListener("click", (e) => { e.stopPropagation(); toggleVideo(); });
