@@ -1,7 +1,8 @@
 import { router } from "expo-router";
 import { Tabs, type BottomTabBarProps } from "expo-router/tabs";
-import { CalendarDays, House, Mic, Radar, Users, type LucideIcon } from "lucide-react-native";
+import { CalendarDays, House, Radar, Users, type LucideIcon } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { LogoGlyph } from "@/components/Logo";
 import { GradientSurface } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 import { color, font, ledge, shadow } from "@/lib/theme";
@@ -36,8 +37,8 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
       </Pressable>
     );
   });
-  // The centre mic is the one call that opens with what's new (an upcoming birthday, a deal, a project's next step).
-  // Calls started anywhere else stick to what they were started from.
+  // The centre button is Xerxes itself (its logo), and the one call that opens with what's new (an upcoming birthday,
+  // a deal, a project's next step). Calls started anywhere else stick to what they were started from.
   const orb = (
     <Pressable
       key="orb"
@@ -50,7 +51,7 @@ function TabBar({ state, navigateToTab, insets }: BottomTabBarProps) {
     >
       <View style={[styles.orbLedge, { backgroundColor: ledge.primary }]} />
       <GradientSurface name="primary" style={styles.orb}>
-        <Mic size={24} color="#fff" strokeWidth={2.3} />
+        <LogoGlyph size={28} />
       </GradientSurface>
     </Pressable>
   );

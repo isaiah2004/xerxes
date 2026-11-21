@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Linking, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TurnView, type Turn } from "@/components/Conversation";
+import { LogoGlyph } from "@/components/Logo";
 import { Button, GradientSurface, Row, T } from "@/components/ui";
 import { api } from "@/lib/api";
 import { haptic } from "@/lib/haptics";
@@ -38,6 +39,7 @@ function webVoiceUrl(params: Record<string, string | string[] | undefined>) {
   return `${base}/voice${qs ? `?${qs}` : ""}`;
 }
 
+/** Xerxes on the call (its logo): breathes while it waits and swells with the agent's voice. */
 function Orb({ level, phase, size }: { level: Animated.Value; phase: Phase; size: number }) {
   const [breathe] = useState(() => new Animated.Value(0));
   useEffect(() => {
@@ -58,7 +60,7 @@ function Orb({ level, phase, size }: { level: Animated.Value; phase: Phase; size
       </Animated.View>
       <Animated.View style={[{ width: size, height: size, borderRadius: size / 2, overflow: "hidden", transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }] }, shadow.float]}>
         <GradientSurface name={phase === "error" ? "danger" : "primary"} style={{ flex: 1, alignItems: "center", justifyContent: "center" }} grain={0.7}>
-          <Mic size={size * 0.26} color="#fff" strokeWidth={2.2} />
+          <LogoGlyph size={size * 0.44} />
         </GradientSurface>
       </Animated.View>
     </View>
