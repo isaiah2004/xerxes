@@ -9,7 +9,7 @@ import { upcoming } from "./occasions.js";
 import { bindConversation, listProjects, projectOf } from "./projects.js";
 import { createRun, emit, getRun, runsFor, type Run, type RunEvent } from "./runs.js";
 import { smallTalk } from "./smalltalk.js";
-import { readDb, type Db, type Notification } from "./store.js";
+import { readDb, type Db } from "./store.js";
 
 // Agora Conversational AI: Agora handles ASR + turn-taking + Murf Falcon TTS in the RTC channel,
 // and calls our OpenAI-compatible endpoint below as its "custom LLM" — which runs the same Codex agent + tools.
@@ -46,45 +46,24 @@ function offerIdeas(saved?: SavedIdeas) {
 const ideasNote = (saved: SavedIdeas) =>
   `Gift ideas you already have for it (shown on their screen): ${saved.card.ideas.map((i, n) => `${n + 1}) ${i.title}${i.price ? ` (${i.price})` : ""}: ${i.why}`).join("; ")}. If they pick one, run the full search for it; if they want others, call show_ideas with new ones.`;
 
-/** A new deal, said out loud: "Outer Wilds is down to $9.74 on Fanatical". */
-function findLine(n: Notification) {
-  if (n.kind === "hardware") return `there's a new second-hand listing for your home lab${n.price ? ` at ${n.price}` : ""}`;
-  const [item, store] = n.title.split(" · ");
-  return n.price ? `${item} is down to ${n.price}${store ? ` on ${store}` : ""}` : `I spotted ${item}`;
-}
-
 /**
- * The centre mic button: Xerxes opens with whatever is worth knowing right now (an upcoming birthday, else a new
- * deal, else the next step of a project) and keeps the rest ready for "anything else?".
+ * The centre mic button: Xerxes just says hello and lets them speak first. What's worth knowing right now (an
+ * upcoming birthday, new deals, the next step of a project) is kept ready for when they ask what's new.
  */
 function briefing(db: Db, name: string, lang: Language) {
   const occasion = upcoming(db, 60).find((o) => o.inReminderWindow);
   const finds = db.notifications.filter((n) => n.kind !== "occasion" && !n.read).slice(0, 3);
   const project = listProjects(db).find((p) => p.status === "active" && p.entries.some((e) => e.kind === "plan"));
   const plan = project?.entries.find((e) => e.kind === "plan");
-  const say = lang.phrases;
-  const ideas = occasion ? ideasFor(db, occasion.id) : undefined;
-  const greeting = say
-    ? occasion
-      ? say.occasion(name, occasion.label, occasion.daysLeft)
-      : finds[0]
-        ? say.deal(name)
-        : project
-          ? say.project(name, project.name)
-          : say.hello(name)
-    : occasion
-    ? `Hey ${name}! Heads up, ${occasion.label.toLowerCase()} is in ${occasion.daysLeft} days.${offerIdeas(ideas) ?? " Want me to find something?"}`
-    : finds[0]
-      ? `Hey ${name}! Good news: ${findLine(finds[0])}. Want me to take a look?`
-      : project && plan
-        ? `Hey ${name}! Want to keep going on your ${lowerFirst(project.name)}? Next on the list: ${plan.text}.`
-        : `Hey ${name}, Xerxes here. What are we shopping for?`;
-  const more = [
+  const greeting = (lang.phrases ? lang.phrases.hi(name) : `Hey ${name}!`).replace(/\s+!$/, "!");
+  const news = [
+    occasion &&
+      `${occasion.label} is in ${occasion.daysLeft} days (occasionId ${occasion.id}, arrive by ${occasion.arriveBy}, budget ${occasion.budget.amount} ${occasion.budget.currency}).`,
     finds.length && `New deals on their radar: ${finds.map((n) => `${n.title} (${n.body})`).join("; ")}.`,
     project && `Their most active project: ${project.name} (projectId ${project.id})${plan ? `, next planned: ${plan.text}` : ""}.`,
   ].filter(Boolean);
-  const context = `The caller tapped the main mic button, so you opened with what's worth knowing right now.${more.length ? ` If they ask what else is new: ${more.join(" ")}` : ""}`;
-  return { greeting, context, occasion };
+  const context = `The caller tapped the main mic button and you only said hello, so they speak first: answer what they ask, and don't bring up news on your own.${news.length ? ` If they ask what's new: ${news.join(" ")}` : ""}`;
+  return { greeting, context };
 }
 
 const SITES: Record<string, string> = {
@@ -171,14 +150,14 @@ export function voiceRoutes(app: Hono) {
     const nextPlan = project?.entries.find((e) => e.kind === "plan");
     // a chat that already has turns: the call carries on with it (same conversation, same Codex thread)
     const continuing = !!body.conversationId && runsFor(id).some((r) => r.status === "done");
-    // Only the centre mic button opens with a briefing (an upcoming birthday, a new deal...). Every other call
-    // starts from something specific and sticks to it.
+    // The centre mic button opens with just a hello and lets them speak first (the news waits until they ask).
+    // Every other call starts from something specific and sticks to it.
     // the caller's language (Profile → Language): Agora listens for it, Murf speaks it, and Xerxes opens in it
     const lang = languageOf(db.profile.language);
     const say = lang.phrases;
     const brief = body.briefing === true && !topic && !hello && !occasion && !project && !continuing ? briefing(db, name, lang) : undefined;
     // ideas thought up ahead for this occasion: Xerxes opens by offering them, and the call screen shows them
-    const ideas = !continuing && (occasion ?? brief?.occasion) ? ideasFor(db, (occasion ?? brief?.occasion)!.id) : undefined;
+    const ideas = !continuing && occasion ? ideasFor(db, occasion.id) : undefined;
     const greeting = say
       ? continuing
         ? say.continuing(name)
@@ -196,7 +175,7 @@ export function voiceRoutes(app: Hono) {
           : project
             ? `Hey ${name}! Let's work on your ${lowerFirst(project.name)}.${nextPlan ? ` Next on the list: ${nextPlan.text}. Want me to start there?` : " What are we looking for?"}`
             : (brief?.greeting ?? `Hey ${name}, Xerxes here. What are we shopping for?`);
-    const nudge = occasion ?? brief?.occasion;
+    const nudge = occasion;
     // The caller's first words are often just "yes, go ahead", so the first turn needs to know what that answers.
     const context = [
       topic && `The caller started this call from "${topic}" in the app.${body.context ? ` ${clip(body.context, 600)}` : ""}`,

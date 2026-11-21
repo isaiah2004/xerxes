@@ -8,6 +8,8 @@ export type LangCode = "en" | "hi" | "ta" | "te" | "kn" | "bn" | "mr";
 
 /** What Xerxes says on its own (greetings, "on it", narration while it works), before the agent has a say. */
 type Phrases = {
+  /** just hello: the centre mic button opens with this and lets them speak first */
+  hi: (name: string) => string;
   hello: (name: string) => string;
   occasion: (name: string, label: string, days: number) => string;
   continuing: (name: string) => string;
@@ -60,6 +62,7 @@ export const LANGUAGES: Language[] = [
     locale: "hi-IN",
     style: "natural, everyday spoken Hindi in Devanagari script (you are a woman, so use feminine verb forms like 'देख रही हूँ')",
     phrases: {
+      hi: (n) => `नमस्ते ${n}!`,
       hello: (n) => `नमस्ते ${n}, मैं Xerxes। बताइए, आज क्या खरीदना है?`,
       occasion: (n, l, d) => `नमस्ते ${n}! याद दिला दूँ, ${l} ${d} दिन में है। कुछ ढूँढूँ?`,
       continuing: (n) => `नमस्ते ${n}! चलिए, वहीं से आगे बढ़ते हैं। अब क्या करें?`,
@@ -84,6 +87,7 @@ export const LANGUAGES: Language[] = [
     locale: "ta-IN",
     style: "natural, everyday spoken Tamil in Tamil script",
     phrases: {
+      hi: (n) => `வணக்கம் ${n}!`,
       hello: (n) => `வணக்கம் ${n}, நான் Xerxes. இன்று என்ன வாங்கலாம்?`,
       occasion: (n, l, d) => `வணக்கம் ${n}! ஒரு நினைவூட்டல், ${l} இன்னும் ${d} நாட்களில் வருகிறது. ஏதாவது தேடட்டுமா?`,
       continuing: (n) => `வணக்கம் ${n}! விட்ட இடத்திலிருந்து தொடரலாம். அடுத்து என்ன?`,
@@ -108,6 +112,7 @@ export const LANGUAGES: Language[] = [
     locale: "te-IN",
     style: "natural, everyday spoken Telugu in Telugu script",
     phrases: {
+      hi: (n) => `నమస్తే ${n}!`,
       hello: (n) => `నమస్తే ${n}, నేను Xerxes. ఈ రోజు ఏం కొందాం?`,
       occasion: (n, l, d) => `నమస్తే ${n}! గుర్తుచేస్తున్నాను, ${l} ఇంకా ${d} రోజుల్లో ఉంది. ఏదైనా వెతకనా?`,
       continuing: (n) => `నమస్తే ${n}! ఆపిన చోట నుంచి కొనసాగిద్దాం. తర్వాత ఏంటి?`,
@@ -132,6 +137,7 @@ export const LANGUAGES: Language[] = [
     locale: "kn-IN",
     style: "natural, everyday spoken Kannada in Kannada script",
     phrases: {
+      hi: (n) => `ನಮಸ್ಕಾರ ${n}!`,
       hello: (n) => `ನಮಸ್ಕಾರ ${n}, ನಾನು Xerxes. ಇವತ್ತು ಏನು ಖರೀದಿಸೋಣ?`,
       occasion: (n, l, d) => `ನಮಸ್ಕಾರ ${n}! ನೆನಪಿಸುತ್ತಿದ್ದೇನೆ, ${l} ಇನ್ನು ${d} ದಿನಗಳಲ್ಲಿ ಇದೆ. ಏನಾದರೂ ಹುಡುಕಲಾ?`,
       continuing: (n) => `ನಮಸ್ಕಾರ ${n}! ನಿಲ್ಲಿಸಿದ ಕಡೆಯಿಂದ ಮುಂದುವರಿಸೋಣ. ಮುಂದೇನು?`,
@@ -156,6 +162,7 @@ export const LANGUAGES: Language[] = [
     locale: "bn-IN",
     style: "natural, everyday spoken Bengali in Bengali script",
     phrases: {
+      hi: (n) => `নমস্কার ${n}!`,
       hello: (n) => `নমস্কার ${n}, আমি Xerxes। আজ কী কেনা যাক?`,
       occasion: (n, l, d) => `নমস্কার ${n}! মনে করিয়ে দিই, ${l} আর ${d} দিন পরে। কিছু খুঁজব?`,
       continuing: (n) => `নমস্কার ${n}! যেখানে থেমেছিলাম, সেখান থেকে শুরু করি। এবার কী?`,
@@ -180,6 +187,7 @@ export const LANGUAGES: Language[] = [
     locale: "mr-IN",
     style: "natural, everyday spoken Marathi in Devanagari script (you are a woman, so use feminine verb forms)",
     phrases: {
+      hi: (n) => `नमस्कार ${n}!`,
       hello: (n) => `नमस्कार ${n}, मी Xerxes. आज काय खरेदी करूया?`,
       occasion: (n, l, d) => `नमस्कार ${n}! आठवण करून देते, ${l} ${d} दिवसांवर आहे. काही शोधू का?`,
       continuing: (n) => `नमस्कार ${n}! जिथे थांबलो होतो तिथून पुढे जाऊया. आता काय?`,
