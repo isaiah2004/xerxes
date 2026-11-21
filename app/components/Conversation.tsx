@@ -60,8 +60,9 @@ export function UserBubble({ text }: { text: string }) {
   );
 }
 
-/** One user message + the agent's live work: steps, generated cards, and its reply. */
-export function TurnView({ turn, onAction, speak = true }: { turn: Turn; onAction: (t: string) => void; speak?: boolean }) {
+/** One user message + the agent's live work: steps, generated cards, and its reply.
+ *  onAction: what tapping a card sends next. A call passes none: there you say it, and the cards are to look at. */
+export function TurnView({ turn, onAction, speak = true }: { turn: Turn; onAction?: (t: string) => void; speak?: boolean }) {
   const { events, status } = useRun(turn.runId);
   const steps = stepsOf(events);
   // a little "ta-da" when the agent lands its answer (a buzz on failure)

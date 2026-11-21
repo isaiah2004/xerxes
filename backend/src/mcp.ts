@@ -428,7 +428,7 @@ export function buildServer(runId: string) {
         .array(
           z.object({
             title: z.string().describe("2-6 words, e.g. 'Mechanical keyboard'"),
-            why: z.string().describe("One short line on why it fits them"),
+            why: z.string().describe("Why it fits them, under 70 characters (it shows in two short lines)"),
             price: z.string().optional().describe("Rough range in their currency, e.g. '₹2,000–4,000'"),
             emoji: z.string().optional().describe("One emoji that pictures it"),
           }),
@@ -441,7 +441,7 @@ export function buildServer(runId: string) {
     async (a) => {
       const ideas = a.ideas.map((i) => ({
         title: clip(i.title.trim(), 48),
-        why: clip(i.why.trim(), 160),
+        why: clip(i.why.trim(), 100),
         ...(i.price?.trim() ? { price: clip(i.price.trim(), 28) } : {}),
         ...(i.emoji?.trim() ? { emoji: firstGrapheme(i.emoji.trim()) } : {}),
       }));

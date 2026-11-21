@@ -115,6 +115,8 @@ export type ProductItem = {
   bestPick?: boolean;
   reason?: string;
 };
+/** A direction to look in, thought up in seconds before any searching. title: 2–6 words; why: one line about them; price: a rough range ("₹800–1,500"). */
+export type Idea = { title: string; why: string; price?: string; emoji?: string };
 export type Card =
   | { id: string; type: "products"; heading: string; items: ProductItem[] }
   | {
@@ -131,6 +133,8 @@ export type Card =
       followUp?: string;
     }
   | { id: string; type: "question"; question: string; options: string[] }
+  /** A few gift ideas to pick from (usually 3–5). The full search only starts once one is picked. */
+  | { id: string; type: "ideas"; heading: string; ideas: Idea[]; occasionId?: string }
   | { id: string; type: "watch"; watch: Watch }
   | {
       id: string;
@@ -150,6 +154,14 @@ export type RunEvent =
   | { seq: number; type: "error"; message: string }
   | { seq: number; type: "done" };
 
+/**
+ * The ideas a gift chat for an occasion opens on, thought up ahead of time. "pending": still being thought up
+ * (~15–40 s), ask again. stale: thought up before the person's details changed; fresh ones are on the way.
+ */
+export type Ideas =
+  | { status: "ready"; text: string; card: Extract<Card, { type: "ideas" }>; at: string; stale?: boolean }
+  | { status: "pending" };
+
 // ---------- endpoints ----------
 export const api = {
   feed: () => j<Feed>("/api/feed"),
@@ -158,11 +170,14 @@ export const api = {
   send: (conversationId: string, text: string, projectId?: string) =>
     j<{ runId: string }>(`/api/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text, projectId }) }),
   run: (runId: string, after: number) => j<{ status: "running" | "done" | "error"; events: RunEvent[] }>(`/api/runs/${runId}?after=${after}`),
+  /** Gift ideas for an upcoming occasion (404 = unknown occasion). */
+  ideas: (occasionId: string) => j<Ideas>(`/api/occasions/${encodeURIComponent(occasionId)}/ideas`),
   markRead: (id: string) => j(`/api/notifications/${id}/read`, { method: "POST" }),
   ttsUrl: (text: string) => `${API}/api/tts?text=${encodeURIComponent(text)}`,
-  /** topic/context/hello: where the call started (an Ask Xerxes card, a Radar find) so Xerxes opens on it. */
+  /** topic/context/hello: where the call started (an Ask Xerxes card, a Radar find) so Xerxes opens on it.
+   *  ideas: gift ideas thought up ahead for the occasion the call opens on (the greeting offers them). */
   voiceStart: (start: VoiceStart = {}) =>
-    j<{ sessionId: string; appId: string; channel: string; uid: number; agentUid: number; token: string; agentId: string; greeting: string }>(
+    j<{ sessionId: string; appId: string; channel: string; uid: number; agentUid: number; token: string; agentId: string; greeting: string; ideas?: Extract<Card, { type: "ideas" }> }>(
       "/api/voice/start",
       { method: "POST", body: JSON.stringify(start) },
     ),

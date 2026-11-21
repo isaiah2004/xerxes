@@ -4,10 +4,11 @@ import { Mic, MicOff, PhoneOff, RotateCcw, Settings, X } from "lucide-react-nati
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Linking, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { IdeasCard } from "@/components/cards";
 import { TurnView, type Turn } from "@/components/Conversation";
 import { LogoGlyph } from "@/components/Logo";
 import { Button, GradientSurface, Row, T } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, type Card } from "@/lib/api";
 import { haptic } from "@/lib/haptics";
 import { openLink } from "@/lib/links";
 import { color, ledge, shadow } from "@/lib/theme";
@@ -74,6 +75,7 @@ export default function Voice() {
   const [error, setError] = useState<string | null>(null);
   const [micBlocked, setMicBlocked] = useState(false);
   const [greeting, setGreeting] = useState<string>("");
+  const [ideas, setIdeas] = useState<Extract<Card, { type: "ideas" }> | null>(null); // the ones the greeting offers
   const [muted, setMuted] = useState(false);
   const [speaker, setSpeaker] = useState<"agent" | "me" | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -114,6 +116,7 @@ export default function Voice() {
         }
         session.current = s.sessionId;
         setGreeting(s.greeting);
+        setIdeas(s.ideas ?? null);
         setPhase("waiting");
         const call = await joinVoice(
           s,
@@ -169,6 +172,7 @@ export default function Voice() {
     setError(null);
     setTurns([]);
     setGreeting("");
+    setIdeas(null);
     setPhase("connecting");
     setAttempt((a) => a + 1);
   };
@@ -197,7 +201,7 @@ export default function Voice() {
                 : working
                   ? "Go ahead, I'm listening"
                   : "Say hi to Xerxes";
-  const compact = turns.length > 0;
+  const compact = turns.length > 0 || !!ideas; // a smaller orb leaves room for the cards
 
   return (
     <View style={{ flex: 1, backgroundColor: color.paper, paddingTop: insets.top + 8 }}>
@@ -239,8 +243,9 @@ export default function Voice() {
       </View>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 18, gap: 16, width: "100%", maxWidth: 520, alignSelf: "center" }}>
+        {ideas ? <IdeasCard card={ideas} /> : null}
         {turns.map((t) => (
-          <TurnView key={t.key} turn={t} onAction={() => undefined} speak={false} />
+          <TurnView key={t.key} turn={t} speak={false} />
         ))}
       </ScrollView>
 

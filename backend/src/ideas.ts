@@ -11,7 +11,7 @@ import { mutate, readDb, type Db, type IdeasCard } from "./store.js";
 
 /** What the ideas depend on: when any of it changes (new interests, another budget...), they're thought up again. */
 const keyOf = (db: Db, o: Upcoming) =>
-  JSON.stringify([o.label, o.kind, o.budget, o.turningAge ?? null, db.profile.language ?? "en", o.people.map((p) => [p.name, p.relation, p.interests, p.notes])]);
+  JSON.stringify([2 /* bump to think them up again */, o.label, o.kind, o.budget, o.turningAge ?? null, db.profile.language ?? "en", o.people.map((p) => [p.name, p.relation, p.interests, p.notes])]);
 
 /** The occasions worth having ideas ready for: the one on Today's hero, then the next few coming up. */
 const due = (db: Db) => upcoming(db, 60).filter((o) => o.inReminderWindow || o.daysLeft <= 30).slice(0, 4);

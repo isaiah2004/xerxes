@@ -1,9 +1,9 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { AlertTriangle, BellOff, BookOpen, CalendarDays, Check, ChevronRight, Eye, FolderOpen, Sparkles, UserRound, Users, X, type LucideIcon } from "lucide-react-native";
+import { AlertTriangle, BellOff, BookOpen, CalendarDays, Check, ChevronRight, Eye, FolderOpen, RefreshCw, Sparkles, UserRound, Users, X, type LucideIcon } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Animated, Easing, Platform, Pressable, View } from "react-native";
-import type { ActionArea, Card as CardT, ProductItem, RunEvent } from "@/lib/api";
+import { Animated, Easing, Platform, Pressable, Text, View } from "react-native";
+import type { ActionArea, Card as CardT, Idea, ProductItem, RunEvent } from "@/lib/api";
 import { addDaysIso, dayNum, money, todayIso, weekdayDay, weekdayShort } from "@/lib/format";
 import { openLink } from "@/lib/links";
 import { color, font, palette, radius, type GradientName } from "@/lib/theme";
@@ -236,6 +236,100 @@ export function RecommendationCard({ card, onAction }: { card: Extract<CardT, { 
   );
 }
 
+// ---------------------------------------------------------------- ideas (directions first; the search starts once one is picked)
+/** "Let's go with the wildlife field guide. Find me the best one." Names ("Kindle Paperwhite", "LEGO set") keep their capitals. */
+function pickMessage(title: string) {
+  const words = title.trim().replace(/[.!?]+$/, "").split(/\s+/).filter(Boolean);
+  if (!words.length) return "Let's go with that one. Find me the best one.";
+  if (/^(a|an|the|some)$/i.test(words[0])) words[0] = words[0].toLowerCase();
+  else {
+    const named = /^[A-Z0-9]{2}/.test(words[0]) || words.slice(1).some((w) => /^[A-Z]/.test(w));
+    if (!named) words[0] = words[0].charAt(0).toLowerCase() + words[0].slice(1);
+    words.unshift("the");
+  }
+  return `Let's go with ${words.join(" ")}. Find me the best one.`;
+}
+
+/** One emoji pictures the idea; anything else (none, or a word) gets the sparkles instead. */
+const glyphOf = (emoji?: string) => {
+  const e = emoji?.trim();
+  return e && e.length <= 8 && !/[A-Za-z]/.test(e) ? e : undefined;
+};
+
+function IdeaRow({ idea, onPress }: { idea: Idea; onPress?: () => void }) {
+  const glyph = glyphOf(idea.emoji);
+  const row = (
+    <Row gap={12} style={{ paddingHorizontal: 14, paddingVertical: 12, alignItems: "flex-start" }}>
+      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: color.chip, alignItems: "center", justifyContent: "center" }}>
+        {glyph ? <Text style={{ fontSize: 24, lineHeight: 30, textAlign: "center" }}>{glyph}</Text> : <Sparkles size={20} color={color.ink2} strokeWidth={2.2} />}
+      </View>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <T v="h3" numberOfLines={2}>
+          {idea.title}
+        </T>
+        {idea.why ? (
+          <T v="sub" numberOfLines={2}>
+            {idea.why}
+          </T>
+        ) : null}
+        {idea.price ? (
+          <View style={{ marginTop: 5 }}>
+            <Chip label={idea.price} />
+          </View>
+        ) : null}
+      </View>
+      {/* in a call there's nothing to tap: you say which one */}
+      {onPress ? (
+        <View style={{ alignSelf: "center" }}>
+          <ChevronRight size={18} color={color.faint} />
+        </View>
+      ) : null}
+    </Row>
+  );
+  if (!onPress) return row;
+  return (
+    <Tap onPress={onPress} scale={0.985} accessibilityLabel={[idea.title, idea.price, idea.why].filter(Boolean).join(". ")}>
+      {row}
+    </Tap>
+  );
+}
+
+/**
+ * A few directions to choose from, thought up in seconds. Tapping one sends it back as the next message, which is what
+ * starts the real search (prices, delivery). In a call (no onAction) it's the same card to look at: you say which one.
+ */
+export function IdeasCard({ card, onAction }: { card: Extract<CardT, { type: "ideas" }>; onAction?: (text: string) => void }) {
+  const ideas = (card.ideas ?? []).filter((i) => i?.title?.trim());
+  if (!ideas.length) return null;
+  return (
+    <Card pad={0}>
+      <Row gap={6} style={{ paddingHorizontal: 14, paddingTop: 14, paddingBottom: 2 }}>
+        <Sparkles size={13} color={color.primary} strokeWidth={2.4} />
+        <T v="eyebrow" numberOfLines={2} style={{ flex: 1 }}>
+          {card.heading || "A few ideas"}
+        </T>
+      </Row>
+      {ideas.map((idea, i) => (
+        <View key={`${idea.title}-${i}`}>
+          {/* hairline from where the text starts, like a grouped list */}
+          {i ? <View style={{ height: 1, backgroundColor: color.line, marginLeft: 70 }} /> : null}
+          <IdeaRow idea={idea} onPress={onAction && (() => onAction(pickMessage(idea.title)))} />
+        </View>
+      ))}
+      <View style={{ gap: 10, padding: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: color.line }}>
+        {onAction ? (
+          <>
+            <T v="caption">Pick one and I’ll find the best option, with price and delivery checked.</T>
+            <Button kind="ghost" compact icon={RefreshCw} label="Different ideas" onPress={() => onAction("Give me a few different ideas.")} />
+          </>
+        ) : (
+          <T v="caption">Say which one and I’ll find the best option, with price and delivery checked.</T>
+        )}
+      </View>
+    </Card>
+  );
+}
+
 // ---------------------------------------------------------------- question + watch
 export function QuestionCard({ card, onAnswer }: { card: Extract<CardT, { type: "question" }>; onAnswer: (t: string) => void }) {
   return (
@@ -333,7 +427,9 @@ export function ActionCard({ card }: { card: Extract<CardT, { type: "action" }> 
   );
 }
 
-export function AgentCard({ card, onAction }: { card: CardT; onAction: (t: string) => void }) {
+/** onAction: what a tap sends as the next message. None in a call, where you say it instead. */
+export function AgentCard({ card, onAction }: { card: CardT; onAction?: (t: string) => void }) {
+  const act = onAction ?? (() => undefined);
   switch (card.type) {
     case "action":
       return <ActionCard card={card} />;
@@ -342,9 +438,11 @@ export function AgentCard({ card, onAction }: { card: CardT; onAction: (t: strin
     case "products":
       return <ProductsCard card={card} />;
     case "recommendation":
-      return <RecommendationCard card={card} onAction={onAction} />;
+      return <RecommendationCard card={card} onAction={act} />;
     case "question":
-      return <QuestionCard card={card} onAnswer={onAction} />;
+      return <QuestionCard card={card} onAnswer={act} />;
+    case "ideas":
+      return <IdeasCard card={card} onAction={onAction} />;
     case "watch":
       return <WatchCard card={card} />;
     default:
@@ -353,7 +451,8 @@ export function AgentCard({ card, onAction }: { card: CardT; onAction: (t: strin
 }
 
 // ---------------------------------------------------------------- live steps
-function Spinner() {
+/** Xerxes' "working on it" mark: a dashed rounded square turning. */
+export function Spinner({ size = 18 }: { size?: number }) {
   const [spin] = useState(() => new Animated.Value(0));
   useEffect(() => {
     const a = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 1100, easing: Easing.linear, useNativeDriver: Platform.OS !== "web" }));
@@ -363,9 +462,9 @@ function Spinner() {
   return (
     <Animated.View
       style={{
-        width: 18,
-        height: 18,
-        borderRadius: 6,
+        width: size,
+        height: size,
+        borderRadius: size / 3,
         borderWidth: 2,
         borderStyle: "dashed",
         borderColor: color.faint,
