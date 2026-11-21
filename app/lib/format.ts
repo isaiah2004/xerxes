@@ -29,6 +29,8 @@ export function pronounsFor(relation?: string) {
 /** The device's local calendar day (toISOString would give the UTC day, which lags India until 05:30). */
 export const todayIso = (d = new Date()) => isoOf(d.getFullYear(), d.getMonth(), d.getDate());
 export const addDaysIso = (iso: string, n: number) => new Date(parse(iso).getTime() + n * DAY).toISOString().slice(0, 10);
+/** Whole days from one date to another (negative when `to` is earlier). */
+export const daysBetween = (from: string, to: string) => Math.round((parse(to).getTime() - parse(from).getTime()) / DAY);
 
 export function money(amount: number | undefined, currency = "INR") {
   if (amount === undefined || Number.isNaN(amount)) return "—";

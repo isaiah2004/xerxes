@@ -4,9 +4,10 @@ import { AlertTriangle, BellOff, BookOpen, CalendarDays, Check, ChevronRight, Ey
 import { useEffect, useState } from "react";
 import { Animated, Easing, Platform, Pressable, Text, View } from "react-native";
 import type { ActionArea, Card as CardT, Idea, ProductItem, RunEvent } from "@/lib/api";
-import { addDaysIso, dayNum, money, todayIso, weekdayDay, weekdayShort } from "@/lib/format";
+import { money, todayIso, weekdayDay } from "@/lib/format";
 import { openLink } from "@/lib/links";
 import { color, font, palette, radius, type GradientName } from "@/lib/theme";
+import { DeliveryTimeline } from "./DeliveryTimeline";
 import { iconOf } from "./projects";
 import { SpeakButton } from "./Speak";
 import { StoresCard } from "./StoresCard";
@@ -133,16 +134,6 @@ export function RecommendationCard({ card, onAction }: { card: Extract<CardT, { 
   const cur = it.currency ?? "INR";
   const total = it.total ?? (it.price ?? 0) + (it.shipping ?? 0);
   const left = card.budget !== undefined ? card.budget - total : undefined;
-  const today = todayIso();
-  // delivery path in green; tight → orange, late → red; spare buffer in blue (info); the occasion itself in navy
-  const arrival: GradientName = it.verdict === "late" || it.verdict === "late_and_over_budget" ? "danger" : it.verdict === "tight" ? "warning" : "primary";
-  const timeline = [
-    { label: "Order", date: today, g: "primary" },
-    { label: "Ships", date: card.ships ?? addDaysIso(today, 1), g: "primary" },
-    it.arrives ? { label: "Arrives", date: it.arrives, g: arrival } : null,
-    card.arriveBy ? { label: "Buffer", date: card.arriveBy, g: "info" } : null,
-    card.occasionDate ? { label: card.occasionLabel?.toLowerCase().includes("birthday") ? "Birthday" : "Occasion", date: card.occasionDate, g: "navy" } : null,
-  ].filter(Boolean) as { label: string; date: string; g: GradientName }[];
   const used = card.budget ? total / card.budget : 0;
 
   return (
@@ -182,25 +173,15 @@ export function RecommendationCard({ card, onAction }: { card: Extract<CardT, { 
         </Row>
       </Card>
 
-      {timeline.length > 2 ? (
-        <Card pad={16}>
-          <T v="h3">Delivery timeline</T>
-          <Row gap={4} style={{ marginTop: 12, alignItems: "flex-start" }}>
-            {timeline.map((s) => (
-              <View key={s.label} style={{ flex: 1, minWidth: 0, alignItems: "center" }}>
-                <GradientSurface name={s.g} style={{ height: 8, alignSelf: "stretch", borderRadius: 99 }} grain={0.3} />
-                <T v="eyebrow" style={{ fontSize: 9.5, letterSpacing: 0.6, marginTop: 8 }} numberOfLines={1}>
-                  {s.date === today ? "Today" : weekdayShort(s.date)}
-                </T>
-                <T v="num" style={{ fontSize: 17, lineHeight: 21 }}>{dayNum(s.date)}</T>
-                <T v="caption" style={{ fontSize: 10.5 }} numberOfLines={1}>
-                  {s.label}
-                </T>
-              </View>
-            ))}
-          </Row>
-        </Card>
-      ) : null}
+      <DeliveryTimeline
+        today={todayIso()}
+        ships={card.ships}
+        arrives={it.arrives}
+        arriveBy={card.arriveBy}
+        occasion={card.occasionDate ? { date: card.occasionDate, label: card.occasionLabel } : undefined}
+        verdict={it.verdict}
+        estimated={it.deliveryEstimated}
+      />
 
       <Card pad={16}>
         <Row gap={6} wrap>
