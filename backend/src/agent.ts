@@ -13,7 +13,7 @@ export type Mode = "text" | "voice";
 
 /** Voice turns are spoken while the caller waits, so they get a tighter tool budget than text turns. */
 const VOICE_PACE =
-  "Be quick. Ideas: just show_ideas, no searching. Shops nearby: find_stores, then show_stores, nothing else. A full search (only once they've picked): about 5 tool calls (one search, at most one product page, check_offers, then show_products and show_recommendation).";
+  "Be quick. Ideas: just show_ideas, no searching. Shops nearby: find_stores, then show_stores, nothing else. A full search (only once they've agreed to it): about 5 tool calls (one search, at most one product page, check_offers, then show_products and show_recommendation).";
 
 /** When it has to be today: real shops nearby, on a map, instead of (or next to) delivery. */
 const NEARBY =
@@ -28,9 +28,10 @@ const TWO_SPEEDS =
   "don't search the web, read pages or run check_offers. Answer in seconds from what you know (their people, interests, notes, memory, the occasion and budget): " +
   "call show_ideas with 3-5 genuinely different directions (not five versions of one thing), each with a one-line reason tied to the person and a realistic price range within the budget, " +
   "then ask which one to look into. If you know little about the person, still offer ideas and ask one quick question in the same reply. " +
-  "THE FULL SEARCH is an explicit step: run it only when they pick an idea or clearly ask you to find, compare or buy something specific " +
-  "('find the best one', 'go with the keyboard', 'look for X under Y'). Then do the legwork below and come back with a decision. " +
-  "When unsure, show ideas and offer the search ('Want me to find the best one?').";
+  "THE FULL SEARCH (web searches, product pages, check_offers) waits for their yes: run it only when they picked an idea from your list " +
+  "(in the app that sends 'Find me the best one'), said yes to your offer to search, or plainly told you to search or compare prices for something specific. " +
+  "Never start it on your own: not from the context, an upcoming occasion or taking initiative. Otherwise answer from what you know and offer it in one short question " +
+  "('Want me to search the shops and compare prices for it?'). Once they've said yes, do the legwork below and come back with a decision.";
 
 /** A pasted product link or a photo of something: start from exactly that. */
 const LINKS_AND_PHOTOS =
@@ -71,7 +72,7 @@ async function preamble(mode: Mode, lang: Language) {
 You act through the "xerxes" MCP tools ONLY. Never run shell commands or edit files.
 
 How you work:
-- Take initiative: infer what the user means from memory + context, and keep it moving.
+- Take initiative with ideas and suggestions (infer what they mean from memory + context), but searching waits for their yes (below).
 - ${TWO_SPEEDS}
 - Discovery (the full search): use search_books for books (verify Hardcover via physicalFormat when the user wants hardcover). For retailer prices and delivery estimates, use your built-in web search (e.g. "site:amazon.in <title> hardcover"; the user watches each search live), then read_page on the best product pages (prefer Indian retailers for ${db.profile.country}; delivery to ${db.profile.city} ${db.profile.postalCode}).
 - Prices: only quote prices you actually saw (search snippet or page). If you could not see a live price, say "approx." and mark priceSource accordingly.
@@ -168,7 +169,7 @@ async function execute(run: Run, mode: Mode, context?: string, projectId?: strin
   const turn = async (threadId?: string) =>
     runCodex({
       prompt: threadId
-        ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : " · ideas first (show_ideas); full search only once they pick or ask for something specific; needed today: shops nearby (find_stores, then show_stores); a link: read_page it first; a photo: say what you see"} · ${replyIn(lang)}] ${note}${run.userText}`
+        ? `[${toIso(today())}${mode === "voice" ? ` · live voice call: ${VOICE_PACE} Reply in 1-3 short spoken sentences.` : " · ideas first (show_ideas); full search only after their yes (a picked idea, a yes to your offer, or a plain ask to search or compare prices); needed today: shops nearby (find_stores, then show_stores); a link: read_page it first; a photo: say what you see"} · ${replyIn(lang)}] ${note}${run.userText}`
         : `${await preamble(mode, lang)}\n\n${recap(run)}${note}User: ${run.userText}`,
       threadId,
       mcpUrl: `http://127.0.0.1:${env.port}/mcp/${run.id}`,

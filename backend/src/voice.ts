@@ -2,7 +2,8 @@ import type { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { startTurn } from "./agent.js";
 import { env } from "./env.js";
-import { AGENT_UID, USER_UID, agentStatus, startAgent, stopAgent, userRtcToken } from "./integrations/agora.js";
+import { decide, deskFacts, deskOn, type Desk } from "./frontDesk.js";
+import { AGENT_UID, USER_UID, agentStatus, speak, startAgent, stopAgent, userRtcToken } from "./integrations/agora.js";
 import { ideasFor } from "./ideas.js";
 import { languageOf, type Language } from "./languages.js";
 import { upcoming } from "./occasions.js";
@@ -108,8 +109,10 @@ export function narrate(label: string, lang?: Language): string | undefined {
 const FILLERS = [
   "Still on it, I'm comparing prices and delivery dates.",
   "Bear with me, I'm double-checking the details.",
+  "Going through the options now.",
+  "Making sure it'll arrive in time.",
   "Almost there, just picking the best option.",
-  "Nearly done.",
+  "Still here, nearly done.",
 ];
 
 const waitForRun = (run: Run) =>
@@ -269,6 +272,16 @@ export function voiceRoutes(app: Hono) {
       return speakTurn(session, prev, prev.status === "running" ? (session.lang.phrases?.fillers ?? FILLERS)[0] : undefined);
     }
 
+    // The voice desk (a quick model) talks with the caller and decides when the agent gets a request; without it
+    // (no OpenRouter key, or it didn't answer) small talk and the agent take turns as before.
+    if (deskOn()) {
+      const reply = await deskTurn(session, text).catch((e: Error) => {
+        log(id, `desk failed, falling back: ${e.message.slice(0, 200)}`);
+        return undefined;
+      });
+      if (reply) return reply;
+    }
+
     // Small talk ("can you hear me?", "hi", "thanks") is answered at once, without starting the shopping agent.
     // It still lands in the call's history, so the screen shows it and later turns can see it.
     const quick = session.lang.code === "en" ? smallTalk(text, (await readDb()).profile.name) : undefined;
@@ -299,6 +312,104 @@ export function voiceRoutes(app: Hono) {
   });
 }
 
+/** A line Xerxes says at once (the desk's reply): a run of its own, so the call screen shows it. */
+function quickReply(session: VoiceSession, heard: string, line: string): Response {
+  const run = createRun(session.id, heard);
+  emit(run.id, { type: "message", text: line });
+  emit(run.id, { type: "done" });
+  session.runIds.push(run.id);
+  saveSessions();
+  const chunk = `chatcmpl-${run.id.slice(0, 8)}`;
+  return new Response([sseChunk(chunk, line), sseChunk(chunk, null, "stop"), "data: [DONE]\n\n"].join(""), {
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+  });
+}
+
+const lastStep = (run: Run) => [...run.events].reverse().find((e) => e.type === "step");
+const answerOf = (run: Run) => {
+  const m = run.events.find((e) => e.type === "message");
+  return m && m.type === "message" ? m.text : undefined;
+};
+
+/** Says a line on the call without waiting for the caller to speak (Agora's speak API): how the agent's answer still
+ *  reaches them after they talked over the wait, or moved on to something else. */
+function sayNow(session: VoiceSession, line: string) {
+  if (!session.agentId || !line) return;
+  speak(session.channel, session.agentId, line).catch((e: Error) => log(session.id, `couldn't speak: ${e.message.slice(0, 160)}`));
+}
+
+/** One caller turn through the desk: it talks, or hands the agent the request, or passes on an extra detail, or calls
+ *  the agent off. Undefined when the desk can't help (the old path takes over). */
+async function deskTurn(session: VoiceSession, text: string): Promise<Response | undefined> {
+  const id = session.id;
+  const desk: Desk = (session.desk ??= { lines: [], updates: [], dropped: [] });
+  desk.opening ??= session.context;
+  const db = await readDb();
+  const run = desk.runId ? getRun(desk.runId) : undefined;
+  const busy = !!run && run.status === "running" && !desk.dropped.includes(run.id);
+  const step = run && lastStep(run);
+  const t0 = Date.now();
+  const d = await decide({
+    said: text,
+    desk,
+    lang: session.lang,
+    name: db.profile.name,
+    facts: deskFacts(db, desk.opening),
+    agent: busy && run ? { task: run.userText, doing: step && step.type === "step" ? step.label : undefined } : undefined,
+    lastResult: !busy && run ? answerOf(run) : undefined,
+  });
+  if (!d) return undefined;
+  let action = d.action;
+  if (action === "update" && !busy) action = "handoff"; // nothing in flight: the change is a new request
+  if (action === "handoff" && busy) action = "talk"; // one request at a time; the desk said it'll come next
+  if (action === "handoff" && /[?？]/.test(d.say)) action = "talk"; // it asked them something: wait for the answer first
+  if ((action === "handoff" || action === "update") && !d.brief) action = "talk";
+  log(id, `heard: "${text.slice(0, 160)}" -> desk ${action} in ${Date.now() - t0}ms${d.brief ? ` [${d.brief.slice(0, 200)}]` : ""}: "${d.say}"`);
+  desk.lines.push({ who: "caller", text }, { who: "xerxes", text: d.say });
+  if (desk.lines.length > 40) desk.lines.splice(0, desk.lines.length - 40);
+
+  if (action === "cancel" && busy && run) {
+    desk.dropped.push(run.id);
+    desk.updates = [];
+  }
+  if (action === "update") desk.updates.push(d.brief!);
+  if (action !== "handoff") return quickReply(session, text, d.say);
+
+  // the first request also gets where the call started from (a card, an occasion, the briefing)
+  const context = [session.context, "The caller asked for this on the call and agreed to it, so go ahead."].filter(Boolean).join(" ");
+  session.context = undefined;
+  const agentRun = await startTurn(id, d.brief!, "voice", context, undefined, session.lang.code);
+  session.runIds.push(agentRun.id);
+  desk.runId = agentRun.id;
+  desk.updates = [];
+  saveSessions();
+  void followUp(session, agentRun);
+  return speakTurn(session, agentRun, undefined, d.say);
+}
+
+/** When the agent finishes and the caller added details meanwhile, it goes again with them (said, so it's no surprise). */
+async function followUp(session: VoiceSession, run: Run) {
+  await waitForRun(run);
+  const desk = session.desk;
+  if (!desk || desk.runId !== run.id || desk.dropped.includes(run.id) || !desk.updates.length) return;
+  const extra = desk.updates.join("; ");
+  desk.updates = [];
+  const next = await startTurn(session.id, `Also: ${extra}. Update what you found to fit.`, "voice", undefined, undefined, session.lang.code);
+  session.runIds.push(next.id);
+  desk.runId = next.id;
+  saveSessions();
+  log(session.id, `follow-up run ${next.id.slice(0, 8)} with what the caller added: "${extra.slice(0, 200)}"`);
+  sayNow(session, session.lang.code === "en" ? "Now I'm updating that with what you added." : (session.lang.phrases?.ack ?? ""));
+  void followUp(session, next);
+  // nobody is waiting on a stream for this one: its answer is spoken when it lands
+  await waitForRun(next);
+  const answer = answerOf(next);
+  if (answer && !desk.dropped.includes(next.id) && !desk.updates.length) {
+    desk.lines.push({ who: "xerxes", text: answer });
+    sayNow(session, answer);
+  }
+}
+
 /** Same words, give or take case and punctuation: how a turn Agora sent twice is recognised. */
 const sameWords = (a: string, b: string) => {
   const n = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -307,7 +418,7 @@ const sameWords = (a: string, b: string) => {
 
 /** Streams a turn's answer to Agora as SSE: ack (said after 1.5 s if the answer isn't in yet), its tool steps as they
  *  happen, fillers when it's been quiet for a while, then the answer. */
-function speakTurn(session: VoiceSession, run: Run, ack?: string): Response {
+function speakTurn(session: VoiceSession, run: Run, ack?: string, now?: string): Response {
   const id = session.id;
   const p = session.lang.phrases;
   const chunkId = `chatcmpl-${run.id.slice(0, 8)}`;
@@ -345,13 +456,18 @@ function speakTurn(session: VoiceSession, run: Run, ack?: string): Response {
         lastSpoke = Date.now();
         send(sseChunk(chunkId, `${line} `));
       };
+      if (now) say(now);
       if (ack) ackTimer = setTimeout(() => say(ack), 1500);
+      // never more than ~10 s of quiet while it works: the real steps first, fillers in between (they come round again)
       const fillers = p?.fillers ?? FILLERS;
       idle = setInterval(() => {
-        if (Date.now() - lastSpoke >= 16_000 && filler < fillers.length) say(fillers[filler++]);
-      }, 2000);
+        if (Date.now() - lastSpoke < 10_000) return;
+        const line = fillers[filler++ % fillers.length];
+        said.delete(line);
+        say(line);
+      }, 1000);
       onStep = (e) => {
-        if (e.type !== "step" || e.state !== "running" || Date.now() - lastSpoke < 7000) return;
+        if (e.type !== "step" || e.state !== "running" || Date.now() - lastSpoke < 5000) return;
         const line = narrate(e.label, session.lang);
         if (line) say(line);
       };
@@ -362,7 +478,12 @@ function speakTurn(session: VoiceSession, run: Run, ack?: string): Response {
         const msg = run.events.find((e) => e.type === "message");
         const err = run.events.find((e) => e.type === "error");
         const reply = msg && msg.type === "message" && msg.text ? msg.text : (p?.sorry ?? "Sorry, I couldn't finish that one. Mind trying again?");
-        log(id, `run ${run.id.slice(0, 8)} ${run.status} in ${secs(run.createdAt)}${err && err.type === "error" ? ` (${err.message.slice(0, 200)})` : ""}${open ? "" : " (caller had moved on)"}: "${reply.slice(0, 160)}"`);
+        const dropped = !!session.desk?.dropped.includes(run.id);
+        log(id, `run ${run.id.slice(0, 8)} ${run.status} in ${secs(run.createdAt)}${err && err.type === "error" ? ` (${err.message.slice(0, 200)})` : ""}${dropped ? " (called off)" : open ? "" : " (caller had moved on: said with speak)"}: "${reply.slice(0, 160)}"`);
+        if (!dropped && session.desk?.runId === run.id) session.desk.lines.push({ who: "xerxes", text: reply });
+        // the caller talked over the wait (or moved on to something else): the answer is still said when it lands,
+        // unless they called it off, or added details and a follow-up turn is about to answer instead
+        if (!open && !dropped && !session.desk?.updates.length) sayNow(session, reply);
         for (const part of reply.match(/[^.!?।]+[.!?।]*\s*/g) ?? [reply]) send(sseChunk(chunkId, part));
         send(sseChunk(chunkId, null, "stop"));
         send("data: [DONE]\n\n");

@@ -1,9 +1,14 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
 
 // Local dev: load backend/.env (written by scripts/sync-secrets.mjs). In Docker, compose injects env_file.
 if (existsSync(".env")) process.loadEnvFile(".env");
 
 const opt = (k: string) => process.env[k]?.trim() || undefined;
+// The repo-root .env holds the OpenRouter key and model names. Only those are read from it, and they stay out of
+// process.env, so the Codex process the backend spawns (which inherits process.env) never sees them.
+const root = (existsSync("../.env") ? parseEnv(readFileSync("../.env", "utf8")) : {}) as Record<string, string | undefined>;
+const router = (k: string) => opt(k) ?? (root[k]?.trim() || undefined);
 
 export const env = {
   port: Number(opt("PORT") ?? 8787),
@@ -32,6 +37,9 @@ export const env = {
   gatewayKey: opt("AI_GATEWAY_API_KEY"),
   model: opt("XERXES_MODEL"),
   voiceModel: opt("XERXES_VOICE_MODEL"),
+  /** OpenRouter: the quick model that talks on calls (frontDesk.ts) while Codex does the shopping. */
+  openrouterKey: router("OPENROUTER_API_KEY"),
+  frontModel: opt("XERXES_FRONT_MODEL") ?? router("OPENROUTER_CHAT_MODEL") ?? "openai/gpt-4o-mini",
 
   tavilyKey: opt("TAVILY_API_KEY"),
   /** Reddit app-only OAuth for r/homelabsales (anonymous JSON is blocked). */
