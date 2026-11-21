@@ -34,17 +34,23 @@
   })(type);
 
   /* ---- Fibonacci sphere + 3 nearest neighbours */
-  const N = 96, nodes = [];
-  for (let i = 0; i < N; i++) {
-    const y = 1 - (i / (N - 1)) * 2, r = Math.sqrt(1 - y * y), th = Math.PI * (3 - Math.sqrt(5)) * i;
-    nodes.push({ x: Math.cos(th) * r, y, z: Math.sin(th) * r, hub: i % 9 === 0 });
-  }
-  const edges = [], seen = new Set();
-  nodes.forEach((a, i) => {
-    nodes.map((b, j) => [j, (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2]).filter(([j]) => j !== i)
-      .sort((p, q) => p[1] - q[1]).slice(0, 3).forEach(([j]) => { const k = i < j ? `${i}-${j}` : `${j}-${i}`; if (!seen.has(k)) { seen.add(k); edges.push([i, j]); } });
+  // two shells: an outer one and an inner one spinning the other way, plus links between them
+  const SHELLS = [{ n: 170, r: 1, spin: 1 }, { n: 84, r: 0.64, spin: -1.7 }];
+  const nodes = [];
+  SHELLS.forEach((sh, si) => {
+    for (let i = 0; i < sh.n; i++) {
+      const y = 1 - (i / (sh.n - 1)) * 2, r = Math.sqrt(1 - y * y), th = Math.PI * (3 - Math.sqrt(5)) * i;
+      nodes.push({ x: Math.cos(th) * r * sh.r, y: y * sh.r, z: Math.sin(th) * r * sh.r, hub: i % 11 === 0, shell: si, spin: sh.spin });
+    }
   });
-  const pulses = Array.from({ length: 14 }, (_, k) => ({ e: (k * 37) % edges.length, t: (k * 0.29) % 1 }));
+  const N = nodes.length;
+  const edges = [], seen = new Set();
+  const d2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2;
+  const link = (i, j) => { const k = i < j ? `${i}-${j}` : `${j}-${i}`; if (!seen.has(k)) { seen.add(k); edges.push([i, j]); } };
+  nodes.forEach((a, i) => {
+    nodes.map((b, j) => [j, d2(a, b)]).filter(([j]) => j !== i && nodes[j].shell === a.shell)
+      .sort((p, q) => p[1] - q[1]).slice(0, a.shell ? 3 : 4).forEach(([j]) => link(i, j));
+  });  const pulses = Array.from({ length: 26 }, (_, k) => ({ e: (k * 37) % edges.length, t: (k * 0.29) % 1 }));
   const rings = [{ tilt: 1.15, rot: 0.3, r: 1.22 }, { tilt: 1.35, rot: -0.9, r: 1.12 }, { tilt: 0.5, rot: 1.9, r: 1.3 }];
 
   let ctxB, ctxF, angle = 0.6, raf = 0, last = 0, t0 = 0, step = -1, beams = [], running = false;
@@ -56,7 +62,7 @@
   }
   const TILT = 0.42;
   function project(p) {
-    const ca = Math.cos(angle), sa = Math.sin(angle);
+    const ca = Math.cos(angle * (p.spin || 1)), sa = Math.sin(angle * (p.spin || 1));
     let x = p.x * ca + p.z * sa, z = -p.x * sa + p.z * ca, y = p.y;
     const ct = Math.cos(TILT), st = Math.sin(TILT);
     const y2 = y * ct - z * st; z = y * st + z * ct;
@@ -88,6 +94,15 @@
       g.strokeStyle = fr ? "rgba(16,24,40,.16)" : "rgba(155,186,243,.38)"; g.lineWidth = fr ? 1.3 : 1;
       g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
     }
+    // spokes: every 6th inner node reaches out to its nearest outer node (shells turn, so pick it live)
+    for (let i = SHELLS[0].n; i < N; i += 6) {
+      const a = P[i]; let best = -1, bd = 1e9;
+      for (let j = 0; j < SHELLS[0].n; j += 2) { const b = P[j], d = (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + ((a.z - b.z) * R) ** 2; if (d < bd) { bd = d; best = j; } }
+      const b = P[best], fr = a.z + b.z > 0, g = fr ? ctxF : ctxB;
+      if (fr && (clearZone(a) || clearZone(b))) continue;
+      g.strokeStyle = fr ? "rgba(17,156,112,.28)" : "rgba(17,156,112,.14)"; g.lineWidth = 1;
+      g.setLineDash([3, 5]); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); g.setLineDash([]);
+    }
     // pulses travelling along edges
     for (const p of pulses) {
       const [i, j] = edges[p.e], a = P[i], b = P[j];
@@ -108,7 +123,7 @@
       if (p.z > 0 && clearZone(p)) return;
       const g = p.z > 0 ? ctxF : ctxB, hub = nodes[i].hub, lit = beams.some((b) => b.n === i);
       g.fillStyle = p.z > 0 ? (hub || lit ? "#119C70" : "#101828") : "rgba(155,186,243,.75)";
-      const r = (hub || lit ? 6.5 : 3.4) * p.f;
+      const r = (hub || lit ? 6.5 : nodes[i].shell ? 2.6 : 3.2) * p.f;
       if ((hub || lit) && p.z > 0) { g.fillStyle = "rgba(17,156,112,.18)"; g.beginPath(); g.arc(p.x, p.y, r * 2.4, 0, 7); g.fill(); g.fillStyle = "#119C70"; }
       g.beginPath(); g.arc(p.x, p.y, r, 0, 7); g.fill();
     });
@@ -147,7 +162,7 @@
     const P = draw(now);
     const el = (now - t0) / 1000;
     // tagline typing between 1.0 s and ~2.9 s
-    const shown = Math.floor(Math.max(0, el - 1.0) / 0.055);
+    const shown = Math.floor(Math.max(0, el - 1.5) / 0.055);
     chars.forEach((c, i) => { c.classList.toggle("on", i < shown); c.classList.toggle("caret", i === Math.min(shown, chars.length) - 1 && el < 4.2); });
     // agent loop from 1.6 s, 2.8 s per step
     const k = el < 1.6 ? -1 : Math.floor((el - 1.6) / 2.8) % STEPS.length;
