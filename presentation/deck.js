@@ -65,7 +65,7 @@
     if (!video || EXPORT) return;
     clearTimeout(videoTimer);
     try { video.currentTime = 0; } catch (_) {}
-    demo.classList.remove("blocked");
+    demo.classList.remove("blocked", "failed");
     updateRail();
     playVideo(0);
   }
@@ -85,9 +85,24 @@
       demo.classList.toggle("muted", video.muted);
     }).catch((e) => {
       // AbortError: a load()/pause() interrupted this play; data not ready yet: retry shortly instead of giving up
+      if (videoFailed()) { showVideoError(); return; }
       if (tries < 12 && slides[cur] === demo) { videoTimer = setTimeout(() => playVideo(tries + 1), 250); return; }
       demo.classList.add("blocked");
     });
+  }
+
+  // With <source> children a decode/format failure fires "error" on the last <source>, not on the video; when every
+  // source is rejected networkState goes NETWORK_NO_SOURCE (3). Either way: say so on the phone instead of a frozen poster.
+  function videoFailed() {
+    return !!video && !hasVideo && (!!video.error || video.networkState === 3);
+  }
+  function showVideoError(e) {
+    if (!video || hasVideo) return;
+    const err = video.error;
+    console.error("[deck] demo video can't play", err ? { code: err.code, message: err.message } : "(no source could be played)",
+      { currentSrc: video.currentSrc, webm: video.canPlayType('video/webm; codecs="vp9, opus"'), mp4: video.canPlayType('video/mp4; codecs="avc1.64001F, mp4a.40.2"'), event: e && e.type });
+    demo.classList.remove("muted", "blocked");
+    demo.classList.add("failed");
   }
 
   function leaveDemo() {
@@ -589,10 +604,14 @@
 
   watchMedia(video, () => {
     hasVideo = true;
+    demo.classList.remove("failed");
     if (slides[cur] === demo) enterDemo();
     sync();
   });
   if (video) {
+    const srcs = video.querySelectorAll("source");
+    if (srcs.length) srcs[srcs.length - 1].addEventListener("error", (e) => setTimeout(() => videoFailed() && showVideoError(e), 0));
+    video.addEventListener("error", showVideoError);
     video.addEventListener("canplay", () => { if (slides[cur] === demo && video.paused && !EXPORT) playVideo(); });
     video.addEventListener("timeupdate", updateRail);
     video.addEventListener("seeked", updateRail);

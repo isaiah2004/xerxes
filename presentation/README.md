@@ -42,6 +42,7 @@ The clock starts on the first forward press. It turns orange when a slide runs p
 ## Media
 
 - **`assets/video/demo.mp4`** is the recorded voice call (38 s, portrait), shown big in a phone on slide 4. The five steps beside it light up at the second marks in `data-at` on each `.rail .r` (0, 10, 20, 23, 29). The export shows the frame at 31 s (the answer); `?export&video` shows the first frame, for the PPTX.
+- **`assets/video/demo.webm`** is the same clip as VP9 + Opus (made from `demo.mp4` with ffmpeg: `-c:v libvpx-vp9 -b:v 0 -crf 32 -c:a libopus -b:a 96k`). It is listed first, so viewers without H.264/AAC (Chromium/Electron builds without proprietary codecs, in-app previews) still play it; Chrome and Edge use it too. Re-make it whenever `demo.mp4` changes. If neither file can be decoded, slide 4 shows "This browser can't play the demo video" on the phone and logs the reason to the console.
 - Slide 3 uses real app screens (Today, Calendar, a chat result). The legwork and living-room cards are drawn in the app's style, from the app's real data shapes, since there are no screenshots of those screens yet.
 
 ## Exporting
