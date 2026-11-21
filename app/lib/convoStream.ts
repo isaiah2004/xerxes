@@ -48,12 +48,14 @@ function utf8(b: Uint8Array): string {
   return s;
 }
 
-type Message = { object?: string; text?: unknown; final?: boolean; turn_id?: number; turn_status?: number };
+type Message = { object?: string; text?: unknown; final?: boolean; turn_id?: number; turn_status?: number; state?: unknown };
 
-/** A data-stream message handler: feed it every payload the agent sends; it calls onHeard with each transcript. */
-export function transcriptReader(onHeard: (h: Heard) => void) {
+/** A data-stream message handler: feed it every payload the agent sends; it calls onHeard with each transcript,
+ * and onState when the agent starts or stops speaking ("speaking", "listening", "thinking", "silent"). */
+export function transcriptReader(onHeard: (h: Heard) => void, onState?: (state: string) => void) {
   const pending = new Map<string, { at: number; total: number; parts: Map<number, string> }>();
   const handle = (m: Message) => {
+    if (m?.object === "message.state" && typeof m.state === "string") return onState?.(m.state);
     if (typeof m?.text !== "string") return;
     const turn = Number(m.turn_id) || 0;
     if (m.object === "user.transcription") onHeard({ who: "me", text: m.text, final: !!m.final, turn });

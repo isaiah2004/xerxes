@@ -4,6 +4,7 @@
 import { NativeModules, PermissionsAndroid, Platform, TurboModuleRegistry } from "react-native";
 import type { IRtcEngineEventHandler } from "react-native-agora";
 import { transcriptReader, type Heard } from "./convoStream";
+import { adaptiveGate, type GateState } from "./gate";
 
 export type VoiceHandle = { leave: () => Promise<void>; setMuted: (muted: boolean) => Promise<void> };
 export type MicHandle = { close: () => void };
@@ -11,8 +12,8 @@ export type VoiceEvents = {
   level: (who: "agent" | "me", level: number) => void;
   agentJoined: () => void;
   agentLeft: () => void;
-  /** your mic's level (0-100), several times a second: the call screen's noise gate meter */
-  mic?: (level: number) => void;
+  /** the adaptive noise gate, ~20 times a second: your level, its threshold, open or holding */
+  gate?: (g: GateState) => void;
   /** live speech-to-text from the agent's ASR (and its own words as it speaks) */
   heard?: (h: Heard) => void;
 };
@@ -61,8 +62,27 @@ export async function joinVoice(
     /* older SDK: the AI-client audio scenario still suppresses noise */
   }
 
-  // the agent's ASR transcripts come over the RTC data stream
-  const read = transcriptReader((h) => on.heard?.(h));
+  // The adaptive gate. Here it holds the mic only while Xerxes talks (so it can't hear itself through the speaker);
+  // the rest of the time on-device noise suppression and Agora's speech threshold deal with the room, and the gate
+  // is shown, not applied, so a muted stream can never lock you out.
+  const gate = adaptiveGate();
+  let agentLevel = 0;
+  let muted = false;
+  let sending = true;
+  const apply = (g: GateState) => {
+    const send = !muted && (g.mode !== "xerxes" || g.open);
+    if (send !== sending) {
+      sending = send;
+      engine.muteLocalAudioStream(!send);
+    }
+    on.gate?.(g);
+  };
+
+  // the agent's ASR transcripts, and when it starts and stops speaking, come over the RTC data stream
+  const read = transcriptReader(
+    (h) => on.heard?.(h),
+    (s) => gate.agentState(s),
+  );
   let joining: { resolve: () => void; reject: (e: Error) => void } | undefined;
   const handler: IRtcEngineEventHandler = {
     onStreamMessage: (_c, remoteUid, _streamId, data) => {
@@ -81,9 +101,11 @@ export async function joinVoice(
     // Native volumes are 0-255 (local user reported as uid 0); the call screen works in the web SDK's 0-100.
     onAudioVolumeIndication: (_c, speakers) => {
       for (const s of speakers) {
-        const level = Math.round(((s.volume ?? 0) / 255) * 100);
-        on.level(s.uid === opts.agentUid ? "agent" : "me", level);
-        if (s.uid === 0) on.mic?.(level); // uid 0 = this phone's mic
+        const level = ((s.volume ?? 0) / 255) * 100;
+        if (s.uid === opts.agentUid) {
+          agentLevel = level;
+          on.level("agent", level);
+        } else if (s.uid === 0) apply(gate.step(level, agentLevel, muted)); // uid 0 = this phone's mic
       }
     },
   };
@@ -101,7 +123,7 @@ export async function joinVoice(
   try {
     engine.enableAudio();
     engine.setDefaultAudioRouteToSpeakerphone(true); // you look at the screen while Xerxes talks, so not the earpiece
-    engine.enableAudioVolumeIndication(150, 3, true); // often enough for the noise gate meter to feel live
+    engine.enableAudioVolumeIndication(60, 3, true); // often enough for the gate to catch Xerxes starting to talk
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Timed out joining the voice channel")), 15_000);
       joining = {
@@ -124,7 +146,13 @@ export async function joinVoice(
   }
 
   return {
-    setMuted: async (muted) => void engine.muteLocalAudioStream(muted),
+    setMuted: async (m) => {
+      muted = m;
+      if (m && sending) {
+        sending = false;
+        engine.muteLocalAudioStream(true);
+      } // unmuting: the next gate reading (every 60 ms) turns sending back on
+    },
     leave: async () => release(),
   };
 }

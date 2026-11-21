@@ -74,7 +74,15 @@ export async function startAgent(i: StartAgentInput): Promise<{ agent_id: string
       idle_timeout: 120,
       asr: { vendor: env.agoraAsrVendor, language: i.asrLanguage ?? env.agoraAsrLanguage, params: {} },
       // Noise gate: only sound Agora's VAD scores as speech above the threshold opens a turn and goes on to ASR.
-      turn_detection: { mode: "default", config: { speech_threshold: env.agoraSpeechThreshold } },
+      // While the agent talks, cutting in takes 320 ms of speech (Agora's recommended value; default 160), so a
+      // burst of its own voice leaking back through a speaker can't stop it mid-sentence. The app's gate does the rest.
+      turn_detection: {
+        mode: "default",
+        config: {
+          speech_threshold: env.agoraSpeechThreshold,
+          start_of_speech: { mode: "vad", vad_config: { interrupt_duration_ms: 160, speaking_interrupt_duration_ms: 320, prefix_padding_ms: 800 } },
+        },
+      },
       // ASR transcripts (the user's words as they speak) stream to the app over the RTC data stream: the call
       // screen shows them live. "datastream" is Agora's default; set here so the app can count on it.
       parameters: { data_channel: "datastream" },

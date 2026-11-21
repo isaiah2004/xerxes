@@ -4,12 +4,11 @@ import { Mic, MicOff, PhoneOff, RotateCcw, Settings, X } from "lucide-react-nati
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Linking, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { IdeasCard } from "@/components/cards";
 import { TurnView, type Turn } from "@/components/Conversation";
 import { Hearing, hearingFeed } from "@/components/Hearing";
 import { LogoGlyph } from "@/components/Logo";
 import { Button, GradientSurface, Row, T } from "@/components/ui";
-import { api, type Card } from "@/lib/api";
+import { api } from "@/lib/api";
 import { haptic } from "@/lib/haptics";
 import { openLink } from "@/lib/links";
 import { color, ledge, shadow } from "@/lib/theme";
@@ -76,7 +75,6 @@ export default function Voice() {
   const [error, setError] = useState<string | null>(null);
   const [micBlocked, setMicBlocked] = useState(false);
   const [greeting, setGreeting] = useState<string>("");
-  const [ideas, setIdeas] = useState<Extract<Card, { type: "ideas" }> | null>(null); // the ones the greeting offers
   const [muted, setMuted] = useState(false);
   const [speaker, setSpeaker] = useState<"agent" | "me" | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -118,22 +116,26 @@ export default function Voice() {
         }
         session.current = s.sessionId;
         setGreeting(s.greeting);
-        setIdeas(s.ideas ?? null);
         setPhase("waiting");
         const call = await joinVoice(
           s,
           {
             level: (who, l) => {
-              if (who === "agent") level.setValue(l);
-              if (l > 18) setSpeaker(who);
-              else setSpeaker((cur) => (cur === who ? null : cur));
+              if (who !== "agent") return; // you: the gate decides (the raw level also hears Xerxes' echo)
+              level.setValue(l);
+              if (l > 18) setSpeaker("agent");
+              else setSpeaker((cur) => (cur === "agent" ? null : cur));
+            },
+            gate: (g) => {
+              feed.gate(g);
+              if (g.open) setSpeaker("me");
+              else setSpeaker((cur) => (cur === "me" ? null : cur));
             },
             agentJoined: () => {
               haptic.success();
               setPhase("live");
             },
             agentLeft: () => setPhase("ended"),
-            mic: feed.mic,
             heard: feed.heard,
           },
           mic,
@@ -176,7 +178,6 @@ export default function Voice() {
     setError(null);
     setTurns([]);
     setGreeting("");
-    setIdeas(null);
     setPhase("connecting");
     setAttempt((a) => a + 1);
   };
@@ -205,7 +206,7 @@ export default function Voice() {
                 : working
                   ? "Go ahead, I'm listening"
                   : "Say hi to Xerxes";
-  const compact = turns.length > 0 || !!ideas; // a smaller orb leaves room for the cards
+  const compact = turns.length > 0; // a smaller orb leaves room for what Xerxes finds
 
   return (
     <View style={{ flex: 1, backgroundColor: color.paper, paddingTop: insets.top + 8 }}>
@@ -238,6 +239,7 @@ export default function Voice() {
                   : "Real-time voice by Agora Conversational AI, spoken with Murf Falcon.")}
           </T>
         ) : null}
+        {phase === "live" ? <Hearing feed={feed} /> : null}
         {phase === "error" && inApp ? (
           <Row gap={10} style={{ marginTop: 18 }}>
             {micBlocked ? <Button kind="ghost" icon={Settings} label="Open settings" onPress={() => void Linking.openSettings()} /> : null}
@@ -246,14 +248,7 @@ export default function Voice() {
         ) : null}
       </View>
 
-      {phase === "live" ? (
-        <View style={{ paddingHorizontal: 18, paddingTop: 12, width: "100%", maxWidth: 520, alignSelf: "center" }}>
-          <Hearing feed={feed} muted={muted} />
-        </View>
-      ) : null}
-
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 18, gap: 16, width: "100%", maxWidth: 520, alignSelf: "center" }}>
-        {ideas ? <IdeasCard card={ideas} /> : null}
         {turns.map((t) => (
           <TurnView key={t.key} turn={t} speak={false} />
         ))}
