@@ -486,7 +486,7 @@ export function StepsCard({ steps, running }: { steps: Extract<RunEvent, { type:
   return (
     <Card pad={14}>
       <Row style={{ justifyContent: "space-between", marginBottom: 4 }}>
-        <T v="eyebrow">{running ? "Xerxes is working" : `What I did · ${steps.length} steps`}</T>
+        <T v="eyebrow">{running ? "Xerxes is working" : `What I did · ${steps.length} ${steps.length === 1 ? "step" : "steps"}`}</T>
         {hidden > 0 || expanded ? (
           <Pressable onPress={() => setExpanded((x) => !x)} hitSlop={8}>
             <T v="caption" style={{ fontFamily: font.strong }}>

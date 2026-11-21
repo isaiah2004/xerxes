@@ -42,7 +42,7 @@ function tidy(title: string | undefined, site: string) {
   let t = title.replace(/^(amazon\.[a-z.]+|flipkart\.com)\s*:\s*/i, "").replace(/\s*:\s*amazon\.[a-z.]+(\s*:[^:]*)?$/i, "");
   const parts = t.split(/\s+[|–—]\s+|\s+-\s+/);
   if (parts.length > 1 && parts[parts.length - 1].toLowerCase().includes(brand)) t = parts.slice(0, -1).join(" - ");
-  t = t.replace(/^buy\s+/i, "").replace(/\s+online at (the )?(best|lowest) prices?( in india)?.*$/i, "").trim();
+  t = t.replace(/^buy\s+/i, "").replace(/\s+online at (the )?(best|lowest) prices?( in india)?.*$/i, "").replace(/\s+online$/i, "").trim();
   const bare = t.toLowerCase().replace(/\W/g, "");
   return !t || bare === brand || bare === site.replace(/\W/g, "") ? undefined : t.slice(0, 140);
 }
