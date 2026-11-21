@@ -449,9 +449,9 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 
 /* =========================================================== 3 · XERXES IS DIFFERENT (5-step tour) */
 .s-diff .title { position: absolute; left: 96px; top: 120px; transition: opacity .5s ease; }
-.s-diff .five { position: absolute; left: 96px; top: 276px; width: 1728px; height: 740px; transition: transform .9s cubic-bezier(.65,0,.25,1); }
-.s-diff .unit { position: absolute; top: 0; width: 324px; height: 720px; transition: opacity .6s ease, filter .6s ease; }
-.s-diff .u1 { left: 0; } .s-diff .u2 { left: 351px; } .s-diff .u3 { left: 702px; } .s-diff .u4 { left: 1053px; } .s-diff .u5 { left: 1404px; }
+.s-diff .five { position: absolute; left: 80px; top: 276px; width: 1872px; height: 740px; transform-origin: 0 0; transform: scale(.94); }
+.s-diff .unit { position: absolute; top: 0; width: 324px; height: 720px; transform-origin: 0 0; transition: opacity .6s ease, filter .6s ease, transform .9s cubic-bezier(.65,0,.25,1); }
+.s-diff .u1 { left: 0; } .s-diff .u2 { left: 387px; } .s-diff .u3 { left: 774px; } .s-diff .u4 { left: 1161px; } .s-diff .u5 { left: 1548px; }
 .s-diff .uh { display: flex; align-items: flex-start; gap: 12px; height: 72px; }
 .s-diff .uh .n { flex: none; width: 44px; height: 44px; border-radius: 14px; background: var(--g-primary); box-shadow: 0 4px 0 var(--l-primary); color: #fff; display: grid; place-items: center; font: 800 22px/1 "Inter Tight"; }
 .s-diff .uh h3 { margin-top: 7px; font: 800 29px/1.04 "Inter Tight"; letter-spacing: -0.025em; }
@@ -503,7 +503,19 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 .s-diff .proj + .fl { position: relative; left: auto; right: auto; top: auto !important; margin-left: 36px; margin-right: -12px; }
 /* tour */
 .s-diff.touring .title { opacity: 0; }
-.s-diff.touring .unit:not(.on) { opacity: .06; filter: blur(3px); }
+.s-diff.touring .unit:not(.on) { opacity: 0; filter: blur(3px); transition: opacity .35s ease, filter .35s ease; }
+.s-diff .unit.big { z-index: 2; }
+/* tour layout: the UI big on the left, its header, bubbles and chips as a text column on the right (unit-local px; JS stacks the tops) */
+.s-diff .unit.big .uh, .s-diff .unit.big .uc, .s-diff .unit.big .ins, .s-diff .unit.big .fl, .s-diff .unit.big .fl2, .s-diff .unit.big .proj + .fl { position: absolute; left: 372px; right: auto; margin: 0; }
+.s-diff .unit.big .uh { width: 540px; height: auto; align-items: center; }
+.s-diff .unit.big .uh h3 { margin-top: 0; font-size: 34px; }
+.s-diff .unit.big .uc, .s-diff .unit.big .ins { width: 520px; }
+.s-diff .unit.big .fl, .s-diff .unit.big .fl2, .s-diff .unit.big .proj + .fl { width: max-content; max-width: 480px; }
+/* overview: lighter bubbles (the focused tour step keeps them full size) */
+.s-diff .unit:not(.big) .fl, .s-diff .unit:not(.big) .fl2 { font-size: 15px; padding: 8px 12px 9px; box-shadow: 0 10px 22px -18px rgba(16,24,40,.35); }
+.s-diff .u5:not(.big) .fl { font-size: 14.5px; padding: 7px 11px 8px; }
+.s-diff .unit:not(.big) .fl .who, .s-diff .unit:not(.big) .fl2 .who { font-size: 11px; margin-bottom: 3px; }
+.s-diff .unit:not(.big) .fl { border-width: 1.5px; }
 .s-diff.touring .unit.on .uh { animation: rise .5s ease .1s both; }
 .s-diff.touring .unit.on .fl, .s-diff.touring .unit.on .fl2 { animation: bubbleIn .5s cubic-bezier(.2,1.4,.4,1) .9s both; }
 .s-diff.touring .unit.on .fl ~ .fl, .s-diff.touring .unit.on .fl2 ~ .fl2 { animation-delay: 2s; }

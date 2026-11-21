@@ -127,21 +127,41 @@
   const diff = document.querySelector(".slide.s-diff");
   const five = diff && diff.querySelector(".five");
   const units = five ? [...five.querySelectorAll(".unit")] : [];
-  const D0 = 1.5, DSTEPS = [8.5, 6.5, 6.5, 6.5, 6.5]; // seconds: the title alone, then each step (voice holds longer: its input chips land last); overview after the last (36 s)
+  const D0 = 0.5, DSTEPS = [9.5, 6.5, 6.5, 6.5, 6.5]; // seconds: the title alone, then each step (voice holds longer: its input chips land last); overview after the last (36 s)
   const dAt = (k) => D0 + DSTEPS.slice(0, k).reduce((a, b) => a + b, 0);
   let dTimers = [];
   const diffTicker = units.length ? makeTicker(diff, units.length) : null;
+  // tour layout: the focused unit is scaled so its UI is ~78% of the slide height, text stacked in a column beside it
+  const BIG = 1.68, BX = 214, BY = 118, VIST = 88, VISH = 500; // .vis sits 88px down the unit
+  const textOf = (u) => [u.querySelector(".uh"), ...u.querySelectorAll(".vis .fl, .vis .fl2, .vis .ins"), u.querySelector(".uc")].filter(Boolean);
+  units.forEach((u) => textOf(u).forEach((el) => { el.dataset.top0 = el.style.top; }));
+  function bigUnit(u) {
+    u.classList.add("big");
+    const items = textOf(u), gap = 20, hs = items.map((el) => el.offsetHeight);
+    const H = hs.reduce((a, b) => a + b, 0) + gap * (items.length - 1) + 10;
+    let y = Math.max(0, (VISH - H) / 2);
+    items.forEach((el, i) => { el.style.setProperty("top", (el.closest(".vis") ? y : y + VIST) + "px", "important"); y += hs[i] + gap + (i === 0 ? 10 : 0); });
+    const s = 0.94, fl = five.offsetLeft, ft = five.offsetTop;
+    u.style.transform = `translate(${((BX - fl) / s - u.offsetLeft).toFixed(1)}px, ${((BY - ft) / s - VIST * BIG / s).toFixed(1)}px) scale(${(BIG / s).toFixed(3)})`;
+  }
+  function smallUnit(u) {
+    u.classList.remove("big");
+    u.style.transform = "";
+    textOf(u).forEach((el) => { el.style.removeProperty("top"); if (el.dataset.top0) el.style.top = el.dataset.top0; });
+  }
   function focusUnit(k) {
-    units.forEach((u, i) => u.classList.toggle("on", i === k));
-    zoomTo(five, units[k]);
+    units.forEach((u, i) => {
+      u.classList.toggle("on", i === k);
+      if (i !== k && u.classList.contains("big")) dTimers.push(setTimeout(() => smallUnit(u), 400));
+    });
+    bigUnit(units[k]);
     diffTicker && diffTicker.step(k, DSTEPS[k] || DSTEPS[DSTEPS.length - 1]);
   }
   function resetDiff() {
     dTimers.forEach(clearTimeout); dTimers = [];
     if (!diff) return;
     diff.classList.remove("touring", "overview");
-    units.forEach((u) => u.classList.remove("on"));
-    if (five) five.style.transform = "";
+    units.forEach((u) => { u.classList.remove("on"); smallUnit(u); });
     diffTicker && diffTicker.reset();
   }
   function endDiff() {
