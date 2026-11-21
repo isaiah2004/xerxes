@@ -449,6 +449,30 @@ body.presenter #presenter { display: grid; grid-template-columns: 1fr 360px; gap
 .s-legwork.play .checks .chip:nth-child(1) { animation-delay: 10.1s; } .s-legwork.play .checks .chip:nth-child(2) { animation-delay: 10.4s; }
 .s-legwork.play .checks .chip:nth-child(3) { animation-delay: 10.7s; } .s-legwork.play .checks .chip:nth-child(4) { animation-delay: 11s; }
 .s-legwork.play .src { animation: rise .5s ease 11.2s both; }
+
+/* =========================================================== 3 · storyboard tour: zoom into each screen, then back out */
+.s-demo .board .cols { transition: transform .9s cubic-bezier(.65,0,.25,1); }
+.s-demo .board .col { transition: opacity .6s ease, filter .6s ease; }
+.s-demo .board .title, .s-demo .board .badges { transition: opacity .5s ease; }
+.s-demo.touring .board .title, .s-demo.touring .board .badges { opacity: 0; }
+.s-demo.touring .board .col:not(.on) { opacity: .12; filter: blur(2px); }
+.s-demo.touring .board .col:not(.on) .bubble, .s-demo.touring .board .col:not(.on) .tool { visibility: hidden; }
+.s-demo.touring .board .col.on .stepline { animation: rise .5s ease both .2s; }
+.s-demo.touring .board .col.on .bubble { animation: bubbleIn .5s cubic-bezier(.2,1.4,.4,1) both; }
+.s-demo.touring .board .col.on .bubble:nth-child(1) { animation-delay: .9s; }
+.s-demo.touring .board .col.on .bubble:nth-child(2) { animation-delay: 2.4s; }
+.s-demo.touring .board .col.on .bubble:nth-child(3) { animation-delay: 3.7s; }
+.s-demo.touring .board .col.on .tool { animation: pop .4s cubic-bezier(.2,1.6,.4,1) both; }
+.s-demo.touring .board .col.on .tool:nth-child(1) { animation-delay: 1.3s; }
+.s-demo.touring .board .col.on .tool:nth-child(2) { animation-delay: 2.8s; }
+.s-demo.touring .board .col.on .tool:nth-child(3) { animation-delay: 4.1s; }
+@keyframes bubbleIn { from { opacity: 0; translate: -24px 14px; scale: .9; } to { opacity: 1; translate: 0 0; scale: 1; } }
+.s-demo .skip { position: absolute; right: 96px; bottom: 34px; font: 600 18px/1 "Inter"; color: var(--muted); opacity: 0; transition: opacity .4s; pointer-events: none; }
+.s-demo.touring .skip { opacity: 1; }
+.s-demo.overview .board .col { animation: rise .6s ease both; }
+.s-demo.overview .board .col:nth-child(2) { animation-delay: .08s; }
+.s-demo.overview .board .col:nth-child(3) { animation-delay: .16s; }
+
 @media print {
   html, body { width: 1920px; height: auto; overflow: visible; background: var(--paper); }
   #deck { position: static; transform: none !important; width: 1920px; height: auto; }

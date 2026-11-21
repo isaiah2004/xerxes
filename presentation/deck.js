@@ -76,6 +76,39 @@
     if (video.paused) video.play().catch(() => {}); else video.pause();
   }
 
+  /* ---------------------------------------------------------------- slide 3 without a clip: tour the three screens, then the overview */
+  const board = demo && demo.querySelector(".board .cols");
+  const cols = board ? [...board.querySelectorAll(".col")] : [];
+  const TOUR = [0, 6.2, 12.6, 19.2]; // seconds: screen 1, 2, 3, back to the overview
+  let tourTimers = [];
+  const touring = () => !!demo && demo.classList.contains("touring");
+  function focusCol(k) {
+    cols.forEach((c, i) => c.classList.toggle("on", i === k));
+    const gap = 44, cw = (board.clientWidth - 2 * gap) / 3;
+    const cx = k * (cw + gap) + cw / 2, cy = board.clientHeight / 2;
+    board.style.transformOrigin = `${cx}px ${cy}px`;
+    board.style.transform = `translate(${960 - (board.offsetLeft + cx)}px, ${588 - (board.offsetTop + cy)}px) scale(1.15)`;
+  }
+  function resetTour() {
+    tourTimers.forEach(clearTimeout); tourTimers = [];
+    if (!demo) return;
+    demo.classList.remove("touring", "overview");
+    cols.forEach((c) => c.classList.remove("on"));
+    if (board) board.style.transform = "";
+  }
+  function endTour() {
+    resetTour();
+    if (!demo) return;
+    void demo.offsetWidth; demo.classList.add("overview");
+  }
+  function startTour() {
+    if (!board || hasVideo || EXPORT) return;
+    resetTour();
+    demo.classList.add("touring");
+    [0, 1, 2].forEach((k) => tourTimers.push(setTimeout(() => focusCol(k), TOUR[k] * 1000 + 300)));
+    tourTimers.push(setTimeout(endTour, TOUR[3] * 1000));
+  }
+
   /* ---------------------------------------------------------------- slide 2: the price counts up as the card fills in */
   function countUp(slide) {
     const el = slide.querySelector(".decision .amount");
@@ -99,7 +132,7 @@
     const from = slides[cur];
     const to = slides[i];
     if (from === hook && to !== hook) intro && intro.leave();
-    if (from === demo && to !== demo) leaveDemo();
+    if (from === demo && to !== demo) { leaveDemo(); resetTour(); }
 
     if (opts.instant || EXPORT) {
       slides.forEach((s) => (s.style.transition = "none"));
@@ -113,7 +146,7 @@
 
     if (to === hook) intro && intro.enter();
     else if (!EXPORT) { to.classList.remove("play"); void to.offsetWidth; to.classList.add("play"); if (to.classList.contains("s-legwork")) countUp(to); }
-    if (to === demo) enterDemo();
+    if (to === demo) { enterDemo(); startTour(); }
     if (!EXPORT && !PRESENTER && location.hash !== `#${i + 1}`) history.replaceState(null, "", `#${i + 1}`);
     renderChrome();
     sync();
@@ -121,6 +154,7 @@
 
   function next() {
     if (!t0) startClock();
+    if (slides[cur] === demo && touring()) { endTour(); return; } // first click skips the tour to the overview
     go(cur + 1);
   }
   function prev() { go(cur - 1); }
