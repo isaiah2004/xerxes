@@ -1,0 +1,13 @@
+// Static landing page for xerxes.3pi4.in, served by Cloudflare Workers static assets.
+// Deploy: cd website && npx wrangler@latest deploy
+{
+  "$schema": "https://unpkg.com/wrangler@4.168.0/config-schema.json",
+  "name": "xerxes-landing",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [{ "pattern": "xerxes.3pi4.in", "custom_domain": true }],
+  "workers_dev": false
+}

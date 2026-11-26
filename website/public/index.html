@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xerxes · Your online shopping butler</title>
+<meta name="description" content="Xerxes is your online shopping butler.">
+<meta name="theme-color" content="#FDF9FF">
+<meta property="og:title" content="Xerxes">
+<meta property="og:description" content="Your online shopping butler.">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23119C70'/%3E%3Cg fill='%23fff' transform='translate(32 32) scale(.78) translate(-31.18 -31.18)'%3E%3Crect x='22.73' y='9.64' width='16.78' height='16.78' rx='4.2' transform='rotate(45 31.12 18.03)'/%3E%3Crect x='35.93' y='22.84' width='16.78' height='16.78' rx='4.2' transform='rotate(45 44.32 31.23)'/%3E%3Crect x='22.84' y='35.93' width='16.78' height='16.78' rx='4.2' transform='rotate(45 31.23 44.32)'/%3E%3Crect x='9.64' y='22.73' width='16.78' height='16.78' rx='4.2' transform='rotate(45 18.03 31.12)'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Inter+Tight:wght@700;800&display=swap">
+<style>
+  /* Brand tokens, same as the app and the pitch deck (app/lib/theme.ts). */
+  :root {
+    --paper: #FDF9FF;
+    --ink: #101828;
+    --ink2: #344054;
+    --muted: #667085;
+    --green: #119C70;
+    --g-primary: linear-gradient(160deg, #1FB886 0%, #119C70 55%, #0C8360 100%);
+    --l-primary: #08684B;
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    min-height: 100vh; min-height: 100svh;
+    display: flex; flex-direction: column;
+    background: var(--paper); color: var(--ink);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* Background layer. The WebGPU canvas will replace the auroras in here. */
+  .bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .aurora { position: absolute; border-radius: 50%; will-change: transform; }
+  .a-green  { width: 70vmax; height: 70vmax; left: -22vmax; bottom: -30vmax;
+              background: radial-gradient(closest-side, rgba(31,184,134,.30), rgba(31,184,134,.12) 50%, rgba(31,184,134,0)); animation: drift-a 26s ease-in-out infinite alternate; }
+  .a-blue   { width: 64vmax; height: 64vmax; right: -20vmax; top: -26vmax;
+              background: radial-gradient(closest-side, rgba(155,186,243,.50), rgba(155,186,243,.18) 50%, rgba(155,186,243,0)); animation: drift-b 30s ease-in-out infinite alternate; }
+  .a-orange { width: 46vmax; height: 46vmax; right: -12vmax; bottom: -22vmax;
+              background: radial-gradient(closest-side, rgba(224,139,79,.22), rgba(224,139,79,.08) 50%, rgba(224,139,79,0)); animation: drift-c 34s ease-in-out infinite alternate; }
+  @keyframes drift-a { to { transform: translate(6vmax, -4vmax) scale(1.06); } }
+  @keyframes drift-b { to { transform: translate(-5vmax, 5vmax) scale(.96); } }
+  @keyframes drift-c { to { transform: translate(-4vmax, -3vmax) scale(1.08); } }
+
+  /* Paper grain over the background. */
+  .bg::after {
+    content: ""; position: absolute; inset: 0; opacity: .32; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45  0 0 0 0 .42  0 0 0 0 .5  0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  main {
+    position: relative; z-index: 1; flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 48px 16px;
+  }
+
+  .mark {
+    width: clamp(88px, 22vw, 120px); aspect-ratio: 1; border-radius: 30%;
+    display: grid; place-items: center; color: #fff;
+    background: var(--g-primary);
+    box-shadow: 0 7px 0 var(--l-primary), 0 28px 60px -12px rgba(17,156,112,.45);
+    margin-bottom: clamp(28px, 6vw, 44px);
+  }
+  .mark svg { width: 56%; height: 56%; display: block; }
+
+  h1 {
+    font: 800 clamp(64px, 18vw, 176px)/.9 "Inter Tight", "Inter", system-ui, sans-serif;
+    letter-spacing: -0.055em; color: var(--ink);
+    /* optical nudge: tight tracking leaves trailing space on the right */
+    margin-right: -0.05em;
+  }
+
+  .tag {
+    margin-top: clamp(14px, 3vw, 22px);
+    font: 700 clamp(22px, 5vw, 40px)/1.15 "Inter Tight", "Inter", system-ui, sans-serif;
+    letter-spacing: -0.03em; color: var(--ink2);
+  }
+  .tag em { font-style: normal; color: var(--green); }
+
+  footer {
+    position: relative; z-index: 1;
+    padding: 0 16px 24px; text-align: center;
+    font-size: 13px; color: var(--muted); letter-spacing: .02em;
+  }
+
+  /* Entrance */
+  .rise { opacity: 0; transform: translateY(14px); animation: rise .9s cubic-bezier(.2,.7,.2,1) forwards; }
+  .rise:nth-child(2) { animation-delay: .08s; }
+  .rise:nth-child(3) { animation-delay: .16s; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .aurora, .rise { animation: none; }
+    .rise { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="bg" aria-hidden="true">
+    <div class="aurora a-blue"></div>
+    <div class="aurora a-green"></div>
+    <div class="aurora a-orange"></div>
+  </div>
+
+  <main>
+    <div class="mark rise" role="img" aria-label="Xerxes logo">
+      <svg viewBox="6 6 50.35 50.35" fill="currentColor" aria-hidden="true">
+        <rect x="22.73" y="9.64" width="16.78" height="16.78" rx="4.2" transform="rotate(45 31.12 18.03)"/>
+        <rect x="35.93" y="22.84" width="16.78" height="16.78" rx="4.2" transform="rotate(45 44.32 31.23)"/>
+        <rect x="22.84" y="35.93" width="16.78" height="16.78" rx="4.2" transform="rotate(45 31.23 44.32)"/>
+        <rect x="9.64" y="22.73" width="16.78" height="16.78" rx="4.2" transform="rotate(45 18.03 31.12)"/>
+      </svg>
+    </div>
+    <h1 class="rise">Xerxes</h1>
+    <p class="tag rise">Your online <em>shopping butler.</em></p>
+  </main>
+
+  <footer>© 2026 Xerxes</footer>
+</body>
+</html>
